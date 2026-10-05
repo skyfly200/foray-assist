@@ -20,8 +20,16 @@ export default defineNuxtConfig({
     vue: { template: { transformAssetUrls } },
   },
   supabase: {
-    // Reads SUPABASE_URL and SUPABASE_KEY from the environment.
+    // The browser client is constructed at startup and throws if the URL/key are
+    // empty, which would take down the whole offline app. Without env vars we fall
+    // back to a placeholder: signedIn stays false and nothing syncs, but every
+    // field workflow still works. `syncConfigured` tells the UI which case it is.
+    url: process.env.SUPABASE_URL || 'https://placeholder.supabase.co',
+    key: process.env.SUPABASE_KEY || 'placeholder-anon-key',
     redirect: false,
+  },
+  runtimeConfig: {
+    public: { syncConfigured: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_KEY) },
   },
   pwa: {
     registerType: 'autoUpdate',

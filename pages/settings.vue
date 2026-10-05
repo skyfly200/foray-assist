@@ -7,7 +7,7 @@ let sb: any = null
 const configured = (() => {
   try {
     const cfg: any = useRuntimeConfig().public
-    if (!cfg?.supabase?.url || !cfg?.supabase?.key) return false
+    if (!cfg?.syncConfigured || !cfg?.supabase?.url || !cfg?.supabase?.key) return false
     sb = useSupabaseClient()
     return true
   } catch { return false }
