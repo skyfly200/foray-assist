@@ -66,6 +66,9 @@ INAT_REDIRECT_URI=http://localhost:3000/auth/callback
 GOOGLE_PHOTOS_CLIENT_ID=your_google_client_id
 ```
 
+Server-only variables (set in Vercel too; never expose to the browser): `SUPABASE_SERVICE_KEY`, `APP_ORIGIN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `INAT_APP_ID`, `INAT_APP_SECRET`. See `.env.example`.
+Google Photos uses the **Picker API** (the Library API time-window query is closed to new projects): enable "Google Photos Picker API" and add `<APP_ORIGIN>/api/google/callback` as a redirect URI. For iNaturalist, register an app at inaturalist.org/oauth/applications/new with redirect `<APP_ORIGIN>/api/inat/callback`.
+
 ### Development Server
 ```bash
 npm run dev
