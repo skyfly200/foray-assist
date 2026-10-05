@@ -103,9 +103,8 @@ async function signOut() {
       </v-card-text>
     </v-card>
 
-    <v-card variant="tonal">
-      <v-card-title>Voice model</v-card-title>
-      <v-card-text>Coming in a later milestone (M2): on-device speech model download and selection.</v-card-text>
-    </v-card>
+    <VoiceModelSettings class="mb-4" />
+    <GoogleConnectCard class="mb-4" />
+    <InatConnectCard class="mb-4" />
   </v-container>
 </template>

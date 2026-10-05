@@ -39,7 +39,7 @@ export function makeState(userId: string): { state: string; nonce: string } {
   return { state: `${payload}.${sign(payload)}`, nonce }
 }
 
-export function verifyState(state: string, nonceCookie: string | undefined): string {
+export function googleVerifyState(state: string, nonceCookie: string | undefined): string {
   const bad = () => createError({ statusCode: 400, statusMessage: 'Invalid or expired OAuth state' })
   const [payload, sig] = (state || '').split('.')
   if (!payload || !sig) throw bad()
@@ -76,7 +76,7 @@ async function tokenRequest(params: Record<string, string>) {
   return { ok: res.ok, json }
 }
 
-export async function exchangeCode(event: H3Event, userId: string, code: string) {
+export async function googleExchangeCode(event: H3Event, userId: string, code: string) {
   const { ok, json } = await tokenRequest({ grant_type: 'authorization_code', code, redirect_uri: redirectUri(event) })
   if (!ok || !json.access_token) throw createError({ statusCode: 400, statusMessage: 'Google token exchange failed' })
   await saveTokens(userId, 'google', {

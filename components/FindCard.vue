@@ -23,6 +23,8 @@
 
       <PhotoCapture :specimen-row-id="find.id" :foray-id="find.forayId" class="mb-3" />
 
+      <VoiceRecorder :foray-id="find.forayId" :specimen-row-id="find.id" class="mb-3" />
+
       <AttributeForm :specimen-row-id="find.id" :model-value="find.fieldNotes" />
 
       <v-select
@@ -37,6 +39,7 @@
     </v-card-text>
 
     <v-card-actions>
+      <PrintLabelButton :specimen-row-id="find.id" />
       <v-spacer />
       <v-btn color="error" variant="text" prepend-icon="mdi-delete" @click="confirmOpen = true">Delete</v-btn>
     </v-card-actions>
