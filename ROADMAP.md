@@ -16,7 +16,22 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
-## Phase 3: Zero-Knowledge (ZK) Location Privacy & Environmental Proofs
+## Phase 3: Voice-Guided Collection for Beginners
+*Goal: Walk new foragers through a responsible, well-documented collection hands-free, using the offline Whisper pipeline.*
+
+* **Guided Collection Flow**:
+  * Spoken step-by-step prompts for each find: photograph cap top, gills/pores, stipe and base, habitat; note substrate, host tree, odor, and spore-print/staining checks; record the specimen ID.
+  * Hands-free: the user answers by voice and the assistant fills the structured attribute form from transcribed answers.
+* **Completeness Checks**:
+  * The assistant tracks which diagnostic photos and attributes are still missing for the current find and prompts for them before moving on.
+* **Safety & Ethics Guidance**:
+  * Reminders on look-alikes, never eating unidentified fungi, local collecting rules, and leaving some of the patch behind.
+* **Offline First**:
+  * Prompts, flow logic and any speech output (on-device TTS) work with no connectivity.
+
+---
+
+## Phase 4: Zero-Knowledge (ZK) Location Privacy & Environmental Proofs
 *Goal: Enable scientific contribution to Species Distribution Models (SDMs) without disclosing exact secret foraging spots.*
 
 * **ZK-SNARK Geofencing Circuits (Noir / Circom)**:
@@ -28,7 +43,7 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
-## Phase 4: Private Federated Learning (zk-FL) & Edge Model Training
+## Phase 5: Private Federated Learning (zk-FL) & Edge Model Training
 *Goal: Train regional species prediction models directly on user devices while keeping spatial data strictly private.*
 
 * **Nightly Charging Training Scheduler**:
@@ -40,7 +55,7 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
-## Phase 5: NextStrata Cloud Pipeline Jobs & Tokenomics
+## Phase 6: NextStrata Cloud Pipeline Jobs & Tokenomics
 *Goal: Create a self-sustaining work-for-compute ecosystem for high-intensity processing.*
 
 * **Work-for-Compute Utility Tokens**:
@@ -53,7 +68,7 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
-## Phase 6: DeSci, Open Data & Grant Funding Integrations
+## Phase 7: DeSci, Open Data & Grant Funding Integrations
 *Goal: Secure non-dilutive funding and integrate with global biodiversity networks.*
 
 * **GBIF & Darwin Core Archives**:
@@ -62,3 +77,14 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
   * Store public model weights, ZK proof schemas, and open dataset snapshots on AWS S3 Open Data and Filecoin/Arweave.
 * **DNA Barcoding Voucher Subsidies**:
   * Partner with community genetics labs to distribute subsidized physical ITS/16S DNA sequencing vouchers to top compute-contributing foragers.
+
+---
+
+## Phase 8: Server-Side Image Processing
+*Goal: Faster, heavier image processing for large forays, as an optional complement to on-device scoring.*
+
+* **Server-Side Blur & Quality Scoring**:
+  * Run Laplacian variance scoring (e.g. `sharp`) and later-phase vision models on a server worker for bulk or high-resolution batches, where phones are too slow or battery-limited.
+  * Triggered by the user after sync; results merge back into the local database. On-device scoring remains the default and works offline.
+* **Processing Queue**:
+  * Run jobs in a background worker/queue rather than Vercel request handlers, to avoid serverless size and duration limits.

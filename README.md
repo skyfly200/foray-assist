@@ -9,21 +9,24 @@ The **Foray Assistant App** is a specialized assistant built for mushroom forage
 ## 🌟 Key Features (MVP)
 
 ### 📸 Spatio-Temporal Photo Clustering
-* Automatically groups photo bursts from Google Photos / local camera rolls into individual specimen finds using EXIF timestamps and GPS proximity algorithms.
+* Automatically groups photo bursts from in-app capture, the device photo picker and Google Photos into individual specimen finds using EXIF timestamps and GPS proximity algorithms.
 * Eliminates manual sorting after a long day in the woods.
 
 ### 🔍 Automated Blur Detection & Quality Filtering
-* Employs Laplacian variance image analysis (via `sharp` / `blurry-detector`) to evaluate image sharpness.
+* Runs Laplacian variance image analysis on-device (Web Worker, works offline) to evaluate image sharpness.
 * Automatically ranks and selects the best 2–4 representative photos from a burst for upload, hiding blurry or out-of-focus shots.
 
 ### 🌿 Seamless iNaturalist Auto-Upload
 * Integrates directly with the iNaturalist REST API via `inaturalistjs`.
 * Batch-creates structured observations with taxonomic guesses, EXIF metadata, custom Observation Fields (OFVs), and configurable geoprivacy settings (`obscured` / `private`).
 
-### 🎙️ Live Assistant & Offline Field Logger
-* Local-first mobile workflow operating entirely offline without cellular connectivity.
-* Supports quick voice dictation and structured field notes (substrate, host tree, odor, cap texture).
-* Generates unique local Specimen UUIDs (`CO-YYYYMMDD-XXXX`) to link digital logs with physical collections.
+### 🎙️ Foray Mode: Offline Field Logger
+* Fully offline-first PWA: logging, capture and printing never need a connection.
+* In-app photo capture, structured field notes (substrate, host tree, odor, cap texture) and **on-device Whisper** speech-to-text for interactive voice dictation.
+* Generates unique local Specimen IDs (`FORAY-YYYYMMDD-XXX`) to link digital logs with physical collections.
+
+### 🗂️ Review Mode: After the Foray
+* Import photos via the photo picker or Google Photos, cluster them into finds, curate with blur scoring, and publish to iNaturalist.
 
 ### 🏷️ Bluetooth Thermal Label Printing
 * Pairs with portable ESC/POS Bluetooth thermal printers via WebBluetooth.
@@ -34,7 +37,7 @@ The **Foray Assistant App** is a specialized assistant built for mushroom forage
 ## 🚀 Getting Started
 
 ### Prerequisites
-* **Node.js**: `v18.x` or higher
+* **Node.js**: `v20.x` or higher
 * **npm** / **pnpm**
 * **Supabase project**: Apply `supabase/migrations/0001_init.sql` (SQL editor or `supabase db push`).
 * **iNaturalist Account & Credentials**: Required for OAuth2 / JWT authentication.
@@ -78,9 +81,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | **Frontend Framework** | Nuxt 3 (Vue 3) + Vuetify 3 |
 | **Backend / Database** | Supabase (Postgres, Auth, RLS) |
 | **Hosting** | Vercel |
-| **Local Storage** | IndexedDB / Dexie.js (Offline-first architecture) |
-| **Image Processing** | Sharp, Laplacian Variance filter (`blurry-detector`) |
-| **API Integration** | `inaturalistjs`, Google Photos REST API |
+| **Local Storage** | IndexedDB / Dexie.js (source of truth, offline-first) + Supabase sync |
+| **Speech-to-Text** | On-device Whisper (offline) |
+| **Image Processing** | On-device Laplacian variance blur scoring (Web Worker) |
+| **API Integration** | `inaturalistjs`, Google Photos REST API (via Nitro server routes) |
 | **Printer Interface** | ESC/POS via WebBluetooth API |
 | **Styling / Icons** | Vuetify + Material Design Icons |
 
@@ -98,6 +102,7 @@ While the MVP focuses on post-foray automation and physical specimen tagging, th
 * **NextStrata Tokenomics & ZK Badges**: Rewards compute contributions with ZK Soulbound Badges and utility tokens to gate access to rare species micro-climate models.
 
 *For full details on upcoming phases, see [`ROADMAP.md`](./ROADMAP.md).*
+*Roadmap Phase 3 adds a voice-guided collection mode for beginners.*
 *For technical MVP specifications, see [`SPEC.md`](./SPEC.md).*
 
 ---

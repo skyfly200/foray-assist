@@ -1,128 +1,133 @@
 # Foray Assistant App — MVP Technical Specification (SPEC.md)
 
-## 1. Executive Overview & Objectives
+## 1. Overview & Objectives
 
-The **Foray Assistant App** is designed to eliminate the friction of post-foray data processing so mushroom foragers can stay focused in the field. During a foray, foragers often take dozens of photos per specimen across multiple finds, which leads to time-consuming manual sorting, geotag filtering, photo curation, and posting to iNaturalist later.
+The **Foray Assistant App** removes the friction of foray data capture and post-foray processing so mushroom foragers can stay focused in the field. It is a **fully offline-first** PWA: every field workflow works with no connectivity, and anything that needs the network is queued and synced later.
 
-The MVP solves this by focusing on three core workflows:
-1. **Google Photos Integration & Automated iNat Uploads**: Ingesting foray photos via Google Photos API, clustering photo series by timestamp/geotag, selecting top-quality images per find, and posting directly to iNaturalist.
-2. **Live Field Assistant**: Lightweight, offline-first voice/text field notes logging with auto-generated Specimen UUIDs.
-3. **Specimen Label Printing**: Generating and printing physical collection tags for field specimens via Bluetooth/USB thermal label printers.
-
----
-
-## 2. Core Feature Specifications
-
-### 2.1 Google Photos Integration & iNat Auto-Uploads
-
-#### A. Photo Ingestion & Clustering
-* **Google Photos API Sync**: Authenticate via OAuth 2.0 (`https://www.googleapis.com/auth/photoslibrary.readonly`) to query media items taken within a specified foray time window (e.g., 2026-10-05 10:00 to 14:00).
-* **Geofence & Timestamp Filtering**: Filter photos based on EXIF GPS coordinates matching the target foray boundary.
-* **Series Clustering Algorithm**:
-  * Group photos into discrete "Specimen Series" based on spatio-temporal proximity thresholds ($\Delta t \le 120\text{s}$ and $\Delta d \le 5\text{m}$).
-  * Each cluster represents a single fungal organism/find.
-
-#### B. Quality Selection Engine (Blur & Sharpness Detection)
-* **Laplacian Variance Filter**: Process image buffers using `sharp` or `blurry-detector` in Node.js.
-* **Scoring Heuristic**:
-  $$\text{Score} = \text{Var}(\Delta I_{\text{gray}})$$
-  Photos with higher variance indicate sharp edges and key diagnostic details (gills, stipe, pores, cap surface).
-* **Selection Interface**: Automatically flag the top 2–4 clearest photos per cluster, allowing 1-click user approval/override before uploading.
-
-#### C. iNaturalist Publishing Pipeline
-* **API Integration**: Use `inaturalistjs` with JWT token authentication.
-* **Metadata Mapping**:
-  * `observed_on_string`: EXIF timestamp.
-  * `latitude`, `longitude`: EXIF GPS coordinates (with `geoprivacy` toggle: `open`, `obscured`, or `private`).
-  * `species_guess` / `taxon_id`: Optional suggestion input from user or iNat Computer Vision endpoint.
-  * `description`: Concatenated field notes from the Live Field Assistant.
-  * `photos`: Direct binary attachment upload via `/v1/observation_photos`.
+The app has two modes (see §2):
+* **Foray Mode** — in the field: capture photos, dictate notes by voice, log finds, print specimen tags.
+* **Review Mode** — after the foray: import photos, cluster and curate them, and publish to iNaturalist.
 
 ---
 
-### 2.2 Live Field Assistant (Field Notes & Logging)
+## 2. Modes
 
-#### A. Offline-First Field Logging
-* **Storage Engine**: Local SQLite or IndexedDB database operating 100% offline under canopy cover.
-* **Capture Modes**:
-  * **Quick Voice Notes**: Audio recording converted via Web Speech API / local Whisper model or cached for post-foray transcription.
-  * **Structured Attribute Form**: Rapid toggles for substrate (e.g., *decaying conifer*, *soil*, *hardwood log*), host trees (*Douglas fir*, *Oak*), odor, cap texture, and staining reactions.
+### 2.1 Foray Mode (during a foray)
+Optimized for one-handed, glanceable, offline use under canopy.
+* **In-app photo capture** (camera), each photo stamped with time and GPS and attached to the current find.
+* **Voice notes** via on-device Whisper, with live interactive transcription.
+* **Structured attribute form**: quick toggles for substrate, host tree, odor, cap texture, staining.
+* **Find management**: start a new find, get a Specimen ID, add photos/notes/attributes, print a tag.
+* No network-dependent step is required to log or print a find.
 
-#### B. Specimen UUID Generation
-* Each logged find receives a unique, human-readable Specimen ID:
-  $$\text{Specimen ID} = \text{PREFIX}-\text{YYYYMMDD}-\text{SEQUENCE}$$
-  *(e.g., `FORAY-20261005-001`)*
-* Links local audio notes, attributes, physical specimen tags, and future iNaturalist Observation IDs into a single unified record.
-
----
-
-### 2.3 Specimen Label Printing
-
-#### A. Hardware Compatibility
-* Supports portable thermal label printers (Niimbot, Phomemo, Brother, Zebra) using WebBluetooth, ESC/POS, or TSPL command sets.
-
-#### B. Label Format & Layout (50mm x 30mm Standard Thermal Tag)
-```
-+--------------------------------------------------+
-| FORAY ASSISTANT SPECIMEN TAG                    |
-| ID: FORAY-20261005-001                           |
-|--------------------------------------------------|
-| Species: Amanita augusta (Guess)                 |
-| Date: 2026-10-05 11:24 PST                       |
-| Loc: Cascade Foothills (Obscured: 47.5°N, -121.8°W)|
-| Substrate: Decaying Conifer / Moss               |
-|                                 +--------------+ |
-| Notes: Yellow veil remnants,    |  [ QR CODE ] | |
-| strong anise odor.              |  Local UUID  | |
-|                                 +--------------+ |
-+--------------------------------------------------+
-```
-
-#### C. QR Code Mapping
-* QR code encodes either:
-  * Local record URI (`foray://specimen/FORAY-20261005-001`) for field identification.
-  * iNaturalist Observation URL once published (`https://www.inaturalist.org/observations/{id}`).
+### 2.2 Review Mode (after a foray)
+Optimized for a larger screen and connectivity.
+* **Photo sources**: photos captured in-app, plus a **photo picker** (device camera roll / file picker) and Google Photos import for photos taken outside the app.
+* **Clustering** of imported photos into finds, merged with finds already logged in Foray Mode.
+* **Quality selection** with on-device blur scoring and 1-click approval/override.
+* **Edit** notes, attributes and species guesses; **publish** to iNaturalist; reprint labels.
 
 ---
 
-## 3. System Architecture & Data Schema
+## 3. Core Feature Specifications
 
-### 3.1 Component Architecture
+### 3.1 Photo Capture & Ingestion
+* **In-app capture**: camera via `getUserMedia`/file input capture; stores originals locally with EXIF-equivalent metadata (timestamp, GPS from Geolocation API) since browser capture does not guarantee EXIF.
+* **Photo picker**: multi-select from the device; reads EXIF (timestamp, GPS) where present.
+* **Google Photos import** (needs connectivity): OAuth 2.0 read-only scope, query by foray time window, filter by GPS to the foray boundary.
+* **Series clustering**: group photos into one find when Δt ≤ 120 s and Δd ≤ 5 m. Photos captured in-app against an active find are already assigned and are not re-clustered unless the user moves them.
 
+### 3.2 Quality Selection (on-device)
+* **Blur scoring runs on the device**: Laplacian variance of the grayscale image computed client-side (Canvas / WASM, in a Web Worker so the UI stays responsive). Works fully offline.
+* Images are downscaled to a fixed working size before scoring for speed and comparable scores.
+* Top 2–4 sharpest photos per find are flagged; the user can approve or override.
+* Server-side scoring for larger/faster batches is a later roadmap item (Phase 8), not part of the MVP.
+
+### 3.3 Voice Notes (offline Whisper)
+* **On-device Whisper** (e.g. `whisper-tiny`/`base` via Transformers.js or whisper.cpp WASM, WebGPU when available) for interactive speech-to-text with no network.
+* Model files are downloaded once and cached via the service worker; the app must tell the user when the model is not yet cached and cannot be fetched.
+* Transcription is chunked/streamed so text appears while speaking.
+* Raw audio is kept locally with the transcript so it can be re-transcribed with a better model later.
+* Transcripts attach to the current find as `rawVoiceTranscript` and as timestamped segments.
+
+### 3.4 Specimen IDs
+* Format: `PREFIX-YYYYMMDD-SEQUENCE`, e.g. `FORAY-20261005-001`.
+* Generated locally with no server round-trip. Sequence is per device per day; a device/user suffix or collision check at sync time must prevent duplicates across devices.
+* Links notes, attributes, photos, printed tags and the eventual iNaturalist Observation ID into one record.
+
+### 3.5 Label Printing
+* Portable thermal printers (Niimbot, Phomemo, Brother, Zebra) via WebBluetooth using ESC/POS or TSPL.
+* 50 mm × 30 mm tag: ID, species guess, date/time, obscured location, substrate, short notes, QR code.
+* QR encodes the local record URI (`foray://specimen/<ID>`) or, once published, the iNaturalist observation URL.
+* **Platform note**: WebBluetooth is unavailable in iOS Safari, so printing from the PWA works on Android/Chromium; iOS would need a native wrapper or an alternative print path. (Open question, §7.)
+
+### 3.6 iNaturalist Publishing (needs connectivity)
+* `inaturalistjs` with OAuth/JWT; version of the iNat API to be fixed (open question, §7).
+* Maps timestamp, coordinates, `geoprivacy` (`open` / `obscured` / `private`), species guess / `taxon_id`, field notes as description, and selected photos.
+* Publishing is queued when offline and runs when connectivity returns; the user sees per-find status (draft, queued, published, failed).
+
+---
+
+## 4. Architecture
+
+### 4.1 Offline-first principles
+1. **Local database is the source of truth.** All reads/writes go to IndexedDB (Dexie). Supabase is a sync target and backup, never required for a field workflow.
+2. **PWA**: Nuxt PWA module + service worker caches the app shell, Whisper model files and static assets so the app loads and works with no signal.
+3. **Outbox queue**: network actions (sync, Google Photos import, iNat publish) are queued locally and retried with backoff.
+4. **Explicit offline UX**: connectivity state is always visible; actions that need the network are disabled or queued with a clear message.
+
+### 4.2 Stack
+| Layer | Technology |
+| :--- | :--- |
+| Frontend | Nuxt 3 (Vue 3) + Vuetify 3, PWA |
+| Local storage | IndexedDB via Dexie.js |
+| STT | On-device Whisper (Transformers.js / whisper.cpp WASM) |
+| Image scoring | Client-side Laplacian variance in a Web Worker |
+| Backend / sync | Supabase (Postgres, Auth, Storage, RLS) |
+| Server logic | Nuxt/Nitro server routes on Vercel (OAuth token exchange, iNat proxy only; no heavy image work) |
+| Hosting | Vercel |
+| Printing | WebBluetooth (ESC/POS / TSPL) |
+
+### 4.3 Sync
+* Per-record `updatedAt` plus a client-generated UUID; last-write-wins for single-user notes. Conflict rules for shared forays are TBD (§7).
+* Audio and photo blobs upload to Supabase Storage after sync of their metadata; uploads are resumable and queued.
+* Third-party tokens (Google, iNaturalist) are stored per user in Supabase behind row-level security.
+
+### 4.4 Component diagram
 ```
-+-------------------------------------------------------------------+
-|                        MOBILE / PWA CLIENT                        |
-|                                                                   |
-| +---------------------+   +------------------+   +--------------+ |
-| | Live Assistant      |   | Google Photos    |   | Quality      | |
-| | (Voice/Text Logger) |   | Ingestion Engine |   | Selection    | |
-| +----------+----------+   +--------+---------+   +------+-------+ |
-|            |                       |                    |         |
-|            v                       v                    v         |
-| +---------------------------------------------------------------+ |
-| |               Local Database (SQLite / IndexedDB)              | |
-| +----------------------------------+----------------------------+ |
-|                                    |                              |
-+------------------------------------|------------------------------+
-                                     |
-               +---------------------+---------------------+
-               |                                           |
-               v                                           v
-+------------------------------+             +--------------------------+
-| iNaturalist API (v1/v2)      |             | Thermal Printer Driver   |
-| (via inaturalistjs)          |             | (WebBluetooth / ESC-POS) |
-+------------------------------+             +--------------------------+
++---------------------------- PWA CLIENT (offline-capable) ----------------------------+
+|  Foray Mode                                  Review Mode                              |
+|  camera | Whisper STT | attribute form       photo picker | Google Photos import       |
+|  find mgmt | label print                     clustering | blur scoring (Web Worker)   |
+|                         \                        /                                    |
+|                      +-----------------------------------+                            |
+|                      |  IndexedDB / Dexie  (source of    |                            |
+|                      |  truth) + outbox queue            |                            |
+|                      +----------------+------------------+                            |
++---------------------------------------|-----------------------------------------------+
+                                        | when online
+              +-------------------------+--------------------------+
+              v                         v                          v
+      Supabase (sync, Storage)   Nitro routes on Vercel     Thermal printer
+                                 -> Google Photos / iNat    (WebBluetooth, local)
 ```
 
-### 3.2 Core Data Models
-
-#### `SpecimenRecord`
+### 4.5 Core data model
 ```typescript
+interface Foray {
+  id: string;                  // uuid
+  name: string;
+  startedAt: string;           // ISO 8601
+  endedAt?: string;
+  mode: "foray" | "review";
+}
+
 interface SpecimenRecord {
-  id: string;                  // e.g., "FORAY-20261005-001"
+  id: string;                  // "FORAY-20261005-001"
+  forayId: string;
   timestamp: string;           // ISO 8601
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
   geoprivacy: "open" | "obscured" | "private";
   fieldNotes: {
     speciesGuess?: string;
@@ -132,31 +137,43 @@ interface SpecimenRecord {
     staining?: string;
     rawVoiceTranscript?: string;
   };
-  photoSeries: {
+  voiceNotes: { id: string; audioPath: string; transcript: string; model: string; at: string }[];
+  photos: {
     photoId: string;
+    source: "capture" | "picker" | "google-photos";
+    localBlobKey?: string;
     googlePhotosUrl?: string;
-    localPath?: string;
-    blurScore: number;
+    capturedAt: string;
+    latitude?: number;
+    longitude?: number;
+    blurScore?: number;
     isSelected: boolean;
   }[];
   iNatObservationId?: number;
   printedLabelAt?: string;
+  updatedAt: string;
+  syncedAt?: string;
 }
 ```
 
 ---
 
-## 4. MVP Development Milestones
+## 5. MVP Milestones
 
-1. **Milestone 1: Field Logger & Label Printer** (Weeks 1–2)
-   * Local SQLite setup for offline field notes.
-   * Specimen UUID generator.
-   * WebBluetooth thermal label layout engine & print driver.
-2. **Milestone 2: Google Photos Ingestion & Clustering** (Weeks 3–4)
-   * Google Photos OAuth2 connection.
-   * Spatial/Temporal clustering algorithm for image bursts.
-   * Node.js `sharp` / Laplacian blur filter scoring integration.
-3. **Milestone 3: iNaturalist Auto-Upload Bridge** (Weeks 5–6)
-   * `inaturalistjs` integration for batch observation creation.
-   * Photo attachment uploading and field note metadata mapping.
-   * End-to-end integration testing: Field log -> Photo cluster -> Print label -> Publish to iNat.
+1. **M1 — Offline foundation & Foray Mode core** (weeks 1–2): PWA + Dexie, find/ID generation, attribute form, in-app capture, mode switcher, outbox + Supabase sync skeleton.
+2. **M2 — Whisper voice notes & label printing** (weeks 3–4): on-device Whisper with model caching, interactive transcription, WebBluetooth label layout and print.
+3. **M3 — Review Mode** (weeks 5–6): photo picker + Google Photos import, clustering, on-device blur scoring, selection UI.
+4. **M4 — iNaturalist publishing & end-to-end** (weeks 7–8): `inaturalistjs` publish queue, metadata mapping, end-to-end test: capture → voice note → print → review → publish.
+
+---
+
+## 6. Out of scope for MVP
+Voice-guided collection (Roadmap Phase 3), advanced vision, ZK/federated learning, tokens, GBIF export, and server-side image processing (Phase 8).
+
+---
+
+## 7. Open Questions
+* **Users**: single-user only, or shared forays (affects sync conflicts and RLS)?
+* **Platform**: PWA only? iOS Safari lacks WebBluetooth, so printing there needs a native wrapper.
+* **iNaturalist API**: v1 or v2?
+* **Whisper model size/target devices**: `tiny` vs `base`, WebGPU vs WASM fallback, and the acceptable first-run download size.
