@@ -20,6 +20,7 @@
   "devDependencies": {
     "@mdi/font": "^7.4.47",
     "playwright": "^1.63.0",
+    "serve": "^14.2.6",
     "typescript": "^5.6.0",
     "vite-plugin-vuetify": "^2.0.4",
     "vuetify": "^3.7.0"
