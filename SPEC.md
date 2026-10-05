@@ -53,8 +53,8 @@ Optimized for a larger screen and connectivity.
 * Transcripts attach to the current find as `rawVoiceTranscript` and as timestamped segments.
 
 ### 3.4 Specimen IDs
-* Format: `PREFIX-YYYYMMDD-SEQUENCE`, e.g. `FORAY-20261005-001`.
-* Generated locally with no server round-trip. Sequence is per device per day; a device/user suffix or collision check at sync time must prevent duplicates across devices.
+* Format: `PREFIX-YYYYMMDD-DEVICE-SEQUENCE`, e.g. `FORAY-20261005-K7-001`.
+* Generated locally with no server round-trip. The sequence is per device per day, assigned in a local transaction; a short random per-device tag (`K7`) keeps IDs unique across the user's devices.
 * Links notes, attributes, photos, printed tags and the eventual iNaturalist Observation ID into one record.
 
 ### 3.5 Label Printing
@@ -125,7 +125,7 @@ interface Foray {
 }
 
 interface SpecimenRecord {
-  id: string;                  // "FORAY-20261005-001"
+  id: string;                  // "FORAY-20261005-K7-001"
   forayId: string;
   timestamp: string;           // ISO 8601
   latitude?: number;
