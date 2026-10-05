@@ -9,6 +9,7 @@ export type WhisperModel = 'tiny.en' | 'base.en'
 export type WhisperStatus =
   | 'unknown' // not yet checked
   | 'not-downloaded'
+  | 'cached' // files are on the device; runtime loads lazily on first transcribe (no network)
   | 'downloading' // fetching files, progress 0..100
   | 'loading' // cached, initialising the runtime
   | 'ready'
@@ -118,9 +119,8 @@ export async function isModelCached(m: WhisperModel): Promise<boolean> {
 
 async function refreshCache() {
   for (const m of Object.keys(WHISPER_MODELS) as WhisperModel[]) cachedModels.value[m] = await isModelCached(m)
-  if (status.value === 'unknown' || status.value === 'not-downloaded') {
-    status.value = cachedModels.value[model.value] ? 'loading' : 'not-downloaded'
-    if (status.value === 'loading') status.value = 'not-downloaded' // cached but not yet initialised; see isCached
+  if (status.value === 'unknown' || status.value === 'not-downloaded' || status.value === 'cached') {
+    status.value = cachedModels.value[model.value] ? 'cached' : 'not-downloaded'
   }
 }
 
@@ -179,7 +179,7 @@ async function setModel(m: WhisperModel) {
   progress.value = 0
   error.value = ''
   await refreshCache()
-  status.value = 'not-downloaded'
+  await refreshCache()
 }
 
 /** Delete the model's cached files (and free the worker). */
@@ -189,14 +189,13 @@ async function removeCache(m: WhisperModel = model.value) {
   if (m === model.value) {
     worker?.postMessage({ type: 'dispose' })
     loadedModel = ''
-    status.value = 'not-downloaded'
+    status.value = 'unknown'
     progress.value = 0
   }
   await refreshCache()
-  if (m === model.value) status.value = 'not-downloaded'
 }
 
-/** Transcribe 16 kHz mono Float32 audio. Requires a cached model; serialised in order. */
+/** Transcribe 16 kHz mono Float32 audio. Requires a cached model; serialised in order. The array's buffer is transferred (detached) to the worker. */
 function transcribe(audio: Float32Array): Promise<string> {
   const run = async () => {
     await ensureLoaded()
