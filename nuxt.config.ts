@@ -47,5 +47,8 @@ export default defineNuxtConfig({
     client: { installPrompt: true },
     devOptions: { enabled: false },
   },
+  // Prerender the SPA shell so `nuxt build` (what Vercel runs) emits index.html;
+  // the service worker's navigateFallback needs it in the precache.
+  nitro: { prerender: { routes: ['/'] } },
   // Vercel is auto-detected by Nitro at build time; no preset needed.
 })

@@ -39,7 +39,7 @@ The **Foray Assistant App** is a specialized assistant built for mushroom forage
 ### Prerequisites
 * **Node.js**: `v20.x` or higher
 * **npm** / **pnpm**
-* **Supabase project**: Apply `supabase/migrations/0001_init.sql` (SQL editor or `supabase db push`).
+* **Supabase project** (only needed for sync; the app works fully offline without it): apply `supabase/migrations/` in order (SQL editor or `supabase db push`). **`0002` drops the prototype `forays` and `transcript_segments` tables from `0001` and recreates them**, so don't run it against a project holding data you want to keep. Add `<your-origin>/settings` to Supabase Auth redirect URLs for magic-link sign-in.
 * **iNaturalist Account & Credentials**: Required for OAuth2 / JWT authentication.
 
 ### Installation
@@ -70,6 +70,7 @@ GOOGLE_PHOTOS_CLIENT_ID=your_google_client_id
 ```bash
 npm run dev
 ```
+The service worker is disabled in dev. To test offline behavior, run `npm run build && node tests/offline.mjs` (Playwright against the production build).
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---

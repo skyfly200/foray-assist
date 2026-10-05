@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, reactive } from 'vue'
+import { onBeforeUnmount, onMounted, reactive } from 'vue'
 import { updateFieldNotes } from '~/composables/useFinds'
 import type { FieldNotes } from '~/utils/db'
 
@@ -70,5 +70,17 @@ function flush() {
   void updateFieldNotes(props.specimenRowId, patch)
 }
 
-onBeforeUnmount(flush)
+// Android may background/kill the tab without blur or unmount; flush when hidden.
+function onVisibility() {
+  if (document.visibilityState === 'hidden') flush()
+}
+onMounted(() => {
+  document.addEventListener('visibilitychange', onVisibility)
+  window.addEventListener('pagehide', flush)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibility)
+  window.removeEventListener('pagehide', flush)
+  flush()
+})
 </script>

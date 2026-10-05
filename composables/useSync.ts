@@ -51,7 +51,8 @@ function init() {
   sb.auth.onAuthStateChange((_e: string, session: any) => apply(session))
 }
 
-const snake = (s: string) => s.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase())
+const SNAKE_OVERRIDES: Record<string, string> = { iNatObservationId: 'inat_observation_id' }
+const snake = (s: string) => SNAKE_OVERRIDES[s] ?? s.replace(/[A-Z]/g, (c) => '_' + c.toLowerCase())
 /** camelCase -> snake_case, drop Blobs / undefined / local-only keys. */
 function toRow(obj: Record<string, any>, drop: string[] = []): Record<string, any> {
   const out: Record<string, any> = {}
