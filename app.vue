@@ -4,6 +4,9 @@
       <v-app-bar-title>
         <NuxtLink to="/" class="text-white text-decoration-none">Forray Assist</NuxtLink>
       </v-app-bar-title>
+      <ModeToggle class="mr-2" />
+      <ConnectivityChip />
+      <v-btn icon="mdi-cog" to="/settings" aria-label="Settings" />
     </v-app-bar>
     <v-main>
       <v-container>
