@@ -88,3 +88,11 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
   * Triggered by the user after sync; results merge back into the local database. On-device scoring remains the default and works offline.
 * **Processing Queue**:
   * Run jobs in a background worker/queue rather than Vercel request handlers, to avoid serverless size and duration limits.
+
+---
+
+## Phase 9: iOS Label Printing
+*Goal: Bring Bluetooth label printing to iPhones, where Safari has no WebBluetooth.*
+
+* **Native Wrapper**: Wrap the PWA (e.g. Capacitor) and use a native BLE plugin to talk to the thermal printer.
+* **Alternative**: Evaluate a BLE-capable iOS browser app (e.g. Bluefy) as a no-native-code stopgap.

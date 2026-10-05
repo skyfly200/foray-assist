@@ -59,7 +59,7 @@ Optimized for a larger screen and connectivity.
 * Portable thermal printers (Niimbot, Phomemo, Brother, Zebra) via WebBluetooth using ESC/POS or TSPL.
 * 50 mm × 30 mm tag: ID, species guess, date/time, obscured location, substrate, short notes, QR code.
 * QR encodes the local record URI (`foray://specimen/<ID>`) or, once published, the iNaturalist observation URL.
-* **Platform note**: WebBluetooth is unavailable in iOS Safari, so printing from the PWA works on Android/Chromium; iOS would need a native wrapper or an alternative print path. (Open question, §7.)
+* **Platform**: MVP printing is supported on Android/Chromium only. WebBluetooth is unavailable in iOS Safari; iOS support (native wrapper or a BLE-capable iOS browser app) is a roadmap item (Phase 9). On unsupported platforms the print button is hidden/disabled with an explanation.
 
 ### 3.6 iNaturalist Publishing (needs connectivity)
 * `inaturalistjs` with OAuth/JWT; version of the iNat API to be fixed (open question, §7).
@@ -89,7 +89,7 @@ Optimized for a larger screen and connectivity.
 | Printing | WebBluetooth (ESC/POS / TSPL) |
 
 ### 4.3 Sync
-* Per-record `updatedAt` plus a client-generated UUID; last-write-wins for single-user notes. Conflict rules for shared forays are TBD (§7).
+* **Single-user app**: one account owns all data, so there are no shared forays or multi-user conflict rules. Records carry `updatedAt` and a client-generated UUID; last-write-wins covers the multi-device case (one user, e.g. phone + laptop).
 * Audio and photo blobs upload to Supabase Storage after sync of their metadata; uploads are resumable and queued.
 * Third-party tokens (Google, iNaturalist) are stored per user in Supabase behind row-level security.
 
@@ -173,7 +173,5 @@ Voice-guided collection (Roadmap Phase 3), advanced vision, ZK/federated learnin
 ---
 
 ## 7. Open Questions
-* **Users**: single-user only, or shared forays (affects sync conflicts and RLS)?
-* **Platform**: PWA only? iOS Safari lacks WebBluetooth, so printing there needs a native wrapper.
 * **iNaturalist API**: v1 or v2?
 * **Whisper model size/target devices**: `tiny` vs `base`, WebGPU vs WASM fallback, and the acceptable first-run download size.
