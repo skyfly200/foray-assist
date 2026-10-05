@@ -178,7 +178,7 @@ async function setModel(m: WhisperModel) {
   worker?.postMessage({ type: 'dispose' })
   progress.value = 0
   error.value = ''
-  await refreshCache()
+  status.value = 'unknown'
   await refreshCache()
 }
 
