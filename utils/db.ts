@@ -33,6 +33,8 @@ export interface Specimen {
   geoprivacy: Geoprivacy
   fieldNotes: FieldNotes
   iNatObservationId?: number
+  inatStatus?: 'draft' | 'queued' | 'published' | 'failed'
+  inatError?: string
   printedLabelAt?: string
   updatedAt: string
   syncedAt?: string
@@ -40,8 +42,13 @@ export interface Specimen {
 
 export interface Photo {
   id: string
-  specimenRowId: string // Specimen.id
+  /** Specimen.id, or '' while the photo is imported but not yet assigned to a find (Review Mode clustering assigns it). */
+  specimenRowId: string
   forayId: string
+  /** Stable id from the origin (e.g. Google Photos media id, or file name+size+mtime) to dedupe re-imports. */
+  externalId?: string
+  width?: number
+  height?: number
   source: 'capture' | 'picker' | 'google-photos'
   blob: Blob
   mimeType: string
@@ -78,6 +85,8 @@ export interface OutboxItem {
   lastError?: string
 }
 
+// Known settings keys: 'mode' ('foray'|'review'), 'deviceTag', 'seq:YYYYMMDD',
+// 'whisperModel' ('tiny.en'|'base.en'), 'printer' (last used printer info).
 export interface Setting {
   key: string
   value: unknown
@@ -100,6 +109,10 @@ class ForayDB extends Dexie {
       voiceNotes: 'id, specimenRowId, forayId, at',
       outbox: '++id, table, rowId, createdAt',
       settings: 'key',
+    })
+    this.version(2).stores({
+      specimens: 'id, specimenId, forayId, timestamp, updatedAt, inatStatus',
+      photos: 'id, specimenRowId, forayId, capturedAt, externalId',
     })
   }
 }

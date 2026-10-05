@@ -58,7 +58,7 @@ function toRow(obj: Record<string, any>, drop: string[] = []): Record<string, an
   const out: Record<string, any> = {}
   for (const [k, v] of Object.entries(obj)) {
     if (v === undefined || v instanceof Blob || drop.includes(k)) continue
-    out[snake(k)] = v ?? null
+    out[snake(k)] = v === '' && k === 'specimenRowId' ? null : (v ?? null)
   }
   return out
 }
