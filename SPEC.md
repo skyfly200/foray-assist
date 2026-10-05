@@ -44,7 +44,9 @@ Optimized for a larger screen and connectivity.
 * Server-side scoring for larger/faster batches is a later roadmap item (Phase 8), not part of the MVP.
 
 ### 3.3 Voice Notes (offline Whisper)
-* **On-device Whisper** (e.g. `whisper-tiny`/`base` via Transformers.js or whisper.cpp WASM, WebGPU when available) for interactive speech-to-text with no network.
+* **On-device Whisper** via Transformers.js (or whisper.cpp WASM), WebGPU when available, for interactive speech-to-text with no network.
+* **Two model options**: `tiny.en` (~40 MB quantized) is the default for a small first download and near-real-time transcription; `base.en` (~80 MB) is an opt-in "high accuracy" download in settings. Sizes are approximate and to be verified when model files are chosen.
+* Raw audio is retained so a find can be re-transcribed with the better model in Review Mode.
 * Model files are downloaded once and cached via the service worker; the app must tell the user when the model is not yet cached and cannot be fetched.
 * Transcription is chunked/streamed so text appears while speaking.
 * Raw audio is kept locally with the transcript so it can be re-transcribed with a better model later.
@@ -62,7 +64,7 @@ Optimized for a larger screen and connectivity.
 * **Platform**: MVP printing is supported on Android/Chromium only. WebBluetooth is unavailable in iOS Safari; iOS support (native wrapper or a BLE-capable iOS browser app) is a roadmap item (Phase 9). On unsupported platforms the print button is hidden/disabled with an explanation.
 
 ### 3.6 iNaturalist Publishing (needs connectivity)
-* `inaturalistjs` with OAuth/JWT; version of the iNat API to be fixed (open question, §7).
+* `inaturalistjs` with OAuth/JWT against **iNaturalist API v1**, wrapped in one small module so a later move to v2 is contained. Before M4, verify `inaturalistjs` v2 support and any v1 deprecation date.
 * Maps timestamp, coordinates, `geoprivacy` (`open` / `obscured` / `private`), species guess / `taxon_id`, field notes as description, and selected photos.
 * Publishing is queued when offline and runs when connectivity returns; the user sees per-find status (draft, queued, published, failed).
 
@@ -173,5 +175,4 @@ Voice-guided collection (Roadmap Phase 3), advanced vision, ZK/federated learnin
 ---
 
 ## 7. Open Questions
-* **iNaturalist API**: v1 or v2?
-* **Whisper model size/target devices**: `tiny` vs `base`, WebGPU vs WASM fallback, and the acceptable first-run download size.
+_None outstanding. Decisions made: single-user; Android-only printing for MVP; iNaturalist API v1 behind a thin wrapper (revisit v2 before M4); Whisper `tiny.en` default with opt-in `base.en` download._
