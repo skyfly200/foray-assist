@@ -6,7 +6,7 @@ const OUT = process.env.SHOT_DIR || '.'
 const server = spawn('node', ['.output/server/index.mjs'], { stdio: 'ignore', env: { ...process.env, PORT: '4176', NITRO_PORT: '4176' } })
 await new Promise((r) => setTimeout(r, 3000))
 const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
-const ctx = await b.newContext({ viewport: { width: 380, height: 780 }, deviceScaleFactor: 2, permissions: ['geolocation'], geolocation: { latitude: 47.5, longitude: -121.8 } })
+const ctx = await b.newContext({ viewport: process.env.DESKTOP ? { width: 1440, height: 900 } : { width: 380, height: 780 }, deviceScaleFactor: process.env.DESKTOP ? 1 : 2, permissions: ['geolocation'], geolocation: { latitude: 47.5, longitude: -121.8 } })
 const p = await ctx.newPage()
 await p.goto('http://localhost:4176/')
 await p.waitForTimeout(2000)
@@ -17,6 +17,14 @@ await p.waitForTimeout(1200)
 await p.getByRole('button', { name: /new find without photo/i }).click()
 await p.waitForTimeout(1500)
 await p.screenshot({ path: `${OUT}/foray.png` })
+if (process.env.DESKTOP) {
+  for (let i = 0; i < 2; i++) { await p.getByRole('button', { name: /new find without photo/i }).click(); await p.waitForTimeout(600) }
+  await p.waitForTimeout(800)
+  await p.screenshot({ path: `${OUT}/foray-2.png` })
+  await p.getByRole('button', { name: /switch to review mode/i }).click()
+  await p.waitForTimeout(1200)
+  await p.screenshot({ path: `${OUT}/review.png` })
+}
 await p.goto('http://localhost:4176/settings')
 await p.waitForTimeout(1500)
 await p.screenshot({ path: `${OUT}/settings.png` })
