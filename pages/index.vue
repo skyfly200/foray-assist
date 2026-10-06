@@ -158,7 +158,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
           aria-label="Start foray"
           @click="createForay"
         >
-          <v-icon icon="mdi-camera" :size="isForay ? 44 : 32" color="primary" />
+          <v-icon icon="mdi-map-marker-path" :size="isForay ? 44 : 32" color="primary" />
         </v-btn>
         <span class="fa-home__fab-label">Start foray</span>
         <v-text-field
@@ -234,7 +234,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
         <path d="M95 112q5 5 10 0" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none" />
       </svg>
       <h2 class="fa-home__empty-title">No forays yet</h2>
-      <p class="fa-home__empty-text">Tap the big camera button above to start your first one. 🍄</p>
+      <p class="fa-home__empty-text">Tap the big trail button above to start your first one. 🍄</p>
     </div>
   </div>
 </template>

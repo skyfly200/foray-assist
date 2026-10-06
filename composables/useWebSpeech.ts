@@ -56,14 +56,15 @@ export function useWebSpeech() {
     prev?.stop().catch(() => {})
     const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     let wanted = true
-    let finals = ''
+    let finals = '' // text committed from earlier recognition sessions
+    let sessionText = '' // finals of the current session (rebuilt from every result)
     let interimText = ''
     let rec: any = null
     let ended: (() => void) | null = null
     let quickEnds = 0
     let lastStart = 0
 
-    const emit = () => cb.onText(`${finals} ${interimText}`.replace(/\s+/g, ' ').trim())
+    const emit = () => cb.onText(`${finals} ${sessionText} ${interimText}`.replace(/\s+/g, ' ').trim())
 
     const begin = () => {
       rec = new Ctor()
@@ -72,12 +73,21 @@ export function useWebSpeech() {
       rec.lang = navigator.language || 'en-US'
       rec.maxAlternatives = 1
       rec.onresult = (ev: any) => {
+        // Rebuild from ALL results each time: some Android engines re-emit cumulative
+        // finals ("a", "a b", "a b c"), which appending by resultIndex repeats.
+        const parts: string[] = []
         let interim = ''
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        for (let i = 0; i < ev.results.length; i++) {
           const r = ev.results[i]
           const t = String(r[0]?.transcript ?? '').trim()
-          if (r.isFinal) { if (t) finals = `${finals} ${t}`.trim() } else interim += ` ${t}`
+          if (!t) continue
+          if (!r.isFinal) { interim += ` ${t}`; continue }
+          const last = parts[parts.length - 1]
+          if (last && t.toLowerCase().startsWith(last.toLowerCase())) parts[parts.length - 1] = t // cumulative restatement
+          else if (last && last.toLowerCase().endsWith(t.toLowerCase())) continue // exact repeat
+          else parts.push(t)
         }
+        sessionText = parts.join(' ')
         interimText = interim.trim()
         emit()
       }
@@ -89,7 +99,9 @@ export function useWebSpeech() {
       }
       rec.onend = () => {
         // Keep any interim words that never became final.
-        if (interimText) { finals = `${finals} ${interimText}`.trim(); interimText = '' }
+        finals = `${finals} ${sessionText} ${interimText}`.replace(/\s+/g, ' ').trim()
+        sessionText = ''
+        interimText = ''
         if (wanted) {
           // Chrome ends sessions after silence; restart while the user is still recording.
           quickEnds = Date.now() - lastStart < 1000 ? quickEnds + 1 : 0
