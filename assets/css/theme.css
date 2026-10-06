@@ -1,0 +1,52 @@
+/* Forray Assist visual language: playful, camera-first, nature-forward (in the spirit of Seek).
+   Shared tokens + helpers. Components should use these classes/variables instead of ad-hoc styles. */
+:root {
+  --fa-radius: 22px;
+  --fa-radius-sm: 14px;
+  --fa-shadow: 0 6px 20px rgba(20, 60, 40, 0.10);
+  --fa-shadow-lift: 0 12px 28px rgba(20, 60, 40, 0.18);
+  --fa-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --fa-hero-gradient: linear-gradient(135deg, #1b8a5a 0%, #74ac00 100%);
+  --fa-hero-gradient-warm: linear-gradient(135deg, #f2a33a 0%, #e8743b 100%);
+}
+
+html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
+body { overscroll-behavior-y: contain; }
+
+/* Rounded, lifted card surface */
+.fa-card { border-radius: var(--fa-radius) !important; box-shadow: var(--fa-shadow) !important; transition: transform .25s var(--fa-ease), box-shadow .25s var(--fa-ease); }
+.fa-card.fa-tappable:active { transform: scale(0.98); }
+@media (hover: hover) { .fa-card.fa-tappable:hover { transform: translateY(-3px); box-shadow: var(--fa-shadow-lift) !important; } }
+
+/* Hero header with a soft wave edge */
+.fa-hero { position: relative; color: #fff; background: var(--fa-hero-gradient); border-radius: 0 0 36px 36px; padding: 20px 20px 36px; overflow: hidden; }
+.fa-hero::after { content: ''; position: absolute; right: -40px; top: -40px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255,255,255,.12); }
+.fa-hero::before { content: ''; position: absolute; left: -30px; bottom: -60px; width: 160px; height: 160px; border-radius: 50%; background: rgba(255,255,255,.10); }
+.fa-hero > * { position: relative; z-index: 1; }
+
+/* Big friendly camera/action button */
+.fa-fab { border-radius: 50% !important; box-shadow: 0 10px 24px rgba(27, 138, 90, .45) !important; transition: transform .2s var(--fa-ease); }
+.fa-fab:active { transform: scale(0.92); }
+
+/* Pill chips + badges */
+.fa-pill { border-radius: 999px !important; font-weight: 600; }
+.fa-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: rgba(27,138,90,.12); color: #1b8a5a; font-weight: 600; font-size: .8rem; }
+
+/* Reserve room for the bottom navigation + safe areas */
+.fa-page { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+
+/* Entrance + page transitions */
+.page-enter-active, .page-leave-active { transition: opacity .22s var(--fa-ease), transform .22s var(--fa-ease); }
+.page-enter-from { opacity: 0; transform: translateY(12px); }
+.page-leave-to { opacity: 0; transform: translateY(-6px); }
+.fa-pop-enter-active { animation: fa-pop .35s var(--fa-ease); }
+@keyframes fa-pop { from { opacity: 0; transform: scale(.92) translateY(8px); } to { opacity: 1; transform: none; } }
+.fa-list-enter-active, .fa-list-leave-active, .fa-list-move { transition: all .3s var(--fa-ease); }
+.fa-list-enter-from { opacity: 0; transform: translateY(14px) scale(.97); }
+.fa-list-leave-to { opacity: 0; transform: scale(.95); }
+@keyframes fa-pulse { 0% { box-shadow: 0 0 0 0 rgba(217,48,37,.5); } 100% { box-shadow: 0 0 0 22px rgba(217,48,37,0); } }
+.fa-recording { animation: fa-pulse 1.4s infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
