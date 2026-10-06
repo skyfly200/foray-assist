@@ -37,4 +37,9 @@ watch(() => props.specimen, draw, { deep: true })
 }
 .sticker:hover { transform: rotate(0deg) scale(1.02); }
 .label-preview { display: block; width: 100%; max-width: 360px; border-radius: 8px; background: #fff; image-rendering: pixelated; }
+@media (min-width: 960px) {
+  .sticker-wrap { padding: 16px 8px 8px; }
+  .sticker { padding: 12px; }
+  .label-preview { max-width: 440px; }
+}
 </style>

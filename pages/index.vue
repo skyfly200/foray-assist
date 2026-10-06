@@ -173,7 +173,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
         />
       </div>
 
-      <div class="fa-home__mode"><ModeToggle /></div>
+      <div class="fa-home__mode fa-mobile-only"><ModeToggle /></div>
     </section>
 
     <h2 v-if="forays.length" class="fa-home__section">Your forays</h2>
@@ -279,6 +279,29 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 .fa-home__name-row { font-weight: 800; font-size: 1.05rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fa-home__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
 .fa-home__date { font-size: 0.8rem; opacity: 0.7; }
+
+@media (min-width: 960px) {
+  .fa-home { max-width: none; }
+  .fa-home__hero {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'hello start' 'title start' 'stats start';
+    align-content: center; column-gap: 40px; padding: 32px 40px; text-align: left;
+  }
+  .fa-home__hello { grid-area: hello; align-self: end; }
+  .fa-home__title { grid-area: title; font-size: 2.1rem; margin: 6px 0 18px; }
+  .fa-home__stats { grid-area: stats; justify-content: flex-start; margin-bottom: 0; align-self: start; }
+  .fa-home__start { grid-area: start; flex-direction: row; align-items: center; gap: 16px; }
+  .fa-home__fab-label { order: 1; font-size: 1.15rem; }
+  .fa-home__name { order: 2; width: 300px; max-width: 300px; }
+  .fa-home__section { margin: 32px 4px 14px; font-size: 1.3rem; }
+  .fa-home__list { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+  .fa-home__cover { height: 160px; }
+  .fa-home__card--compact .fa-home__cover { height: 100px; }
+}
+@media (min-width: 960px) and (max-width: 1279.98px) {
+  .fa-home__hero { grid-template-columns: 1fr; grid-template-areas: 'hello' 'title' 'stats' 'start'; }
+  .fa-home__start { margin-top: 20px; flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) { .fa-home__fab, .fa-home__dot { animation: none; } }
 
 .fa-home__empty { text-align: center; padding: 28px 12px; color: rgb(var(--v-theme-primary)); }
 .fa-home__art { width: 200px; max-width: 70%; height: auto; }

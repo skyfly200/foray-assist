@@ -7,7 +7,7 @@
         Download sizes are approximate. Download over Wi-Fi when you can.
       </p>
 
-      <v-radio-group :model-value="model" hide-details @update:model-value="(v: any) => setModel(v)">
+      <v-radio-group class="model-group" :model-value="model" hide-details @update:model-value="(v: any) => setModel(v)">
         <v-radio v-for="(m, key) in models" :key="key" :value="key" :disabled="busy">
           <template #label>
             <div>
@@ -102,3 +102,25 @@ const statusText = computed(() => {
   }
 })
 </script>
+
+<style scoped>
+@media (min-width: 960px) {
+  .model-group :deep(.v-selection-control-group) { gap: 8px; }
+  .model-group :deep(.v-radio) {
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: var(--fa-radius-sm);
+    padding: 6px 12px;
+    transition: background-color .2s var(--fa-ease), border-color .2s var(--fa-ease);
+  }
+  .model-group :deep(.v-radio:has(input:checked)) { border-color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), .06); }
+  .model-group :deep(.v-radio .v-label) { opacity: 1; flex: 1; }
+  .fa-card :deep(.v-card-text) { padding: 4px 20px 16px; }
+  .fa-card :deep(.v-card-title) { padding: 18px 20px 8px; }
+  .fa-card :deep(.v-card-actions) { padding: 8px 20px 18px; flex-wrap: wrap; gap: 4px; }
+}
+@media (min-width: 960px) and (hover: hover) {
+  .model-group :deep(.v-radio:not(:has(input:disabled)):hover) { background: rgba(var(--v-theme-primary), .08); border-color: rgba(var(--v-theme-primary), .5); }
+  .fa-card :deep(.v-card-actions .v-btn) { transition: transform .2s var(--fa-ease); }
+  .fa-card :deep(.v-card-actions .v-btn:hover) { transform: translateY(-1px); }
+}
+</style>

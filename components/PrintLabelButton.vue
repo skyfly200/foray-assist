@@ -2,7 +2,7 @@
   <div class="d-inline-block">
     <v-btn prepend-icon="mdi-printer" variant="tonal" color="primary" :disabled="!specimen" @click="open = true">Print label</v-btn>
 
-    <v-dialog v-model="open" max-width="460">
+    <v-dialog v-model="open" :max-width="mdAndUp ? 720 : 460">
       <v-card class="fa-card">
         <v-card-title class="d-flex align-center ga-2 pt-4">
           <v-icon color="primary">mdi-sticker-text-outline</v-icon> Print label
@@ -22,8 +22,12 @@
             <div class="text-body-2">{{ printer.unsupportedReason }}</div>
           </v-card>
 
+          <div class="print-layout">
+          <div class="print-preview">
           <LabelPreview v-if="specimen" :specimen="specimen" @bitmap="(b) => (bitmap = b)" />
+          </div>
 
+          <div class="print-controls">
           <v-select
             class="mt-3"
             label="Printer protocol"
@@ -45,6 +49,8 @@
           <transition name="pop">
             <v-alert v-if="done" type="success" variant="tonal" density="compact" class="mt-2 success-alert" icon="mdi-party-popper">Sent to printer.</v-alert>
           </transition>
+          </div>
+          </div>
         </v-card-text>
         <v-card-actions class="px-4 pb-4">
           <v-btn variant="text" @click="open = false">Close</v-btn>
@@ -61,11 +67,13 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
+import { useDisplay } from 'vuetify'
 import type { Specimen } from '~/utils/db'
 import type { MonoBitmap } from '~/utils/label'
 import type { PrinterProtocol } from '~/composables/usePrinter'
 
 const props = defineProps<{ specimenRowId: string }>()
+const { mdAndUp } = useDisplay()
 const printer = usePrinter()
 const open = ref(false)
 const specimen = ref<Specimen | null>(null)
@@ -116,4 +124,12 @@ async function doPrint() {
 .pop-leave-to { opacity: 0; }
 .success-alert :deep(.v-icon) { animation: tada .7s var(--fa-ease); }
 @keyframes tada { 0% { transform: scale(.4) rotate(-20deg); } 60% { transform: scale(1.25) rotate(8deg); } 100% { transform: none; } }
+@media (min-width: 960px) {
+  .print-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .print-controls { padding-top: 12px; }
+}
+@media (min-width: 960px) and (hover: hover) {
+  .print-controls :deep(.v-select .v-field) { transition: box-shadow .2s var(--fa-ease); }
+  .print-controls :deep(.v-select .v-field:hover) { box-shadow: 0 0 0 1px rgba(var(--v-theme-primary), .5); }
+}
 </style>

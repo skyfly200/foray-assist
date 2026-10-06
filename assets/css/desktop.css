@@ -1,0 +1,29 @@
+/* Desktop layout (>= 960px = Vuetify md and up). Register in nuxt.config css after theme.css.
+   Mobile (<960px) is untouched. */
+:root {
+  --fa-sidebar-w: 0px;
+  --fa-content-max: 1480px;
+  --fa-content-pad: 16px;
+}
+@media (min-width: 960px) {
+  :root { --fa-sidebar-w: 88px; --fa-content-pad: 24px; }
+}
+@media (min-width: 1280px) {
+  :root { --fa-sidebar-w: 240px; --fa-content-pad: 32px; }
+}
+
+/* Helpers */
+@media (min-width: 960px) { .fa-mobile-only { display: none !important; } }
+@media (max-width: 959.98px) { .fa-desktop-only { display: none !important; } }
+
+@media (min-width: 960px) {
+  .fa-layout > .v-application__wrap > .v-main,
+  .fa-layout .v-main { padding-left: var(--fa-sidebar-w) !important; padding-top: 0 !important; }
+  /* Main content area: up to ~1480px, centred. Pages can rely on this width. */
+  .fa-layout .fa-page {
+    max-width: var(--fa-content-max);
+    margin-inline: auto;
+    padding: var(--fa-content-pad) !important;
+    padding-bottom: var(--fa-content-pad) !important; /* no floating-nav reserve on desktop */
+  }
+}

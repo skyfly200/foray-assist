@@ -39,7 +39,7 @@ async function discard() {
     <v-card-subtitle class="text-wrap">
       The server rejected these changes repeatedly. Your data is safe on this device.
     </v-card-subtitle>
-    <v-list density="compact" lines="two">
+    <v-list density="compact" lines="two" class="issue-list">
       <v-list-item v-for="i in items" :key="i.id" :title="`${i.table} · ${i.rowId}`" :subtitle="i.lastError || 'Unknown error'">
         <template #append><v-chip size="x-small" variant="tonal">{{ i.op }}</v-chip></template>
       </v-list-item>
@@ -64,3 +64,16 @@ async function discard() {
     </v-dialog>
   </v-card>
 </template>
+
+<style scoped>
+@media (min-width: 960px) {
+  .issue-list { max-height: 320px; overflow-y: auto; }
+  .fa-card :deep(.v-card-title) { padding: 16px 20px 4px; }
+  .fa-card :deep(.v-card-subtitle) { padding: 0 20px 8px; }
+  .fa-card :deep(.v-card-actions) { padding: 8px 20px 16px; }
+}
+@media (min-width: 960px) and (hover: hover) {
+  .issue-list :deep(.v-list-item) { transition: background-color .2s var(--fa-ease); }
+  .issue-list :deep(.v-list-item:hover) { background: rgba(var(--v-theme-primary), .06); }
+}
+</style>

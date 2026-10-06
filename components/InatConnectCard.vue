@@ -39,7 +39,7 @@ const pill = computed(() => {
 </script>
 
 <template>
-  <v-card class="fa-card">
+  <v-card class="fa-card connect-card">
     <v-card-text>
       <div class="d-flex align-center ga-3 mb-2">
         <v-avatar color="accent" variant="tonal" size="40"><v-icon>mdi-leaf</v-icon></v-avatar>
@@ -73,4 +73,13 @@ const pill = computed(() => {
 .notice-enter-active { animation: fa-pop .35s var(--fa-ease); }
 .notice-leave-active { transition: opacity .2s; }
 .notice-leave-to { opacity: 0; }
+@media (min-width: 960px) {
+  .connect-card { height: 100%; display: flex; flex-direction: column; }
+  .connect-card :deep(.v-card-text) { flex: 1 1 auto; padding: 20px; }
+  .connect-card :deep(.v-card-actions) { padding: 0 20px 20px !important; }
+}
+@media (min-width: 960px) and (hover: hover) {
+  .connect-card :deep(.v-btn) { transition: transform .2s var(--fa-ease), box-shadow .2s var(--fa-ease); }
+  .connect-card :deep(.v-btn--variant-flat:hover) { transform: translateY(-1px); }
+}
 </style>

@@ -1,6 +1,13 @@
+<script setup lang="ts">
+import { useDisplay } from 'vuetify'
+const { mdAndUp } = useDisplay()
+</script>
+
 <template>
-  <v-app>
-    <v-app-bar flat color="transparent" class="fa-topbar" density="comfortable">
+  <v-app class="fa-layout" :class="{ 'fa-layout--desktop': mdAndUp }">
+    <SideNav v-if="mdAndUp" />
+
+    <v-app-bar v-else flat color="transparent" class="fa-topbar" density="comfortable">
       <NuxtLink to="/" class="fa-brand" aria-label="Forray Assist home">
         <span class="fa-brand__mark" aria-hidden="true">
           <v-icon icon="mdi-mushroom" size="20" />
@@ -17,7 +24,7 @@
       </v-container>
     </v-main>
 
-    <BottomNav />
+    <BottomNav v-if="!mdAndUp" />
   </v-app>
 </template>
 

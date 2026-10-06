@@ -80,7 +80,9 @@ const status = computed(() => {
       </div>
     </header>
 
-    <v-container class="settings-body" style="max-width: 640px">
+    <v-container class="settings-body">
+      <div class="settings-grid">
+      <div class="settings-col settings-col-left">
       <v-card class="fa-card mb-4 fa-pop-enter-active">
         <v-card-text>
           <div class="d-flex align-center ga-3 mb-3">
@@ -131,7 +133,9 @@ const status = computed(() => {
       </v-card>
 
       <SyncIssues class="mb-4" />
+      </div>
 
+      <div class="settings-col settings-col-right">
       <section class="mb-4">
         <h2 class="section-title"><v-icon size="20" color="primary">mdi-microphone-outline</v-icon> Voice</h2>
         <VoiceModelSettings class="mb-4" />
@@ -139,9 +143,13 @@ const status = computed(() => {
 
       <section>
         <h2 class="section-title"><v-icon size="20" color="primary">mdi-link-variant</v-icon> Connections</h2>
-        <GoogleConnectCard class="mb-4" />
-        <InatConnectCard class="mb-4" />
+        <div class="conn-grid">
+          <GoogleConnectCard class="mb-4" />
+          <InatConnectCard class="mb-4" />
+        </div>
       </section>
+      </div>
+      </div>
     </v-container>
   </div>
 </template>
@@ -150,9 +158,46 @@ const status = computed(() => {
 .settings-hero { padding-bottom: 44px; }
 .hero-sub { opacity: .9; }
 .hero-avatar { animation: fa-pop .5s var(--fa-ease); }
-.settings-body { margin-top: -22px; position: relative; z-index: 2; padding-left: 0; padding-right: 0; }
+.settings-body { max-width: 640px; margin-top: -22px; position: relative; z-index: 2; padding-left: 0; padding-right: 0; }
 .section-title { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; font-weight: 700; margin: 4px 4px 10px; }
 .break { word-break: break-all; }
+
+/* Desktop: two-column grid, everything visible at once. Mobile is untouched. */
+@media (min-width: 960px) {
+  .settings-hero {
+    padding: 18px max(32px, calc((100% - 1432px) / 2)) 42px;
+    border-radius: 0 0 28px 28px;
+  }
+  .settings-hero h1 { font-size: 1.5rem !important; }
+  .settings-body.v-container { max-width: 1480px; padding: 0 32px; margin-top: -20px; }
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 720px));
+    justify-content: center;
+    align-items: start;
+    gap: 24px;
+  }
+  .settings-col { min-width: 0; display: flex; flex-direction: column; }
+  .settings-col :deep(.fa-card.mb-4), .settings-col .mb-4 { margin-bottom: 20px !important; }
+  .settings-col > :last-child, .settings-col > section > :last-child { margin-bottom: 0 !important; }
+  .conn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    align-items: stretch;
+  }
+  .conn-grid > :deep(.fa-card) { margin-bottom: 0 !important; }
+  .settings-body :deep(.fa-card) { transition: transform .25s var(--fa-ease), box-shadow .25s var(--fa-ease); }
+}
+@media (min-width: 1600px) {
+  .settings-grid { grid-template-columns: repeat(3, minmax(0, 480px)); gap: 24px; }
+  .settings-col-right { display: contents; }
+  .settings-col-right > section { min-width: 0; }
+  .conn-grid { grid-template-columns: 1fr; }
+}
+@media (min-width: 960px) and (hover: hover) {
+  .settings-body :deep(.fa-card:hover) { transform: translateY(-2px); box-shadow: var(--fa-shadow-lift) !important; }
+}
 .fa-fade-enter-active, .fa-fade-leave-active { transition: opacity .2s var(--fa-ease), transform .2s var(--fa-ease); }
 .fa-fade-enter-from, .fa-fade-leave-to { opacity: 0; transform: translateY(4px); }
 </style>
