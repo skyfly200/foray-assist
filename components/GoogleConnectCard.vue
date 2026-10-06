@@ -23,7 +23,7 @@ const pill = computed(() => {
 </script>
 
 <template>
-  <v-card class="fa-card connect-card mb-4">
+  <v-card class="fa-card connect-card">
     <v-card-text>
       <div class="d-flex align-center ga-3 mb-2">
         <v-avatar color="primary" variant="tonal" size="40"><v-icon>mdi-image-multiple-outline</v-icon></v-avatar>

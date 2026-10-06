@@ -4,6 +4,7 @@
 // Never downloads by itself: call download() from a button press. transcribe()
 // only loads a model that is already cached (offline-safe).
 import { computed, ref } from 'vue'
+import { ortVariantSuffix } from '~/utils/audio'
 
 export type WhisperModel = 'tiny.en' | 'base.en'
 export type WhisperStatus =
@@ -150,10 +151,35 @@ function startLoad(): Promise<void> {
 }
 
 let loadPromise: Promise<void> | null = null
+let ortFetched = false
 
-/** Download (if needed) and initialise the current model. Call from a user action. */
+async function ortCached(): Promise<boolean> {
+  try {
+    const suffix = ortVariantSuffix(navigator.userAgent, !!(navigator as any).gpu)
+    return !!(await caches.match(`/ort/ort-wasm-simd-threaded${suffix}.wasm`))
+  } catch { return false }
+}
+
+/** Fetch the self-hosted ONNX WASM runtime so it lands in the HTTP/SW runtime cache ('/ort/'). */
+async function fetchOrt(): Promise<void> {
+  const suffix = ortVariantSuffix(navigator.userAgent, !!(navigator as any).gpu)
+  for (const ext of ['mjs', 'wasm']) {
+    const r = await fetch(`/ort/ort-wasm-simd-threaded${suffix}.${ext}`, { cache: 'reload' })
+    if (!r.ok) throw new Error(`Could not download the speech runtime (${r.status})`)
+    await r.arrayBuffer() // consume fully so the cache entry completes
+  }
+}
+
+/** Download (if needed) and initialise the current model + WASM runtime. Call from a user action (or the install auto-download). */
 async function download(): Promise<void> {
   await init()
+  if (status.value !== 'ready' && !loadPromise && !ortFetched && navigator.onLine && !(await ortCached())) {
+    try { await fetchOrt(); ortFetched = true } catch (e: any) {
+      error.value = e?.message ?? String(e)
+      status.value = 'error'
+      return
+    }
+  }
   if (status.value === 'ready' && loadedModel === model.value) return
   if (loadPromise) return loadPromise
   loadPromise = startLoad().finally(() => { loadPromise = null })

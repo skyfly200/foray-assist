@@ -26,22 +26,38 @@ async function start() {
 </script>
 
 <template>
-  <div>
-    <v-btn color="primary" prepend-icon="mdi-google" :disabled="!!disabledReason || g.busy.value" :loading="g.busy.value" @click="start">
+  <div class="gp-import">
+    <v-btn color="primary" variant="tonal" prepend-icon="mdi-google" :disabled="!!disabledReason || g.busy.value" :loading="g.busy.value" @click="start">
       Pick from Google Photos
     </v-btn>
     <v-checkbox v-if="hasEnd" v-model="limit" density="compact" hide-details label="Only photos taken during this foray" />
     <p v-if="disabledReason" class="text-caption text-medium-emphasis mt-1">{{ disabledReason }}</p>
-    <div v-if="g.phase.value === 'waiting'" class="mt-2">
-      Choose photos in the Google tab, then come back here.
-      <a v-if="g.pickerUrl.value" :href="g.pickerUrl.value" target="_blank" rel="noopener">Open picker</a>
-      <v-btn size="small" variant="text" @click="g.cancel()">Cancel</v-btn>
-    </div>
-    <div v-if="g.phase.value === 'downloading'" class="mt-2">
-      Downloading {{ g.progress.value.done }} / {{ g.progress.value.total }}
-      <v-progress-linear :model-value="g.progress.value.total ? (g.progress.value.done / g.progress.value.total) * 100 : 0" />
-    </div>
-    <v-alert v-if="g.error.value" type="error" density="compact" class="mt-2">{{ g.error.value }}</v-alert>
-    <p v-if="summary" class="mt-2">{{ summary }}</p>
+    <transition name="gp">
+      <v-card v-if="g.phase.value === 'waiting'" variant="tonal" color="info" class="mt-2 pa-3 text-body-2">
+        Choose photos in the Google tab, then come back here.
+        <div class="mt-1">
+          <a v-if="g.pickerUrl.value" :href="g.pickerUrl.value" target="_blank" rel="noopener">Open picker</a>
+          <v-btn size="small" variant="text" @click="g.cancel()">Cancel</v-btn>
+        </div>
+      </v-card>
+    </transition>
+    <transition name="gp">
+      <v-card v-if="g.phase.value === 'downloading'" variant="tonal" color="primary" class="mt-2 pa-3 text-body-2">
+        Downloading {{ g.progress.value.done }} / {{ g.progress.value.total }}
+        <v-progress-linear class="mt-2" rounded color="primary" height="8" :model-value="g.progress.value.total ? (g.progress.value.done / g.progress.value.total) * 100 : 0" />
+      </v-card>
+    </transition>
+    <transition name="gp">
+      <v-alert v-if="g.error.value" type="error" variant="tonal" density="compact" class="mt-2">{{ g.error.value }}</v-alert>
+    </transition>
+    <transition name="gp">
+      <v-alert v-if="summary" type="success" variant="tonal" density="compact" class="mt-2" icon="mdi-check-circle-outline">{{ summary }}</v-alert>
+    </transition>
   </div>
 </template>
+
+<style scoped>
+.gp-enter-active { animation: fa-pop .35s var(--fa-ease); }
+.gp-leave-active { transition: opacity .2s; }
+.gp-leave-to { opacity: 0; }
+</style>

@@ -2,9 +2,19 @@
 // Protocol (main -> worker): {type:'load', model} | {type:'transcribe', id, audio: Float32Array(16k mono)} | {type:'dispose'}
 // Worker -> main: {type:'progress', ...} | {type:'ready', device} | {type:'result', id, text} | {type:'error', id?, message}
 import { pipeline, env } from '@huggingface/transformers'
+import { ortVariantSuffix } from '../utils/audio'
 
 env.allowLocalModels = false
 env.useBrowserCache = true // Cache API 'transformers-cache'; survives offline
+
+// Self-hosted ONNX WASM runtime (copied to public/ort/ by scripts/copy-ort.mjs) instead of jsdelivr.
+// transformers.js also stores these in its own Cache API wasm cache.
+{
+  const suffix = ortVariantSuffix(self.navigator?.userAgent ?? '', !!(self.navigator as any)?.gpu)
+  const base = new URL('/ort/', self.location.origin).href
+  const wasm = (env.backends as any)?.onnx?.wasm
+  if (wasm) wasm.wasmPaths = { mjs: `${base}ort-wasm-simd-threaded${suffix}.mjs`, wasm: `${base}ort-wasm-simd-threaded${suffix}.wasm` }
+}
 
 const REPOS: Record<string, string> = {
   'tiny.en': 'onnx-community/whisper-tiny.en',
