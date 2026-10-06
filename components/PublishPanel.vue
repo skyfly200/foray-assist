@@ -51,8 +51,8 @@ async function publishSelected() {
 </script>
 
 <template>
-  <v-card class="fa-card" variant="flat">
-    <v-card-title class="d-flex align-center ga-2">
+  <v-card class="fa-card pub-panel" variant="flat">
+    <v-card-title class="d-flex align-center ga-2 pub-title">
       <v-icon icon="mdi-cloud-upload" color="primary" /> Publish to iNaturalist
     </v-card-title>
     <v-card-text>
@@ -75,9 +75,9 @@ async function publishSelected() {
         <div class="success-emoji" aria-hidden="true">🌱</div>
         No finds in this foray yet.
       </div>
-      <TransitionGroup v-else name="fa-list" tag="div" class="d-flex flex-column ga-3">
+      <TransitionGroup v-else name="fa-list" tag="div" class="d-flex flex-column ga-3 pub-list">
         <v-card v-for="r in rows" :key="r.id" variant="tonal" :color="r.status === 'published' ? 'success' : r.status === 'failed' ? 'error' : undefined" class="row-card" rounded="lg">
-          <div class="d-flex align-start pa-3 ga-2">
+          <div class="d-flex align-start pa-3 ga-2 pub-row">
             <v-checkbox-btn v-model="checked" :value="r.id" :disabled="!eligible(r)" :aria-label="`Select ${r.label}`" />
             <div class="flex-grow-1 min-w-0">
               <div class="d-flex align-center flex-wrap ga-2">
@@ -90,7 +90,7 @@ async function publishSelected() {
                 <span v-if="r.status === 'failed' && r.error" class="text-error"> · {{ r.error }}</span>
               </div>
               <v-btn-toggle
-                class="mt-2"
+                class="mt-2 geo-toggle"
                 density="comfortable"
                 variant="outlined"
                 color="primary"
@@ -113,7 +113,7 @@ async function publishSelected() {
         </v-card>
       </TransitionGroup>
     </v-card-text>
-    <v-card-actions class="flex-wrap ga-2 px-4 pb-4">
+    <v-card-actions class="flex-wrap ga-2 px-4 pb-4 pub-actions">
       <v-btn color="primary" variant="flat" size="x-large" block prepend-icon="mdi-rocket-launch" :disabled="!checked.length" @click="publishSelected">
         Publish to iNaturalist ({{ checked.length }})
       </v-btn>
@@ -126,4 +126,18 @@ async function publishSelected() {
 .min-w-0 { min-width: 0; }
 .success-banner { position: relative; text-align: center; padding: 16px; border-radius: var(--fa-radius); background: var(--fa-hero-gradient); color: #fff; }
 .success-emoji { font-size: 2.2rem; }
+
+@media (min-width: 960px) {
+  .pub-title { font-size: 1rem; padding: 12px 16px 4px; }
+  .pub-panel :deep(.v-card-text) { padding: 8px 12px; }
+  .pub-list { gap: 8px !important; }
+  .pub-row { padding: 8px !important; gap: 4px !important; }
+  .pub-row :deep(.v-selection-control) { --v-selection-control-size: 32px; }
+  .geo-toggle { height: 32px !important; max-width: 100%; }
+  .geo-toggle :deep(.v-btn) { padding: 0 8px; font-size: 0.72rem; letter-spacing: 0; }
+  .geo-toggle :deep(.v-btn .v-btn__prepend) { margin-inline-end: 4px; margin-inline-start: 0; }
+  .geo-toggle :deep(.v-btn .v-icon) { font-size: 14px; }
+  .pub-actions { position: sticky; bottom: 0; background: rgb(var(--v-theme-surface)); border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08); padding: 10px 12px !important; z-index: 1; }
+  .pub-actions .v-btn--size-x-large { min-height: 44px; font-size: 0.95rem; }
+}
 </style>

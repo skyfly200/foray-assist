@@ -34,3 +34,15 @@
   .fa-burst { display: none; }
   .fa-breathe, .fa-shimmer::after { animation: none !important; }
 }
+
+/* ---------- Desktop layout (>= 960px). Mobile is untouched. ---------- */
+@media (min-width: 960px) {
+  /* Two-pane split used by the foray page: main column + sticky ~380px right column. */
+  .fa-split { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 24px; align-items: start; }
+  .fa-split > .fa-split-main { grid-column: 1; grid-row: 1; min-width: 0; }
+  .fa-split > .fa-desk { grid-column: 2; grid-row: 1; position: sticky; top: 24px; align-self: start;
+    max-height: calc(100vh - 48px); overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 4px 2px; margin: -2px -4px -4px -2px;
+    scrollbar-width: thin; }
+  .fa-split > .fa-desk:focus-visible { outline: 2px solid rgb(var(--v-theme-primary)); outline-offset: 2px; }
+  .fa-split > .v-divider { display: none; }
+}

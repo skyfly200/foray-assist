@@ -35,10 +35,10 @@
       <div class="fa-shimmer skeleton" />
     </div>
 
-    <TransitionGroup name="fa-list" tag="div" class="d-flex flex-column ga-4">
+    <TransitionGroup name="fa-list" tag="div" class="cluster-grid">
       <ClusterCard v-if="unassigned.length" key="__unassigned" :find="null" :photos="unassigned" :other-finds="finds.map(label)" />
       <ClusterCard v-for="f in finds" :key="f.id" :find="f" :photos="photosBySpecimen.get(f.id) ?? []" :other-finds="finds.filter((o) => o.id !== f.id).map(label)" />
-      <div v-if="!finds.length && !unassigned.length && !progress" key="__empty" class="text-center text-medium-emphasis py-6">
+      <div v-if="!finds.length && !unassigned.length && !progress" key="__empty" class="cluster-empty text-center text-medium-emphasis py-6">
         <div class="empty-emoji" aria-hidden="true">📷</div>
         No photos yet. Add photos taken outside the app to get started.
       </div>
@@ -116,6 +116,12 @@ async function group() {
 
 <style scoped>
 .count-bubble { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.3); font-size: 0.75rem; }
+.cluster-grid { display: flex; flex-direction: column; gap: 16px; }
+@media (min-width: 960px) {
+  .cluster-grid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .cluster-empty { grid-column: 1 / -1; }
+}
+@media (min-width: 1280px) { .cluster-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .skeleton { height: 160px; border-radius: var(--fa-radius); }
 .empty-emoji { font-size: 3rem; }
 .spin-leaf { animation: sway 1.2s ease-in-out infinite alternate; }

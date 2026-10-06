@@ -122,4 +122,10 @@ onBeforeUnmount(() => {
 .attr-sections { display: flex; flex-direction: column; gap: 8px; }
 .attr-sections :deep(.v-expansion-panel) { background: rgba(var(--v-theme-primary), 0.06); border-radius: var(--fa-radius-sm) !important; }
 .attr-sections :deep(.v-expansion-panel::after) { display: none; }
+@media (min-width: 960px) {
+  .attr-sections { gap: 6px; }
+  .attr-sections :deep(.v-expansion-panel-title) { min-height: 44px; padding-top: 8px; padding-bottom: 8px; font-size: 0.92rem; }
+  .attr-sections :deep(.v-chip-group) { padding: 0; }
+  .attr-sections :deep(.v-chip) { --v-chip-height: 28px; font-size: 0.8rem; }
+}
 </style>

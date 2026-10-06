@@ -169,7 +169,7 @@ const status = computed(() => {
     border-radius: 0 0 28px 28px;
   }
   .settings-hero h1 { font-size: 1.5rem !important; }
-  .settings-body.v-container { max-width: 1480px; padding: 0 32px; margin-top: -20px; }
+  .settings-body.v-container { max-width: 1480px; padding: 0 32px; margin-top: 20px; }
   .settings-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 720px));

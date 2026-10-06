@@ -1,5 +1,7 @@
 <template>
   <div class="find-list">
+    <!-- On desktop the camera zone is teleported into the page's sticky "Field desk" column. -->
+    <Teleport to="#fa-desk-actions" defer :disabled="!mdAndUp">
     <div class="cam-zone">
       <div class="cam-wrap">
         <v-btn
@@ -24,13 +26,14 @@
     </div>
     <!-- Opened synchronously from the tap so the browser allows the camera; the find is created once a photo arrives. -->
     <input ref="cameraInput" type="file" accept="image/*" capture="environment" hidden @change="onCaptured" />
+    </Teleport>
 
     <div v-if="!finds.length" class="empty text-center mt-6">
       <div class="empty-emoji" aria-hidden="true">🌿</div>
       <p class="text-medium-emphasis">No finds yet. Tap the camera when you spot something.</p>
     </div>
 
-    <TransitionGroup name="fa-list" tag="div" class="d-flex flex-column ga-4 mt-4">
+    <TransitionGroup name="fa-list" tag="div" class="finds-grid">
       <FindCard v-for="f in finds" :key="f.id" :find="f" :class="{ 'fa-pop-enter-active': freshIds.has(f.id) }" />
     </TransitionGroup>
   </div>
@@ -38,10 +41,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useDisplay } from 'vuetify'
 import { addPhoto, createFind, useLiveQuery } from '~/composables/useFinds'
 import type { Specimen } from '~/utils/db'
 
 const props = defineProps<{ forayId: string }>()
+const { mdAndUp } = useDisplay()
 const creating = ref(false)
 const burst = ref(0)
 const cameraInput = ref<HTMLInputElement | null>(null)
@@ -102,4 +107,22 @@ async function onNew() {
 .cam-wrap { position: relative; }
 .cam-fab { width: 128px !important; height: 128px !important; }
 .empty-emoji { font-size: 3rem; }
+.finds-grid { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+
+@media (min-width: 960px) {
+  /* Camera + New find card (lives in the right-hand Field desk). */
+  .cam-zone { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 16px; text-align: left; padding: 16px 18px;
+    border-radius: var(--fa-radius); background: rgb(var(--v-theme-surface)); box-shadow: var(--fa-shadow); }
+  .cam-wrap { grid-row: 1 / span 2; }
+  .cam-fab { width: 88px !important; height: 88px !important; }
+  .cam-fab :deep(.v-icon) { font-size: 36px !important; }
+  .cam-zone > .mt-3 { margin-top: 0 !important; }
+  .cam-zone > .v-btn { grid-column: 1 / -1; margin-top: 12px !important; }
+  .empty { margin-top: 0 !important; padding: 16px 0; }
+  .finds-grid { margin-top: 0; grid-template-columns: minmax(0, 1fr); display: grid; align-items: start; }
+}
+@media (min-width: 1280px) {
+  .finds-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 </style>

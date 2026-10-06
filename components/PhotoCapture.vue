@@ -45,4 +45,5 @@ async function onFiles(e: Event, source: 'capture' | 'picker') {
 
 <style scoped>
 .take { min-height: 56px; font-size: 1.05rem; }
+@media (min-width: 960px) { .take { min-height: 44px; font-size: 0.95rem; } }
 </style>

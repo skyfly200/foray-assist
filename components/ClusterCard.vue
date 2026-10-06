@@ -83,6 +83,15 @@ const moveNew = (id: string) => movePhotoToNewFind(id)
 
 <style scoped>
 .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+@media (min-width: 960px) {
+  .thumbs { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 12px; }
+}
+@media (min-width: 960px) and (hover: hover) {
+  .thumb:not(.selected):hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25); }
+  .thumb .move { opacity: 0; transition: opacity .15s; }
+  .thumb:hover .move, .thumb:focus-within .move, .move[aria-expanded='true'] { opacity: 1; }
+}
+.thumb img:focus-visible { outline: 3px solid rgb(var(--v-theme-info)); outline-offset: 2px; }
 .thumb { position: relative; border-radius: 20px; aspect-ratio: 1; box-shadow: 0 0 0 0 transparent; transition: box-shadow .2s var(--fa-ease), transform .2s var(--fa-ease); }
 .thumb.scoring img { animation: pulse-img 1.4s ease-in-out infinite alternate; }
 @keyframes pulse-img { from { opacity: .7; } to { opacity: 1; } }

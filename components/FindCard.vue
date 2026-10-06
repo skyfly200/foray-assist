@@ -1,5 +1,6 @@
 <template>
   <v-card class="fa-card find-card" variant="flat">
+    <div class="fc-body">
     <div class="cover" :class="{ empty: !cover }">
       <img v-if="cover" :key="cover.id" :src="cover.url" alt="Cover photo of this find" class="cover-img" />
       <div v-else class="cover-empty" aria-hidden="true">🍄</div>
@@ -8,7 +9,7 @@
       <span v-if="burst" :key="burst" class="fa-burst" aria-hidden="true"><i v-for="n in 10" :key="n" :style="{ '--i': n }" /></span>
     </div>
 
-    <v-card-text>
+    <v-card-text class="fc-main">
       <TransitionGroup v-if="thumbs.length" name="fa-list" tag="div" class="thumbs mb-3">
         <div v-for="t in thumbs" :key="t.id" class="thumb">
           <img :src="t.url" alt="Find photo" />
@@ -55,11 +56,12 @@
       </v-expansion-panels>
     </v-card-text>
 
-    <v-card-actions class="px-4 pb-4">
+    <v-card-actions class="px-4 pb-4 fc-actions">
       <PrintLabelButton :specimen-row-id="find.id" />
       <v-spacer />
       <v-btn color="error" variant="text" prepend-icon="mdi-delete" @click="confirmOpen = true">Delete</v-btn>
     </v-card-actions>
+    </div>
 
     <v-dialog v-model="confirmOpen" max-width="360">
       <v-card :title="`Delete ${find.specimenId}?`" text="This removes the find and its photos from this device.">
@@ -143,7 +145,7 @@ async function onDelete() {
 </script>
 
 <style scoped>
-.find-card { overflow: visible; }
+.find-card { overflow: visible; container-type: inline-size; }
 .cover { position: relative; aspect-ratio: 4 / 3; border-radius: var(--fa-radius) var(--fa-radius) 0 0; overflow: hidden; background: var(--fa-hero-gradient); }
 .cover-img { width: 100%; height: 100%; object-fit: cover; display: block; animation: fa-pop .35s var(--fa-ease); }
 .cover-empty { height: 100%; display: grid; place-items: center; font-size: 4rem; opacity: 0.85; }
@@ -157,4 +159,28 @@ async function onDelete() {
 .sections :deep(.v-expansion-panel) { background: rgba(var(--v-theme-primary), 0.06); border-radius: var(--fa-radius-sm) !important; }
 .sections :deep(.v-expansion-panel::after) { display: none; }
 .privacy { height: 48px; }
+
+/* Desktop: shorter stacked cover so more finds fit on screen. */
+@media (min-width: 960px) {
+  .cover { aspect-ratio: 16 / 7; }
+  .cover-empty { font-size: 3rem; }
+}
+
+/* Desktop: when the card is wide enough, cover on the left (~40%), attributes on the right. */
+@media (min-width: 960px) {
+  @container (min-width: 520px) {
+    .fc-body { display: grid; grid-template-columns: 40% minmax(0, 1fr); grid-template-rows: 1fr auto; }
+    .cover { grid-row: 1 / span 2; aspect-ratio: auto; min-height: 280px; height: 100%; border-radius: var(--fa-radius) 0 0 var(--fa-radius); }
+    .fc-main { grid-column: 2; grid-row: 1; min-width: 0; padding: 16px; }
+    .fc-actions { grid-column: 2; grid-row: 2; padding-top: 0; }
+  }
+  .cover-img { transition: transform .4s var(--fa-ease); }
+  .thumb img { width: 64px; height: 64px; }
+}
+@media (min-width: 960px) and (hover: hover) {
+  .cover:hover .cover-img { transform: scale(1.03); }
+  .thumb-x { opacity: 0; transition: opacity .15s; }
+  .thumb:hover .thumb-x, .thumb-x:focus-visible, .thumb:focus-within .thumb-x { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .cover-img { transition: none !important; } .cover:hover .cover-img { transform: none !important; } }
 </style>
