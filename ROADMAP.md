@@ -55,7 +55,35 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
-## Phase 6: NextStrata Cloud Pipeline Jobs & Tokenomics
+## Phase 6: Specimen Forms & ID Barcodes (BLE Printing)
+*Goal: Turn the digital record into the paper trail a collection needs: printed field data forms and scannable ID labels, from the phone, in the field.*
+
+* **Printable Foray Specimen Forms**:
+  * One-page collection/field data sheet per find (or per foray): Specimen ID, date/time, collector, locality (respecting each find's geoprivacy), habitat, substrate, host tree, odor/texture/staining, species guess, notes, photo thumbnails and a QR/barcode linking back to the record.
+  * Print to BLE thermal printers (58 mm / 80 mm receipt-style and 4-inch label printers) with selectable layouts, or export a PDF for ordinary printers.
+* **ID Barcodes**:
+  * Print ID labels as Code 128, QR or Data Matrix in bulk or one at a time, in sizes for bags, packets, tubes and photo cards (extends the 50×30 mm tag from the MVP).
+  * Scan a printed code with the phone camera (BarcodeDetector API where available, with a WASM fallback) to jump straight to that record.
+* **Printer Profiles & Batch Queue**:
+  * Saved profiles for paper width, label size, protocol (ESC/POS or TSPL) and darkness; a print queue that survives going offline and reconnecting.
+
+---
+
+## Phase 7: Preprinted ID Code Sheets & Record Association
+*Goal: Let collectors label specimens before a record exists (no printer needed in the field) and tie the physical labels to digital records afterwards.*
+
+* **Reserved Code Blocks**:
+  * Generate sheets or rolls of unique, pre-allocated IDs (with check characters) from a block reserved for this user or device, printed in advance on adhesive label sheets from the app (PDF) or over BLE.
+  * Multiple identical stickers per code, for the bag, the photo card and the notebook.
+* **Associating Codes with Records**:
+  * Scan or type a preprinted code to attach it to a find, or create a find from a scanned code. Codes can be used before the record exists and reconciled later.
+  * An inventory of codes: unassigned, assigned, voided or lost; duplicate and out-of-block detection; offline-safe reservation so two devices never issue the same code.
+* **Reconciliation Tools**:
+  * Flag codes used on a physical specimen but with no record yet, and records with no physical label.
+
+---
+
+## Phase 8: NextStrata Cloud Pipeline Jobs & Tokenomics
 *Goal: Create a self-sustaining work-for-compute ecosystem for high-intensity processing.*
 
 * **Work-for-Compute Utility Tokens**:
@@ -68,7 +96,7 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
-## Phase 7: DeSci, Open Data & Grant Funding Integrations
+## Phase 9: DeSci, Open Data & Grant Funding Integrations
 *Goal: Secure non-dilutive funding and integrate with global biodiversity networks.*
 
 * **GBIF & Darwin Core Archives**:
@@ -80,7 +108,7 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
-## Phase 8: Server-Side Image Processing
+## Phase 10: Server-Side Image Processing
 *Goal: Faster, heavier image processing for large forays, as an optional complement to on-device scoring.*
 
 * **Server-Side Blur & Quality Scoring**:
@@ -91,7 +119,7 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
-## Phase 9: iOS Label Printing
+## Phase 11: iOS Label Printing
 *Goal: Bring Bluetooth label printing to iPhones, where Safari has no WebBluetooth.*
 
 * **Native Wrapper**: Wrap the PWA (e.g. Capacitor) and use a native BLE plugin to talk to the thermal printer.

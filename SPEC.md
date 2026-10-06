@@ -41,7 +41,7 @@ Optimized for a larger screen and connectivity.
 * **Blur scoring runs on the device**: Laplacian variance of the grayscale image computed client-side (Canvas / WASM, in a Web Worker so the UI stays responsive). Works fully offline.
 * Images are downscaled to a fixed working size before scoring for speed and comparable scores.
 * Top 2–4 sharpest photos per find are flagged; the user can approve or override.
-* Server-side scoring for larger/faster batches is a later roadmap item (Phase 8), not part of the MVP.
+* Server-side scoring for larger/faster batches is a later roadmap item (Phase 10), not part of the MVP.
 
 ### 3.3 Voice Notes (offline Whisper, Web Speech fallback)
 * **Mode selection** when Record is pressed: (1) **Whisper** if the model is cached; (2) **Web Speech API** (online) if Whisper isn't usable, labelled "Using online speech recognition — download the voice model for offline use"; (3) **raw audio only** (transcribe later) if neither is available. Web Speech and microphone capture never run simultaneously (Android gives the mic to one consumer).
@@ -64,7 +64,7 @@ Optimized for a larger screen and connectivity.
 * Portable thermal printers that speak ESC/POS or TSPL (generic label printers; Phomemo/Brother/Zebra-class where they expose those protocols) via WebBluetooth. **Niimbot** printers use a proprietary protocol and are not supported yet.
 * 50 mm × 30 mm tag: ID, species guess, date/time, obscured location, substrate, short notes, QR code.
 * QR encodes the local record URI (`foray://specimen/<ID>`) or, once published, the iNaturalist observation URL.
-* **Platform**: MVP printing is supported on Android/Chromium only. WebBluetooth is unavailable in iOS Safari; iOS support (native wrapper or a BLE-capable iOS browser app) is a roadmap item (Phase 9). On unsupported platforms the print button is hidden/disabled with an explanation.
+* **Platform**: MVP printing is supported on Android/Chromium only. WebBluetooth is unavailable in iOS Safari; iOS support (native wrapper or a BLE-capable iOS browser app) is a roadmap item (Phase 11). On unsupported platforms the print button is hidden/disabled with an explanation.
 
 ### 3.6 iNaturalist Publishing (needs connectivity)
 * Plain `fetch` (no `inaturalistjs`) with OAuth/JWT against **iNaturalist API v1**, isolated in one small module (`server/utils/inat.ts`) so a later move to v2 is contained. Verify any v1 deprecation date before relying on it long-term.
@@ -178,7 +178,7 @@ interface SpecimenRecord {
 M1–M4 are implemented but only partly verified: the offline flow, blur scoring and clustering run in a real browser against the production build (`tests/offline.mjs`), and pure logic has unit tests (`tests/*.test.mjs`). **Not yet verified:** on-device Whisper model download and transcription, Bluetooth printing on real hardware, Google Photos Picker and iNaturalist against live APIs, sync against a real Supabase project. Known deviations: the Google Photos Picker API replaces the time-window Library query (closed to new projects) and returns no GPS; Niimbot printers need a proprietary protocol and are unsupported.
 
 ## 6. Out of scope for MVP
-Voice-guided collection (Roadmap Phase 3), advanced vision, ZK/federated learning, tokens, GBIF export, and server-side image processing (Phase 8).
+Voice-guided collection (Roadmap Phase 3), advanced vision, ZK/federated learning, tokens, GBIF export, and server-side image processing (Phase 10). Printable specimen forms and ID barcodes are Phase 6; preprinted ID code sheets are Phase 7.
 
 ---
 
