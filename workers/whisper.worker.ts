@@ -45,15 +45,10 @@ async function load(model: string) {
     try { await asr.dispose?.() } catch { /* ignore */ }
     asr = null
   }
-  const hasGpu = typeof navigator !== 'undefined' && !!(navigator as any).gpu
-  try {
-    if (!hasGpu) throw new Error('no webgpu')
-    asr = await build(repo, 'webgpu')
-    device = 'webgpu'
-  } catch {
-    asr = await build(repo, 'wasm')
-    device = 'wasm'
-  }
+  // WASM only: the q8 files are unreliable on WebGPU (empty transcripts), and the same
+  // files serve both devices so the offline cache is identical.
+  asr = await build(repo, 'wasm')
+  device = 'wasm'
   loadedModel = model
   post({ type: 'ready', device })
 }

@@ -42,6 +42,18 @@ export function resample(input: Float32Array, fromRate: number, toRate: number =
   return out
 }
 
+/** Scale quiet audio up so its peak reaches `target` (max gain `maxGain`); Whisper does poorly on very quiet input. */
+export function normalizePeak(samples: Float32Array, target = 0.8, maxGain = 30): Float32Array {
+  let peak = 0
+  for (let i = 0; i < samples.length; i++) { const a = Math.abs(samples[i]); if (a > peak) peak = a }
+  if (peak < 1e-4) return samples
+  const gain = Math.min(maxGain, target / peak)
+  if (gain <= 1) return samples
+  const out = new Float32Array(samples.length)
+  for (let i = 0; i < samples.length; i++) out[i] = samples[i] * gain
+  return out
+}
+
 export function rms(samples: Float32Array, start = 0, end = samples.length): number {
   const e = Math.min(end, samples.length)
   const s = Math.max(0, start)
@@ -57,7 +69,7 @@ export interface ChunkerOptions {
   maxSec?: number // force a split at this length (default 12)
   overlapSec?: number // audio re-fed after a FORCED split (default 0.6)
   silenceMs?: number // trailing quiet needed to split early (default 450)
-  silenceRms?: number // RMS below this counts as quiet (default 0.01)
+  silenceRms?: number // RMS below this counts as quiet (default 0.006)
 }
 
 /**
@@ -81,7 +93,7 @@ export class Chunker {
     this.maxN = Math.round((opts.maxSec ?? 12) * this.rate)
     this.overlapN = Math.round((opts.overlapSec ?? 0.6) * this.rate)
     this.silN = Math.round(((opts.silenceMs ?? 450) / 1000) * this.rate)
-    this.silRms = opts.silenceRms ?? 0.01
+    this.silRms = opts.silenceRms ?? 0.006
   }
 
   get buffered(): number {
@@ -117,7 +129,7 @@ export class Chunker {
   }
 
   private emit(out: Float32Array[], chunk: Float32Array) {
-    if (rms(chunk) >= this.silRms * 0.5) out.push(chunk)
+    if (rms(chunk) >= this.silRms * 0.3) out.push(chunk)
   }
 }
 
