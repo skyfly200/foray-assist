@@ -9,7 +9,7 @@
     <v-card-text>
       <div v-if="!photos.length" class="text-medium-emphasis">No photos in this find.</div>
       <TransitionGroup name="fa-list" tag="div" class="thumbs">
-        <div v-for="t in thumbs" :key="t.photo.id" class="thumb" :class="{ selected: t.photo.isSelected }">
+        <div v-for="t in thumbs" :key="t.photo.id" class="thumb" :class="{ selected: t.photo.isSelected, scoring: typeof t.photo.blurScore !== 'number' }">
           <img :src="t.url" alt="Find photo" role="button" tabindex="0" :aria-pressed="t.photo.isSelected" @click="toggle(t.photo)" @keydown.enter="toggle(t.photo)" />
           <span class="badge" :class="`tone-${tone(t.photo)}`">
             <v-icon :icon="tone(t.photo) === 'success' ? 'mdi-star' : tone(t.photo) === 'pending' ? 'mdi-timer-sand' : 'mdi-leaf'" size="12" />
@@ -84,6 +84,8 @@ const moveNew = (id: string) => movePhotoToNewFind(id)
 <style scoped>
 .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
 .thumb { position: relative; border-radius: 20px; aspect-ratio: 1; box-shadow: 0 0 0 0 transparent; transition: box-shadow .2s var(--fa-ease), transform .2s var(--fa-ease); }
+.thumb.scoring img { animation: pulse-img 1.4s ease-in-out infinite alternate; }
+@keyframes pulse-img { from { opacity: .7; } to { opacity: 1; } }
 .thumb.selected { box-shadow: 0 0 0 4px rgb(var(--v-theme-primary)); transform: scale(0.97); }
 .thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; display: block; cursor: pointer; }
 .badge { position: absolute; left: 6px; bottom: 6px; display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: #fff; }
@@ -97,5 +99,5 @@ const moveNew = (id: string) => movePhotoToNewFind(id)
 .move { position: absolute; right: 4px; bottom: 4px; }
 .fa-check-leave-active { transition: transform .15s, opacity .15s; }
 .fa-check-leave-to { transform: scale(0); opacity: 0; }
-@media (prefers-reduced-motion: reduce) { .tone-pending .v-icon { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .tone-pending .v-icon, .thumb.scoring img { animation: none; } }
 </style>

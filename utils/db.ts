@@ -83,6 +83,8 @@ export interface OutboxItem {
   createdAt: string
   attempts: number
   lastError?: string
+  nextAttemptAt?: string // ISO; not due before this (persisted backoff)
+  parkedAt?: string // ISO; set => parked, skipped by the drain
 }
 
 // Known settings keys: 'mode' ('foray'|'review'), 'deviceTag', 'seq:YYYYMMDD',

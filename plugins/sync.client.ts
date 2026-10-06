@@ -1,5 +1,7 @@
 // Triggers sync on reconnect, sign-in, new outbox work, and a modest interval.
-// syncNow() itself refuses to overlap and requires online + signed in.
+// syncNow() itself refuses to overlap and requires online + signed in. Retry
+// backoff/parking is persisted on outbox rows, so the interval/visibility ticks
+// just re-run the drain; items not yet due (nextAttemptAt) are skipped.
 export default defineNuxtPlugin(() => {
   const { online, signedIn, pending, syncNow } = useSync()
   const run = () => { void syncNow() }
@@ -16,6 +18,7 @@ export default defineNuxtPlugin(() => {
     }
   })
 
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') run() })
   setInterval(run, 60_000)
   run()
 })

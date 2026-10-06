@@ -2,20 +2,20 @@
 // drains the outbox to Supabase when online AND signed in. Never throws; with
 // no Supabase env it degrades to signedIn=false. Return shape is a contract.
 import { liveQuery } from 'dexie'
+import { countParked, countPending, pickNext, planFailure, type SyncOutboxItem } from '../utils/syncPolicy'
 
 const MEDIA_BUCKET = 'foray-media'
-const MAX_BACKOFF_MS = 5 * 60_000
 
 // Singleton state shared by the plugin and any page calling useSync().
 const online = ref(true)
-const pending = ref(0)
+const pending = ref(0) // queued items, EXCLUDING parked ones
+const parked = ref(0) // items parked after repeated permanent failures (data stays local)
 const signedIn = ref(false)
 const syncing = ref(false)
 
 let initialised = false
 let client: any = null
 let userId: string | null = null
-const nextTry = new Map<number, number>() // outbox id -> earliest retry (ms epoch), in-memory
 
 function getClient(): any {
   if (client) return client
@@ -36,8 +36,12 @@ function init() {
   window.addEventListener('online', () => (online.value = true))
   window.addEventListener('offline', () => (online.value = false))
   try {
-    liveQuery(() => useDb().outbox.count()).subscribe({
-      next: (n) => (pending.value = n),
+    // Retry state is persisted on the rows (nextAttemptAt/parkedAt); outbox stays small.
+    liveQuery(() => useDb().outbox.toArray()).subscribe({
+      next: (items) => {
+        pending.value = countPending(items as SyncOutboxItem[])
+        parked.value = countParked(items as SyncOutboxItem[])
+      },
       error: () => {},
     })
   } catch { /* IndexedDB unavailable */ }
@@ -118,19 +122,22 @@ async function syncNow(): Promise<void> {
   syncing.value = true
   try {
     const db = useDb()
-    const items = await db.outbox.orderBy('id').toArray()
-    for (const item of items) {
+    // Re-read each round so persisted retry state drives the next pick. Every
+    // round either deletes the item or pushes its nextAttemptAt/parkedAt forward,
+    // so the loop terminates. Per-row ordering + parking live in pickNext().
+    for (;;) {
+      const items = (await db.outbox.orderBy('id').toArray()) as SyncOutboxItem[]
+      const item = pickNext(items, Date.now())
+      if (!item) break
       const id = item.id!
-      if ((nextTry.get(id) ?? 0) > Date.now()) break // keep order: wait for the head item
       try {
         await processItem(sb, item)
         await db.outbox.delete(id)
-        nextTry.delete(id)
       } catch (e: any) {
-        const attempts = (item.attempts ?? 0) + 1
-        await db.outbox.update(id, { attempts, lastError: String(e?.message ?? e).slice(0, 500) })
-        nextTry.set(id, Date.now() + Math.min(MAX_BACKOFF_MS, 2000 * 2 ** Math.min(attempts, 8)))
-        break // preserve ordering; retry after backoff
+        const plan = planFailure(item, e, Date.now())
+        await db.outbox.update(id, plan.patch as any)
+        if (plan.stop) break // offline/outage/auth: retry later, others would fail too
+        // permanent: backed off or parked; carry on with unrelated rows
       }
     }
   } catch { /* never throw */ } finally {
@@ -138,7 +145,35 @@ async function syncNow(): Promise<void> {
   }
 }
 
+/** Parked items get another go: clears parkedAt/attempts/backoff, then drains. */
+async function retryParked(): Promise<void> {
+  try {
+    const db = useDb()
+    await db.outbox.filter((i: any) => !!i.parkedAt).modify((i: any) => {
+      delete i.parkedAt
+      delete i.nextAttemptAt
+      delete i.lastError
+      i.attempts = 0
+    })
+  } catch { /* never throw */ }
+  await syncNow()
+}
+
+/**
+ * Deletes parked outbox items. Local data is NOT touched: the rows stay in
+ * Dexie, they just never sync (until edited again, which re-enqueues them).
+ * Operations queued behind a discarded item on the same row are unblocked.
+ */
+async function discardParked(): Promise<void> {
+  try {
+    const db = useDb()
+    const ids = (await db.outbox.toArray()).filter((i: any) => i.parkedAt).map((i) => i.id!)
+    await db.outbox.bulkDelete(ids)
+  } catch { /* never throw */ }
+  void syncNow()
+}
+
 export function useSync() {
   init()
-  return { online, pending, signedIn, syncing, syncNow }
+  return { online, pending, parked, signedIn, syncing, syncNow, retryParked, discardParked }
 }
