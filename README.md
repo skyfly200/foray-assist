@@ -17,7 +17,7 @@ The **Foray Assistant App** is a specialized assistant built for mushroom forage
 * Automatically ranks and selects the best 2–4 representative photos from a burst for upload, hiding blurry or out-of-focus shots.
 
 ### 🌿 Seamless iNaturalist Auto-Upload
-* Integrates directly with the iNaturalist REST API via `inaturalistjs`.
+* Integrates directly with the iNaturalist REST API (v1) through server routes.
 * Batch-creates structured observations with taxonomic guesses, EXIF metadata, custom Observation Fields (OFVs), and configurable geoprivacy settings (`obscured` / `private`).
 
 ### 🎙️ Foray Mode: Offline Field Logger
@@ -90,7 +90,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | **Local Storage** | IndexedDB / Dexie.js (source of truth, offline-first) + Supabase sync |
 | **Speech-to-Text** | On-device Whisper (offline) |
 | **Image Processing** | On-device Laplacian variance blur scoring (Web Worker) |
-| **API Integration** | `inaturalistjs`, Google Photos REST API (via Nitro server routes) |
+| **API Integration** | iNaturalist API v1, Google Photos Picker API (via Nitro server routes) |
 | **Printer Interface** | ESC/POS via WebBluetooth API |
 | **Styling / Icons** | Vuetify + Material Design Icons |
 

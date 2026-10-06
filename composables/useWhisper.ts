@@ -17,8 +17,8 @@ export type WhisperStatus =
   | 'error'
 
 export const WHISPER_MODELS: Record<WhisperModel, { repo: string; label: string; approxMB: number; note: string }> = {
-  'tiny.en': { repo: 'onnx-community/whisper-tiny.en', label: 'Tiny (English)', approxMB: 40, note: 'Fast, small download (default)' },
-  'base.en': { repo: 'onnx-community/whisper-base.en', label: 'Base (English)', approxMB: 80, note: 'High accuracy, slower' },
+  'tiny.en': { repo: 'onnx-community/whisper-tiny.en', label: 'Tiny (English)', approxMB: 70, note: 'Fast, smaller download (default). Size includes the ~30 MB speech engine' },
+  'base.en': { repo: 'onnx-community/whisper-base.en', label: 'Base (English)', approxMB: 110, note: 'High accuracy, slower. Size includes the ~30 MB speech engine' },
 }
 
 const CACHE_NAME = 'transformers-cache' // Transformers.js default env.cacheKey

@@ -120,7 +120,7 @@ Please follow iNaturalist's community guidelines and keep uploads to real observ
 1. Open your production URL in **Chrome** on your Android phone.
 2. Chrome menu (⋮) → **Install app** (or **Add to Home screen**).
 3. Open it from the home-screen icon. It runs full-screen, like a normal app.
-4. **Stay on Wi-Fi for the first launch.** When the app is installed it automatically downloads the offline speech model (about 40 MB) plus the speech engine files, so voice notes work with no signal. You can check progress in **Settings → Voice**. If you're on Data Saver, it will wait and you can press the download button yourself.
+4. **Stay on Wi-Fi for the first launch.** When the app is installed it automatically downloads the offline speech model plus the speech engine files (**about 70 MB in total**), so voice notes work with no signal. You can check progress in **Settings → Voice**. If you're on Data Saver, it will wait and you can press the download button yourself.
 5. Allow **Microphone**, **Camera** and **Location** when asked. Location is used to stamp finds.
 6. **Check offline works:** turn on airplane mode, open the app, log a find with a photo and a voice note.
 

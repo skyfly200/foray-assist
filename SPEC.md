@@ -34,7 +34,7 @@ Optimized for a larger screen and connectivity.
 ### 3.1 Photo Capture & Ingestion
 * **In-app capture**: camera via `getUserMedia`/file input capture; stores originals locally with EXIF-equivalent metadata (timestamp, GPS from Geolocation API) since browser capture does not guarantee EXIF.
 * **Photo picker**: multi-select from the device; reads EXIF (timestamp, GPS) where present.
-* **Google Photos import** (needs connectivity): OAuth 2.0 read-only scope, query by foray time window, filter by GPS to the foray boundary.
+* **Google Photos import** (needs connectivity): OAuth 2.0 with the **Photos Picker API** — the user picks photos in Google's own picker and the app downloads them via server routes. (Google closed the older Library API time-window query to new projects, so there is no automatic time/GPS filtering; the Picker returns no GPS, so picked photos are clustered by time and, if present, EXIF read from the downloaded file.)
 * **Series clustering**: group photos into one find when Δt ≤ 120 s and Δd ≤ 5 m. Photos captured in-app against an active find are already assigned and are not re-clustered unless the user moves them.
 
 ### 3.2 Quality Selection (on-device)
@@ -48,7 +48,7 @@ Optimized for a larger screen and connectivity.
 * **Only one capture at a time** app-wide; the mic is released on tab hide/page hide. Mic errors are mapped to clear messages (permission, no mic, "another app or tab is using the microphone").
 * **Auto-download on install**: when the app is installed (`appinstalled`, or first launch in standalone mode) and online and not on Data Saver, the default model and the self-hosted WASM runtime (`/ort/`) download automatically; a manual button remains.
 * **On-device Whisper** via Transformers.js (or whisper.cpp WASM), WebGPU when available, for interactive speech-to-text with no network.
-* **Two model options**: `tiny.en` (~40 MB quantized) is the default for a small first download and near-real-time transcription; `base.en` (~80 MB) is an opt-in "high accuracy" download in settings. Sizes are approximate and to be verified when model files are chosen.
+* **Two model options**: `tiny.en` (~40 MB quantized) is the default and `base.en` (~80 MB) is an opt-in "high accuracy" download in settings. The self-hosted ONNX/WASM speech engine adds ~27 MB (up to ~40 MB), so the first download is **about 70 MB** for the default. Sizes are approximate.
 * Raw audio is retained so a find can be re-transcribed with the better model in Review Mode.
 * Model files are downloaded once and cached via the service worker; the app must tell the user when the model is not yet cached and cannot be fetched.
 * Transcription is chunked/streamed so text appears while speaking.
@@ -61,13 +61,13 @@ Optimized for a larger screen and connectivity.
 * Links notes, attributes, photos, printed tags and the eventual iNaturalist Observation ID into one record.
 
 ### 3.5 Label Printing
-* Portable thermal printers (Niimbot, Phomemo, Brother, Zebra) via WebBluetooth using ESC/POS or TSPL.
+* Portable thermal printers that speak ESC/POS or TSPL (generic label printers; Phomemo/Brother/Zebra-class where they expose those protocols) via WebBluetooth. **Niimbot** printers use a proprietary protocol and are not supported yet.
 * 50 mm × 30 mm tag: ID, species guess, date/time, obscured location, substrate, short notes, QR code.
 * QR encodes the local record URI (`foray://specimen/<ID>`) or, once published, the iNaturalist observation URL.
 * **Platform**: MVP printing is supported on Android/Chromium only. WebBluetooth is unavailable in iOS Safari; iOS support (native wrapper or a BLE-capable iOS browser app) is a roadmap item (Phase 9). On unsupported platforms the print button is hidden/disabled with an explanation.
 
 ### 3.6 iNaturalist Publishing (needs connectivity)
-* `inaturalistjs` with OAuth/JWT against **iNaturalist API v1**, wrapped in one small module so a later move to v2 is contained. Before M4, verify `inaturalistjs` v2 support and any v1 deprecation date.
+* Plain `fetch` (no `inaturalistjs`) with OAuth/JWT against **iNaturalist API v1**, isolated in one small module (`server/utils/inat.ts`) so a later move to v2 is contained. Verify any v1 deprecation date before relying on it long-term.
 * Maps timestamp, coordinates, `geoprivacy` (`open` / `obscured` / `private`), species guess / `taxon_id`, field notes as description, and selected photos.
 * Publishing is queued when offline and runs when connectivity returns; the user sees per-find status (draft, queued, published, failed).
 
@@ -168,7 +168,7 @@ interface SpecimenRecord {
 1. **M1 — Offline foundation & Foray Mode core** (weeks 1–2): PWA + Dexie, find/ID generation, attribute form, in-app capture, mode switcher, outbox + Supabase sync skeleton.
 2. **M2 — Whisper voice notes & label printing** (weeks 3–4): on-device Whisper with model caching, interactive transcription, WebBluetooth label layout and print.
 3. **M3 — Review Mode** (weeks 5–6): photo picker + Google Photos import, clustering, on-device blur scoring, selection UI.
-4. **M4 — iNaturalist publishing & end-to-end** (weeks 7–8): `inaturalistjs` publish queue, metadata mapping, end-to-end test: capture → voice note → print → review → publish.
+4. **M4 — iNaturalist publishing & end-to-end** (weeks 7–8): iNaturalist (API v1) publish queue, metadata mapping, end-to-end test: capture → voice note → print → review → publish.
 
 ---
 
