@@ -25,7 +25,7 @@ export interface FieldNotes {
 
 export interface Specimen {
   id: string // uuid (primary key)
-  specimenId: string // human-readable, e.g. FORAY-20261005-K7-001
+  specimenId: string // human-readable, e.g. SF-M042K (see utils/idCode.ts)
   forayId: string
   timestamp: string
   latitude?: number
@@ -87,7 +87,7 @@ export interface OutboxItem {
   parkedAt?: string // ISO; set => parked, skipped by the drain
 }
 
-// Known settings keys: 'mode' ('foray'|'review'), 'deviceTag', 'seq:YYYYMMDD',
+// Known settings keys: 'mode' ('foray'|'review'), 'collectorCode' (default 'SF'), 'idState' (this device's ID block),
 // 'whisperModel' ('tiny.en'|'base.en'), 'printer' (last used printer info).
 export interface Setting {
   key: string

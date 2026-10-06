@@ -64,6 +64,8 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 * **ID Barcodes**:
   * Print ID labels as Code 128, QR or Data Matrix in bulk or one at a time, in sizes for bags, packets, tubes and photo cards (extends the 50×30 mm tag from the MVP).
   * Scan a printed code with the phone camera (BarcodeDetector API where available, with a WASM fallback) to jump straight to that record.
+* **NFC Tags (alternative to printed codes)**:
+  * Write the Specimen ID (as an NDEF record, with the record URI) to NFC stickers/tags that attach to bags, tubes and packets, and tap a tag to open its record. Uses the Web NFC API (Chrome on Android; not available on iOS Safari). NFC tags are rewritable, survive damp and dirt better than paper, and need no printer, so they sit alongside printed barcodes and QR codes as a first-class option for tracking tags.
 * **Printer Profiles & Batch Queue**:
   * Saved profiles for paper width, label size, protocol (ESC/POS or TSPL) and darkness; a print queue that survives going offline and reconnecting.
 
@@ -78,6 +80,8 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 * **Associating Codes with Records**:
   * Scan or type a preprinted code to attach it to a find, or create a find from a scanned code. Codes can be used before the record exists and reconciled later.
   * An inventory of codes: unassigned, assigned, voided or lost; duplicate and out-of-block detection; offline-safe reservation so two devices never issue the same code.
+* **Pre-programmed NFC Tags**:
+  * Write blocks of IDs to NFC tags in advance, then tap a tag during collection to attach that code to a find (the same association flow as scanning a preprinted sticker). Tag inventory tracks which NFC tags are written, assigned or blank.
 * **Reconciliation Tools**:
   * Flag codes used on a physical specimen but with no record yet, and records with no physical label.
 
@@ -124,3 +128,15 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 * **Native Wrapper**: Wrap the PWA (e.g. Capacitor) and use a native BLE plugin to talk to the thermal printer.
 * **Alternative**: Evaluate a BLE-capable iOS browser app (e.g. Bluefy) as a no-native-code stopgap.
+
+---
+
+## Phase 12: Bluetooth Observation Share
+*Goal: Let foragers hand observations to each other in the field with no signal and no cloud account, for example sharing a find with a companion or a mentor.*
+
+* **Nearby Sharing of Observations**:
+  * Send a find (photos, notes, location according to its geoprivacy, voice notes and Specimen ID) to a nearby device over Bluetooth, and import it on the other side as a new record with its provenance (collector code, original ID) kept. Imports are previewed and approved by the receiver, deduplicated by Specimen ID, and never overwrite local records.
+* **Feasibility and Approach**:
+  * Browsers can connect to Bluetooth devices but cannot advertise or accept connections as one, so direct phone-to-phone Bluetooth needs the native wrapper from Phase 11 (a BLE peripheral/central plugin) or a platform nearby-share mechanism. Until then, the share bundle (JSON plus photos) can travel through the Web Share API (which can use Android Nearby Share) or a file.
+* **Privacy**:
+  * Exact coordinates are shared only if the sender chooses; obscured or private finds stay obscured. Share bundles can be signed with the sender's collector code so the origin is clear, and nothing leaves the device without the sender's tap.

@@ -62,6 +62,7 @@ You already created the project. Verify it deploys.
    1. `0001_init.sql`
    2. `0002_sync_schema.sql`
    3. `0003_integrations.sql`
+   4. `0004_unique_specimen_id.sql`
 3. Check **Table Editor**: you should see `forays`, `specimens`, `photos`, `voice_notes`, `integration_tokens`. `integration_tokens` should show RLS enabled with no policies. That's intentional, and only the server can read it.
 4. Check **Storage**: there should be a private bucket named `foray-media`.
 

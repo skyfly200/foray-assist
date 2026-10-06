@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { buildObservationPayload, composeDescription, parseCreatedId, backoffMs, authorizeUrl, signState, verifyState } from '../server/utils/inat.ts'
 
 const find = {
-  specimenId: 'FORAY-20261005-K7-001', timestamp: '2026-10-05T14:30:00.000Z',
+  specimenId: 'SF-M001K', timestamp: '2026-10-05T14:30:00.000Z',
   latitude: 45.1, longitude: -122.5, geoprivacy: 'open',
   fieldNotes: { speciesGuess: ' Cantharellus ', substrate: 'soil', hostTree: 'Douglas fir', notes: 'Fruity odor' },
 }
@@ -14,7 +14,7 @@ test('maps a find to an observation payload', () => {
   assert.equal(o.latitude, 45.1); assert.equal(o.longitude, -122.5)
   assert.equal(o.geoprivacy, 'open'); assert.equal(o.species_guess, 'Cantharellus')
   assert.equal(o.positional_accuracy, 12)
-  assert.match(o.description, /Fruity odor[\s\S]*Substrate: soil[\s\S]*Host tree: Douglas fir[\s\S]*Specimen ID: FORAY/)
+  assert.match(o.description, /Fruity odor[\s\S]*Substrate: soil[\s\S]*Host tree: Douglas fir[\s\S]*Specimen ID: SF-M001K/)
 })
 test('omits coords/accuracy when missing; defaults geoprivacy to obscured', () => {
   const { observation: o } = buildObservationPayload({ timestamp: find.timestamp, positionalAccuracy: 5, geoprivacy: 'bogus' })

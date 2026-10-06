@@ -56,8 +56,8 @@ Optimized for a larger screen and connectivity.
 * Transcripts attach to the current find as `rawVoiceTranscript` and as timestamped segments.
 
 ### 3.4 Specimen IDs
-* Format: `PREFIX-YYYYMMDD-DEVICE-SEQUENCE`, e.g. `FORAY-20261005-K7-001`.
-* Generated locally with no server round-trip. The sequence is per device per day, assigned in a local transaction; a short random per-device tag (`K7`) keeps IDs unique across the user's devices.
+* Format: `COLLECTOR-BNNNC`, e.g. `SF-M042K` (8 characters): a 2–3 letter **collector code** (default `SF`), one **block letter** from a 32-character alphabet without `I`, `O`, `0`, `1`, a 3-digit **running number** `001`–`999`, and one **check character** that catches a mistyped/misread character and swapped neighbours. The date lives in the record, not the ID.
+* Generated locally with no server round-trip. Numbers are assigned in a local transaction (no duplicates on rapid taps). Each device draws its own random block (999 IDs per block); a database unique index on `(user_id, specimen_id)` turns the rare two-devices-same-block collision into a visible, parked sync item. Preprinted sheets and server-side block reservation (roadmap Phase 7) remove that edge case. Pure logic and tests: `utils/idCode.ts`, `tests/idcode.test.mjs`.
 * Links notes, attributes, photos, printed tags and the eventual iNaturalist Observation ID into one record.
 
 ### 3.5 Label Printing
@@ -128,7 +128,7 @@ interface Foray {
 }
 
 interface SpecimenRecord {
-  id: string;                  // "FORAY-20261005-K7-001"
+  id: string;                  // "SF-M042K"
   forayId: string;
   timestamp: string;           // ISO 8601
   latitude?: number;
@@ -178,7 +178,7 @@ interface SpecimenRecord {
 M1–M4 are implemented but only partly verified: the offline flow, blur scoring and clustering run in a real browser against the production build (`tests/offline.mjs`), and pure logic has unit tests (`tests/*.test.mjs`). **Not yet verified:** on-device Whisper model download and transcription, Bluetooth printing on real hardware, Google Photos Picker and iNaturalist against live APIs, sync against a real Supabase project. Known deviations: the Google Photos Picker API replaces the time-window Library query (closed to new projects) and returns no GPS; Niimbot printers need a proprietary protocol and are unsupported.
 
 ## 6. Out of scope for MVP
-Voice-guided collection (Roadmap Phase 3), advanced vision, ZK/federated learning, tokens, GBIF export, and server-side image processing (Phase 10). Printable specimen forms and ID barcodes are Phase 6; preprinted ID code sheets are Phase 7.
+Voice-guided collection (Roadmap Phase 3), advanced vision, ZK/federated learning, tokens, GBIF export, and server-side image processing (Phase 10). Printable specimen forms, ID barcodes and NFC tags are Phase 6; preprinted ID code sheets and pre-programmed NFC tags are Phase 7; Bluetooth observation sharing is Phase 12.
 
 ---
 

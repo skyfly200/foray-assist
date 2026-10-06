@@ -27,15 +27,22 @@ await page.getByRole('button', { name: /start foray/i }).first().click({ force: 
 await page.waitForURL(/\/forays\//, { timeout: 10000 }).catch(() => fail('Start foray did not open the foray', browser))
 // log a find
 await page.getByRole('button', { name: /new find without photo/i }).click().catch(() => fail('no new-find control', browser))
-await page.waitForSelector('text=/FORAY-\\d{8}-[A-Z0-9]{2}-001/', { timeout: 10000 }).catch(() => fail('specimen id not shown', browser))
+await page.waitForSelector('text=/SF-[A-HJ-NP-Z2-9]001[A-HJ-NP-Z2-9]/', { timeout: 10000 }).catch(() => fail('specimen id not shown', browser))
 await page.getByText('Where it grows').first().click()
 await page.getByLabel(/substrate/i).first().fill('decaying conifer')
 await page.waitForTimeout(1200)
 const url = page.url()
 await page.reload() // cold reload while offline, deep link
-await page.waitForSelector('text=/FORAY-\\d{8}-[A-Z0-9]{2}-001/', { timeout: 10000 }).catch(() => fail('find did not survive offline reload', browser))
+await page.waitForSelector('text=/SF-[A-HJ-NP-Z2-9]001[A-HJ-NP-Z2-9]/', { timeout: 10000 }).catch(() => fail('find did not survive offline reload', browser))
 await page.getByText('Where it grows').first().click()
 await page.getByLabel(/substrate/i).first().inputValue().then((v) => v === 'decaying conifer' || fail('attribute lost after reload: ' + v, browser))
+// IDs: every new find gets a unique, valid ID (SF-<block><nnn><check>); the UI ignores a second tap
+// while a find is being created, so create one more and check both.
+await page.getByRole('button', { name: /new find without photo/i }).click()
+await page.waitForTimeout(1500)
+const ids = await page.evaluate(() => new Promise((res) => { const r = indexedDB.open('forray-assist'); r.onsuccess = () => { const q = r.result.transaction('specimens').objectStore('specimens').getAll(); q.onsuccess = () => res(q.result.map((s) => s.specimenId)) } }))
+if (ids.length < 2 || new Set(ids).size !== ids.length) fail('duplicate or missing specimen ids: ' + ids.join(','), browser)
+if (!ids.every((i) => /^SF-[A-HJ-NP-Z2-9]\d{3}[A-HJ-NP-Z2-9]$/.test(i))) fail('unexpected id format: ' + ids.join(','), browser)
 // Voice: record a note offline with a fake mic (no model downloaded -> raw audio saved), twice in a row
 // (a leaked mic stream would make the second start fail with 'Could not start audio source').
 for (let i = 0; i < 2; i++) {

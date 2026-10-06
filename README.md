@@ -23,7 +23,7 @@ The **Foray Assistant App** is a specialized assistant built for mushroom forage
 ### 🎙️ Foray Mode: Offline Field Logger
 * Fully offline-first PWA: logging, capture and printing never need a connection.
 * In-app photo capture, structured field notes (substrate, host tree, odor, cap texture) and **on-device Whisper** speech-to-text for interactive voice dictation.
-* Generates unique local Specimen IDs (`FORAY-YYYYMMDD-XXX`) to link digital logs with physical collections.
+* Generates unique local short Specimen IDs (`SF-M042K`: collector code, block, number, check character) to link digital logs with physical collections.
 
 ### 🗂️ Review Mode: After the Foray
 * Import photos via the photo picker or Google Photos, cluster them into finds, curate with blur scoring, and publish to iNaturalist.
