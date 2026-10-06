@@ -1,27 +1,48 @@
 <template>
   <div>
-    <v-card variant="tonal" class="mb-4">
+    <v-card class="fa-card mb-4" variant="flat" color="primary">
       <v-card-text class="d-flex flex-wrap align-center ga-3">
-        <v-btn color="primary" prepend-icon="mdi-image-plus" :disabled="busy" @click="picker?.click()">Add photos</v-btn>
+        <v-btn color="white" class="text-primary" size="large" prepend-icon="mdi-image-plus" :disabled="busy" @click="picker?.click()">Add photos</v-btn>
         <input ref="picker" type="file" accept="image/*" multiple hidden @change="onPick" />
-        <v-btn prepend-icon="mdi-group" :disabled="busy || !unassigned.length" :loading="grouping" @click="group">
+        <v-btn variant="outlined" color="white" size="large" prepend-icon="mdi-auto-fix" :disabled="busy || !unassigned.length" :loading="grouping" @click="group">
           Group into finds
-          <v-chip v-if="unassigned.length" size="x-small" class="ml-2">{{ unassigned.length }}</v-chip>
+          <span v-if="unassigned.length" class="count-bubble ml-2">{{ unassigned.length }}</span>
         </v-btn>
-        <span v-if="message" class="text-caption">{{ message }}</span>
+        <span v-if="message" class="text-body-2 w-100">{{ message }}</span>
       </v-card-text>
-      <v-progress-linear v-if="progress" :model-value="(progress.done / Math.max(1, progress.total)) * 100" height="6" />
-      <div v-if="progress" class="text-caption px-4 pb-2">Scoring sharpness {{ progress.done }}/{{ progress.total }}</div>
+      <Transition name="fa-pop">
+        <div v-if="progress" class="px-4 pb-4" role="status" aria-live="polite">
+          <div class="text-body-2 font-weight-bold mb-1">
+            <v-icon icon="mdi-leaf" size="16" class="spin-leaf" /> Looking at your photos…
+            <span class="font-weight-regular">{{ progress.done }}/{{ progress.total }}</span>
+          </div>
+          <v-progress-linear
+            :model-value="(progress.done / Math.max(1, progress.total)) * 100"
+            height="10"
+            rounded
+            color="white"
+            bg-color="white"
+            bg-opacity="0.3"
+          />
+        </div>
+      </Transition>
     </v-card>
 
     <!-- SLOT: photo sources (e.g. Google Photos import) are mounted here. They write Photo rows with specimenRowId '' -->
     <slot name="sources" />
 
-    <div class="d-flex flex-column ga-4">
-      <ClusterCard v-if="unassigned.length" :find="null" :photos="unassigned" :other-finds="finds.map(label)" />
-      <ClusterCard v-for="f in finds" :key="f.id" :find="f" :photos="photosBySpecimen.get(f.id) ?? []" :other-finds="finds.filter((o) => o.id !== f.id).map(label)" />
-      <div v-if="!finds.length && !unassigned.length" class="text-medium-emphasis">No photos yet. Add photos taken outside the app to get started.</div>
+    <div v-if="progress && !photos.length" class="d-flex flex-column ga-4" aria-hidden="true">
+      <div class="fa-shimmer skeleton" />
     </div>
+
+    <TransitionGroup name="fa-list" tag="div" class="d-flex flex-column ga-4">
+      <ClusterCard v-if="unassigned.length" key="__unassigned" :find="null" :photos="unassigned" :other-finds="finds.map(label)" />
+      <ClusterCard v-for="f in finds" :key="f.id" :find="f" :photos="photosBySpecimen.get(f.id) ?? []" :other-finds="finds.filter((o) => o.id !== f.id).map(label)" />
+      <div v-if="!finds.length && !unassigned.length && !progress" key="__empty" class="text-center text-medium-emphasis py-6">
+        <div class="empty-emoji" aria-hidden="true">📷</div>
+        No photos yet. Add photos taken outside the app to get started.
+      </div>
+    </TransitionGroup>
   </div>
 </template>
 
@@ -92,3 +113,12 @@ async function group() {
   }
 }
 </script>
+
+<style scoped>
+.count-bubble { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.3); font-size: 0.75rem; }
+.skeleton { height: 160px; border-radius: var(--fa-radius); }
+.empty-emoji { font-size: 3rem; }
+.spin-leaf { animation: sway 1.2s ease-in-out infinite alternate; }
+@keyframes sway { from { transform: rotate(-20deg); } to { transform: rotate(20deg); } }
+@media (prefers-reduced-motion: reduce) { .spin-leaf { animation: none; } }
+</style>

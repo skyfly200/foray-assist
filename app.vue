@@ -26,8 +26,6 @@
   background: linear-gradient(to bottom, rgba(var(--v-theme-background), 0.95), rgba(var(--v-theme-background), 0.6)) !important;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  padding-top: env(safe-area-inset-top);
-  height: calc(56px + env(safe-area-inset-top)) !important;
 }
 .fa-brand { display: inline-flex; align-items: center; gap: 10px; margin-left: 14px; text-decoration: none; color: rgb(var(--v-theme-primary)); }
 .fa-brand__mark {

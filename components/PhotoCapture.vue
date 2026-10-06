@@ -1,18 +1,19 @@
 <template>
-  <div class="d-flex ga-2">
-    <v-btn
-      class="flex-grow-1"
-      size="large"
-      color="primary"
-      prepend-icon="mdi-camera"
-      :loading="busy"
-      @click="cameraInput?.click()"
-    >
-      Take photo
-    </v-btn>
-    <v-btn size="large" variant="tonal" prepend-icon="mdi-image-multiple" :disabled="busy" @click="pickerInput?.click()">
-      Pick
-    </v-btn>
+  <div class="photo-capture d-flex align-center ga-2">
+    <div class="flex-grow-1">
+      <v-btn
+        block
+        size="large"
+        color="primary"
+        class="take"
+        prepend-icon="mdi-camera"
+        :loading="busy"
+        @click="cameraInput?.click()"
+      >
+        Take photo
+      </v-btn>
+    </div>
+    <v-btn size="large" color="primary" variant="tonal" icon="mdi-image-multiple" :disabled="busy" aria-label="Pick photos from gallery" @click="pickerInput?.click()" />
     <!-- Browser capture does not guarantee EXIF; addPhoto stamps time + GPS itself. -->
     <input ref="cameraInput" type="file" accept="image/*" capture="environment" hidden @change="onFiles($event, 'capture')" />
     <input ref="pickerInput" type="file" accept="image/*" multiple hidden @change="onFiles($event, 'picker')" />
@@ -41,3 +42,7 @@ async function onFiles(e: Event, source: 'capture' | 'picker') {
   }
 }
 </script>
+
+<style scoped>
+.take { min-height: 56px; font-size: 1.05rem; }
+</style>

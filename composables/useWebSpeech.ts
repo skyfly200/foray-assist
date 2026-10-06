@@ -8,6 +8,8 @@ export interface WebSpeechCallbacks {
   onText: (text: string) => void
   /** Fatal, user-presentable error; recognition has stopped. */
   onError: (message: string) => void
+  /** Another recorder/recognizer took over the microphone; the owner should finish and save. */
+  onPreempted?: () => void
 }
 
 export function webSpeechSupported(): boolean {
@@ -32,7 +34,15 @@ export function describeSpeechError(code: string): string {
   }
 }
 
-let current: { stop: () => Promise<string> } | null = null
+let current: { stop: () => Promise<string>; preempt: () => void } | null = null
+
+/** Stop any running recognizer (so the mic is free for MediaRecorder). Resolves once it has ended. */
+export async function stopActiveSpeech(): Promise<void> {
+  const c = current
+  if (!c) return
+  c.preempt()
+  await c.stop().catch(() => {})
+}
 
 export function useWebSpeech() {
   const supported = webSpeechSupported()
@@ -41,7 +51,9 @@ export function useWebSpeech() {
   function start(cb: WebSpeechCallbacks): { stop: () => Promise<string> } {
     if (!supported) throw new Error('Speech recognition is not available in this browser.')
     // Only one recognizer at a time.
-    current?.stop().catch(() => {})
+    const prev = current
+    prev?.preempt()
+    prev?.stop().catch(() => {})
     const Ctor = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     let wanted = true
     let finals = ''
@@ -90,16 +102,18 @@ export function useWebSpeech() {
     }
     begin()
 
+    let stopping: Promise<string> | null = null
     const ctl = {
+      preempt: () => { try { cb.onPreempted?.() } catch { /* ignore */ } },
       stop: () =>
-        new Promise<string>((resolve) => {
+        (stopping ??= new Promise<string>((resolve) => {
           wanted = false
           if (current === ctl) current = null
           const done = () => { clearTimeout(t); resolve(finals.trim()) }
           const t = setTimeout(done, 1500)
           ended = done
           try { rec?.stop() } catch { done() }
-        }),
+        })),
     }
     current = ctl
     return ctl
