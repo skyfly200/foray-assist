@@ -69,7 +69,7 @@ const status = computed(() => {
 </script>
 
 <template>
-  <div class="settings fa-page">
+  <div class="settings">
     <header class="fa-hero settings-hero">
       <div class="d-flex align-center ga-3">
         <v-avatar color="white" size="48" class="hero-avatar"><v-icon color="primary" size="28">mdi-cog-outline</v-icon></v-avatar>
@@ -85,8 +85,8 @@ const status = computed(() => {
         <v-card-text>
           <div class="d-flex align-center ga-3 mb-3">
             <v-avatar color="primary" variant="tonal" size="40"><v-icon>mdi-cloud-sync-outline</v-icon></v-avatar>
-            <h2 class="text-h6 flex-grow-1">Account &amp; sync</h2>
-            <v-chip class="fa-pill" :color="status.color" variant="tonal" size="small" :prepend-icon="status.icon">
+            <h2 class="text-subtitle-1 font-weight-bold flex-grow-1">Account &amp; sync</h2>
+            <v-chip class="fa-pill flex-shrink-0" :color="status.color" variant="tonal" size="small" :prepend-icon="status.icon">
               <transition name="fa-fade" mode="out-in"><span :key="status.text">{{ status.text }}</span></transition>
             </v-chip>
           </div>
@@ -150,7 +150,7 @@ const status = computed(() => {
 .settings-hero { padding-bottom: 44px; }
 .hero-sub { opacity: .9; }
 .hero-avatar { animation: fa-pop .5s var(--fa-ease); }
-.settings-body { margin-top: -22px; position: relative; z-index: 2; }
+.settings-body { margin-top: -22px; position: relative; z-index: 2; padding-left: 0; padding-right: 0; }
 .section-title { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; font-weight: 700; margin: 4px 4px 10px; }
 .break { word-break: break-all; }
 .fa-fade-enter-active, .fa-fade-leave-active { transition: opacity .2s var(--fa-ease), transform .2s var(--fa-ease); }

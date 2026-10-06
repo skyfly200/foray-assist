@@ -1,7 +1,7 @@
 // Run: node --experimental-strip-types --test tests/audio.test.mjs
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { resample, mixToMono, rms, Chunker, joinTranscript, cleanTranscript } from '../utils/audio.ts'
+import { resample, mixToMono, rms, Chunker, joinTranscript, cleanTranscript, describeMicError, isRetryableMicError, ortVariantSuffix } from '../utils/audio.ts'
 
 const tone = (n, amp = 0.3) => Float32Array.from({ length: n }, (_, i) => amp * Math.sin(i * 0.2))
 const quiet = (n) => new Float32Array(n)
@@ -67,4 +67,28 @@ test('joinTranscript dedupes overlap', () => {
 
 test('cleanTranscript strips tags', () => {
   assert.equal(cleanTranscript(' [BLANK_AUDIO] hello (music) world *sigh* '), 'hello world')
+})
+
+test('describeMicError distinguishes causes', () => {
+  assert.equal(describeMicError({ name: 'NotAllowedError' }).kind, 'permission')
+  assert.equal(describeMicError({ name: 'NotFoundError' }).kind, 'no-mic')
+  const r = describeMicError({ name: 'NotReadableError', message: 'Could not start audio source' })
+  assert.equal(r.kind, 'in-use')
+  assert.equal(r.message, 'Another app or browser tab is using the microphone. Close it and try again.')
+  assert.equal(describeMicError(new Error('boom')).kind, 'other')
+})
+
+test('isRetryableMicError', () => {
+  for (const n of ['NotReadableError', 'OverconstrainedError', 'AbortError']) assert.ok(isRetryableMicError({ name: n }))
+  assert.ok(!isRetryableMicError({ name: 'NotAllowedError' }))
+  assert.ok(!isRetryableMicError({ name: 'NotFoundError' }))
+})
+
+test('ortVariantSuffix picks asyncify except old Safari without WebGPU', () => {
+  const safari18 = 'Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15'
+  const chrome = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36'
+  assert.equal(ortVariantSuffix(safari18, false), '')
+  assert.equal(ortVariantSuffix(safari18, true), '.asyncify')
+  assert.equal(ortVariantSuffix(chrome, false), '.asyncify')
+  assert.equal(ortVariantSuffix('', false), '.asyncify')
 })

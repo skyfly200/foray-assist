@@ -36,6 +36,8 @@ The **Foray Assistant App** is a specialized assistant built for mushroom forage
 
 ## 🚀 Getting Started
 
+> **Setting up Supabase, Google Photos, iNaturalist, Vercel and your printer? Follow [`SETUP.md`](./SETUP.md)** (step-by-step, with links).
+
 ### Prerequisites
 * **Node.js**: `v20.x` or higher
 * **npm** / **pnpm**

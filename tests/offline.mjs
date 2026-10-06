@@ -9,8 +9,8 @@ const server = spawn('node', ['.output/server/index.mjs'], { stdio: 'ignore', en
 const fail = async (msg, browser) => { console.error('FAIL:', msg); await browser?.close(); server.kill(); process.exit(1) }
 
 await new Promise((r) => setTimeout(r, 4000))
-const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' })
-const context = await browser.newContext({ permissions: ['geolocation'], geolocation: { latitude: 47.5, longitude: -121.8 } })
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] })
+const context = await browser.newContext({ permissions: ['geolocation', 'microphone'], geolocation: { latitude: 47.5, longitude: -121.8 } })
 const page = await context.newPage()
 const errors = []
 page.on('pageerror', (e) => { errors.push(e.message); console.error('pageerror:', e.message) })
@@ -23,25 +23,36 @@ await page.reload()
 await page.waitForSelector('text=Forray Assist', { timeout: 10000 }).catch(() => fail('shell did not load offline', browser))
 
 // create a foray offline
-await page.getByRole('button', { name: /new foray|start foray|create/i }).first().click().catch(() => fail('no create-foray control', browser))
-await page.waitForTimeout(500)
-await page.getByText(/20\d\d/).first().click()
-await page.waitForURL(/\/forays\//)
+await page.getByRole('button', { name: /start foray/i }).first().click({ force: true }).catch(() => fail('no create-foray control', browser))
+await page.waitForURL(/\/forays\//, { timeout: 10000 }).catch(() => fail('Start foray did not open the foray', browser))
 // log a find
-await page.getByRole('button', { name: /new find/i }).click().catch(() => fail('no new-find control', browser))
+await page.getByRole('button', { name: /new find without photo/i }).click().catch(() => fail('no new-find control', browser))
 await page.waitForSelector('text=/FORAY-\\d{8}-[A-Z0-9]{2}-001/', { timeout: 10000 }).catch(() => fail('specimen id not shown', browser))
+await page.getByText('Where it grows').first().click()
 await page.getByLabel(/substrate/i).first().fill('decaying conifer')
 await page.waitForTimeout(1200)
 const url = page.url()
 await page.reload() // cold reload while offline, deep link
 await page.waitForSelector('text=/FORAY-\\d{8}-[A-Z0-9]{2}-001/', { timeout: 10000 }).catch(() => fail('find did not survive offline reload', browser))
+await page.getByText('Where it grows').first().click()
 await page.getByLabel(/substrate/i).first().inputValue().then((v) => v === 'decaying conifer' || fail('attribute lost after reload: ' + v, browser))
+// Voice: record a note offline with a fake mic (no model downloaded -> raw audio saved), twice in a row
+// (a leaked mic stream would make the second start fail with 'Could not start audio source').
+for (let i = 0; i < 2; i++) {
+  await page.getByRole('button', { name: /record voice note/i }).first().click()
+  await page.waitForSelector('[aria-label="Stop recording"]', { timeout: 8000 }).catch(() => fail('recording did not start (attempt ' + (i + 1) + '): ' + 'mic error shown?', browser))
+  await page.waitForTimeout(1500)
+  await page.getByRole('button', { name: /stop recording/i }).first().click()
+  await page.waitForSelector('[aria-label="Record voice note"]', { timeout: 8000 }).catch(() => fail('recording did not stop', browser))
+}
+const notes = await page.evaluate(() => new Promise((res) => { const r = indexedDB.open('forray-assist'); r.onsuccess = () => { const q = r.result.transaction('voiceNotes').objectStore('voiceNotes').count(); q.onsuccess = () => res(q.result) } }))
+if (notes < 2) fail('expected 2 saved voice notes, got ' + notes, browser)
 await page.goto(URL + '/settings')
 await page.waitForSelector('text=/sync/i', { timeout: 10000 }).catch(() => fail('/settings did not load offline', browser))
 // Review Mode on the foray page, offline: import 3 generated photos (2 sharp+close in time, 1 blurry),
 // blur-score them in the production worker, group into finds.
 await page.goto(url)
-await page.getByRole('button', { name: /^review$/i }).click().catch(() => fail('no review toggle', browser))
+await page.getByRole('button', { name: /switch to review mode/i }).click().catch(() => fail('no review toggle', browser))
 await page.waitForSelector('text=Add photos', { timeout: 10000 }).catch(() => fail('ReviewPanel did not render', browser))
 const imgs = await page.evaluate(async () => {
   const make = async (kind) => {

@@ -1,10 +1,10 @@
 <template>
-  <v-card variant="outlined">
+  <v-card class="fa-card">
     <v-card-title class="text-subtitle-1 font-weight-bold">Voice notes model</v-card-title>
     <v-card-text>
       <p class="text-body-2 text-medium-emphasis mb-3">
         Speech-to-text runs on this device with Whisper and works offline once the model is downloaded.
-        Download sizes are approximate. Download over Wi-Fi when you can; nothing downloads until you press the button.
+        Download sizes are approximate. Download over Wi-Fi when you can.
       </p>
 
       <v-radio-group :model-value="model" hide-details @update:model-value="(v: any) => setModel(v)">
@@ -22,6 +22,11 @@
           </template>
         </v-radio>
       </v-radio-group>
+
+      <div class="text-body-2 mt-3" data-testid="auto-download">
+        <v-icon size="small" class="mr-1">mdi-cellphone-arrow-down</v-icon>
+        {{ autoText }}
+      </div>
 
       <div class="mt-3">
         <v-progress-linear v-if="status === 'downloading'" :model-value="progress" height="8" rounded color="primary" />
@@ -55,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 const { model, models, status, progress, error, device, cachedModels, isCached, setModel, download, removeCache } = useWhisper()
 
@@ -63,6 +68,25 @@ const online = ref<boolean | null>(null)
 const upd = () => (online.value = navigator.onLine)
 onMounted(() => { upd(); window.addEventListener('online', upd); window.addEventListener('offline', upd) })
 onBeforeUnmount(() => { window.removeEventListener('online', upd); window.removeEventListener('offline', upd) })
+
+const auto = ref<{ at: string; status: string } | null>(null)
+const saveData = ref(false)
+const installed = ref(false)
+onMounted(async () => {
+  try { auto.value = ((await useDb().settings.get('voiceAutoDownload'))?.value as any) ?? null } catch { /* ignore */ }
+  saveData.value = !!(navigator as any).connection?.saveData
+  installed.value = (typeof matchMedia === 'function' && matchMedia('(display-mode: standalone)').matches) || (navigator as any).standalone === true
+})
+watch(status, async () => {
+  try { auto.value = ((await useDb().settings.get('voiceAutoDownload'))?.value as any) ?? null } catch { /* ignore */ }
+})
+const autoText = computed(() => {
+  if (isCached.value) return 'Downloaded. It works offline.'
+  if (saveData.value) return 'Data Saver is on, so nothing downloads automatically. Use the button below.'
+  if (auto.value?.status === 'failed') return 'The automatic download did not finish. It retries when you are online, or use the button below.'
+  if (installed.value || auto.value?.status === 'running') return 'Downloaded automatically when you install the app. Starting soon, or use the button below.'
+  return 'Downloaded automatically when you install the app. You can also download it now with the button below.'
+})
 
 const busy = computed(() => status.value === 'downloading' || status.value === 'loading')
 

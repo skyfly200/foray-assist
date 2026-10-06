@@ -153,7 +153,7 @@ function startLoad(): Promise<void> {
 let loadPromise: Promise<void> | null = null
 let ortFetched = false
 
-async function ortCached(): Promise<boolean> {
+export async function isOrtCached(): Promise<boolean> {
   try {
     const suffix = ortVariantSuffix(navigator.userAgent, !!(navigator as any).gpu)
     return !!(await caches.match(`/ort/ort-wasm-simd-threaded${suffix}.wasm`))
@@ -173,7 +173,7 @@ async function fetchOrt(): Promise<void> {
 /** Download (if needed) and initialise the current model + WASM runtime. Call from a user action (or the install auto-download). */
 async function download(): Promise<void> {
   await init()
-  if (status.value !== 'ready' && !loadPromise && !ortFetched && navigator.onLine && !(await ortCached())) {
+  if (status.value !== 'ready' && !loadPromise && !ortFetched && navigator.onLine && !(await isOrtCached())) {
     try { await fetchOrt(); ortFetched = true } catch (e: any) {
       error.value = e?.message ?? String(e)
       status.value = 'error'

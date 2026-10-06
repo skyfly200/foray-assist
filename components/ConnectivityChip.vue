@@ -3,17 +3,22 @@ const { online, pending, syncing, signedIn } = useSync()
 
 const label = computed(() => {
   if (!online.value) return pending.value ? `Offline · ${pending.value}` : 'Offline'
+  // Without an account nothing can sync, so "pending" would be misleading.
+  if (!signedIn.value) return 'Saved on device'
   if (syncing.value) return 'Syncing'
   if (pending.value) return `${pending.value} pending`
-  return signedIn.value ? 'Synced' : 'Online'
+  return 'Synced'
 })
 const icon = computed(() => {
   if (!online.value) return 'mdi-cloud-off-outline'
+  if (!signedIn.value) return 'mdi-cellphone-check'
   if (syncing.value) return 'mdi-sync'
   if (pending.value) return 'mdi-cloud-upload-outline'
   return 'mdi-cloud-check-outline'
 })
-const tone = computed(() => (!online.value ? 'warning' : pending.value || syncing.value ? 'info' : 'success'))
+const tone = computed(() =>
+  !online.value ? 'warning' : signedIn.value && (pending.value || syncing.value) ? 'info' : 'success',
+)
 </script>
 
 <template>

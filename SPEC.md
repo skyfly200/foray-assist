@@ -43,7 +43,10 @@ Optimized for a larger screen and connectivity.
 * Top 2–4 sharpest photos per find are flagged; the user can approve or override.
 * Server-side scoring for larger/faster batches is a later roadmap item (Phase 8), not part of the MVP.
 
-### 3.3 Voice Notes (offline Whisper)
+### 3.3 Voice Notes (offline Whisper, Web Speech fallback)
+* **Mode selection** when Record is pressed: (1) **Whisper** if the model is cached; (2) **Web Speech API** (online) if Whisper isn't usable, labelled "Using online speech recognition — download the voice model for offline use"; (3) **raw audio only** (transcribe later) if neither is available. Web Speech and microphone capture never run simultaneously (Android gives the mic to one consumer).
+* **Only one capture at a time** app-wide; the mic is released on tab hide/page hide. Mic errors are mapped to clear messages (permission, no mic, "another app or tab is using the microphone").
+* **Auto-download on install**: when the app is installed (`appinstalled`, or first launch in standalone mode) and online and not on Data Saver, the default model and the self-hosted WASM runtime (`/ort/`) download automatically; a manual button remains.
 * **On-device Whisper** via Transformers.js (or whisper.cpp WASM), WebGPU when available, for interactive speech-to-text with no network.
 * **Two model options**: `tiny.en` (~40 MB quantized) is the default for a small first download and near-real-time transcription; `base.en` (~80 MB) is an opt-in "high accuracy" download in settings. Sizes are approximate and to be verified when model files are chosen.
 * Raw audio is retained so a find can be re-transcribed with the better model in Review Mode.
@@ -170,6 +173,8 @@ interface SpecimenRecord {
 ---
 
 ## 5a. Implementation status
+**Sync resilience:** permanent sync failures (RLS, schema, 4xx) back off and, after 5 attempts, are *parked* so they no longer block other items; transient failures (network, 5xx) pause the drain. Parked items are listed in Settings with Retry/Discard. **UI direction:** a camera-first, playful design in the spirit of the Seek app (green palette, rounded cards, bottom navigation, micro-animations; light/dark; reduced-motion respected).
+
 M1–M4 are implemented but only partly verified: the offline flow, blur scoring and clustering run in a real browser against the production build (`tests/offline.mjs`), and pure logic has unit tests (`tests/*.test.mjs`). **Not yet verified:** on-device Whisper model download and transcription, Bluetooth printing on real hardware, Google Photos Picker and iNaturalist against live APIs, sync against a real Supabase project. Known deviations: the Google Photos Picker API replaces the time-window Library query (closed to new projects) and returns no GPS; Niimbot printers need a proprietary protocol and are unsupported.
 
 ## 6. Out of scope for MVP

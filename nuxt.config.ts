@@ -14,7 +14,7 @@ export default defineNuxtConfig({
       })
     },
   ],
-  css: ['@mdi/font/css/materialdesignicons.css', '~/assets/css/theme.css'],
+  css: ['@mdi/font/css/materialdesignicons.css', '~/assets/css/theme.css', '~/assets/css/foray.css'],
   app: { pageTransition: { name: 'page', mode: 'out-in' } },
   build: { transpile: ['vuetify'] },
   vite: {
@@ -52,6 +52,18 @@ export default defineNuxtConfig({
       navigateFallback: '/',
       globPatterns: ['**/*.{js,css,html,woff,woff2,ttf,png,svg,ico}'],
       cleanupOutdatedCaches: true,
+      // The self-hosted ONNX/WASM speech runtime (~40 MB) is too big to precache; cache it on first use.
+      runtimeCaching: [
+        {
+          urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/ort/'),
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'ort-runtime',
+            expiration: { maxEntries: 8 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+      ],
     },
     client: { installPrompt: true },
     devOptions: { enabled: false },

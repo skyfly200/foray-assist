@@ -7,7 +7,10 @@
     "build": "nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "prebuild": "node scripts/copy-ort.mjs",
+    "predev": "node scripts/copy-ort.mjs",
+    "pregenerate": "node scripts/copy-ort.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.0",
