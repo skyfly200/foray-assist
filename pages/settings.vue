@@ -57,54 +57,102 @@ async function signIn() {
 async function signOut() {
   try { await sb.auth.signOut() } catch { /* ignore */ }
 }
+
+// Colour-coded status pill for the sync card
+const status = computed(() => {
+  if (!configured) return { text: 'Not configured', color: 'grey', icon: 'mdi-cloud-off-outline' }
+  if (!online.value) return { text: 'Offline', color: 'warning', icon: 'mdi-wifi-off' }
+  if (!signedIn.value) return { text: 'Signed out', color: 'info', icon: 'mdi-account-outline' }
+  if (pending.value > 0) return { text: `${pending.value} waiting`, color: 'secondary', icon: 'mdi-cloud-upload-outline' }
+  return { text: 'Synced', color: 'success', icon: 'mdi-cloud-check-outline' }
+})
 </script>
 
 <template>
-  <v-container class="settings" style="max-width: 640px">
-    <h1 class="text-h5 mb-4">Settings</h1>
-
-    <v-card class="mb-4" variant="tonal">
-      <v-card-title>Account &amp; sync</v-card-title>
-      <v-card-text>
-        <v-alert type="info" variant="text" density="compact" class="mb-3">
-          Foray Assist works fully without signing in. Everything is stored on this device;
-          signing in only adds optional backup and sync across your devices.
-        </v-alert>
-
-        <v-alert v-if="!configured" type="warning" variant="tonal" density="compact" class="mb-3">
-          Cloud sync is not configured in this build.
-        </v-alert>
-
-        <div v-else-if="signedIn" class="mb-3">
-          <div>Signed in<span v-if="accountEmail"> as <strong>{{ accountEmail }}</strong></span></div>
-          <v-btn class="mt-2" variant="outlined" @click="signOut">Sign out</v-btn>
+  <div class="settings fa-page">
+    <header class="fa-hero settings-hero">
+      <div class="d-flex align-center ga-3">
+        <v-avatar color="white" size="48" class="hero-avatar"><v-icon color="primary" size="28">mdi-cog-outline</v-icon></v-avatar>
+        <div>
+          <h1 class="text-h5 font-weight-bold">Settings</h1>
+          <div class="text-body-2 hero-sub">Make Foray Assist yours</div>
         </div>
+      </div>
+    </header>
 
-        <form v-else class="mb-3" @submit.prevent="signIn">
-          <v-text-field v-model="email" type="email" label="Email" autocomplete="email"
-            density="comfortable" hide-details="auto" :error-messages="authError" />
-          <v-btn class="mt-2" type="submit" color="primary" :loading="sending" :disabled="!email">
-            Email me a sign-in link
+    <v-container class="settings-body" style="max-width: 640px">
+      <v-card class="fa-card mb-4 fa-pop-enter-active">
+        <v-card-text>
+          <div class="d-flex align-center ga-3 mb-3">
+            <v-avatar color="primary" variant="tonal" size="40"><v-icon>mdi-cloud-sync-outline</v-icon></v-avatar>
+            <h2 class="text-h6 flex-grow-1">Account &amp; sync</h2>
+            <v-chip class="fa-pill" :color="status.color" variant="tonal" size="small" :prepend-icon="status.icon">
+              <transition name="fa-fade" mode="out-in"><span :key="status.text">{{ status.text }}</span></transition>
+            </v-chip>
+          </div>
+
+          <v-alert type="info" variant="tonal" density="compact" class="mb-3" icon="mdi-leaf">
+            Foray Assist works fully without signing in. Everything is stored on this device;
+            signing in only adds optional backup and sync across your devices.
+          </v-alert>
+
+          <v-alert v-if="!configured" type="warning" variant="tonal" density="compact" class="mb-3">
+            Cloud sync is not configured in this build.
+          </v-alert>
+
+          <div v-else-if="signedIn" class="mb-3">
+            <div>Signed in<span v-if="accountEmail"> as <strong class="break">{{ accountEmail }}</strong></span></div>
+            <v-btn class="mt-2" variant="text" color="medium-emphasis" size="small" @click="signOut">Sign out</v-btn>
+          </div>
+
+          <form v-else class="mb-3" @submit.prevent="signIn">
+            <v-text-field v-model="email" type="email" label="Email" autocomplete="email"
+              density="comfortable" hide-details="auto" :error-messages="authError" />
+            <v-btn class="mt-3" type="submit" color="primary" size="large" block :loading="sending" :disabled="!email">
+              Email me a sign-in link
+            </v-btn>
+            <transition name="fa-fade">
+              <div v-if="message" class="text-success mt-2 d-flex align-center ga-1"><v-icon size="18">mdi-email-check-outline</v-icon>{{ message }}</div>
+            </transition>
+          </form>
+
+          <v-list density="compact" lines="one" bg-color="transparent" class="rounded-lg">
+            <v-list-item title="Connection" :subtitle="online ? 'Online' : 'Offline'" prepend-icon="mdi-wifi" />
+            <v-list-item title="Waiting to sync" :subtitle="String(pending)" prepend-icon="mdi-timer-sand" />
+            <v-list-item v-if="lastError" title="Last error" :subtitle="lastError" prepend-icon="mdi-alert-circle-outline" base-color="error" />
+          </v-list>
+
+          <v-btn class="mt-2" color="primary" variant="tonal" prepend-icon="mdi-sync" :loading="syncing" :disabled="!online || !signedIn || syncing" @click="syncNow()">
+            Sync now
           </v-btn>
-          <div v-if="message" class="text-success mt-2">{{ message }}</div>
-        </form>
+          <div v-if="!signedIn" class="text-caption mt-1">Sign in to enable syncing.</div>
+          <div v-else-if="!online" class="text-caption mt-1">Offline: changes sync when you reconnect.</div>
+        </v-card-text>
+      </v-card>
 
-        <v-list density="compact" lines="one">
-          <v-list-item title="Connection" :subtitle="online ? 'Online' : 'Offline'" />
-          <v-list-item title="Waiting to sync" :subtitle="String(pending)" />
-          <v-list-item v-if="lastError" title="Last error" :subtitle="lastError" />
-        </v-list>
+      <SyncIssues class="mb-4" />
 
-        <v-btn class="mt-2" :loading="syncing" :disabled="!online || !signedIn || syncing" @click="syncNow()">
-          Sync now
-        </v-btn>
-        <div v-if="!signedIn" class="text-caption mt-1">Sign in to enable syncing.</div>
-        <div v-else-if="!online" class="text-caption mt-1">Offline: changes sync when you reconnect.</div>
-      </v-card-text>
-    </v-card>
+      <section class="mb-4">
+        <h2 class="section-title"><v-icon size="20" color="primary">mdi-microphone-outline</v-icon> Voice</h2>
+        <VoiceModelSettings class="mb-4" />
+      </section>
 
-    <VoiceModelSettings class="mb-4" />
-    <GoogleConnectCard class="mb-4" />
-    <InatConnectCard class="mb-4" />
-  </v-container>
+      <section>
+        <h2 class="section-title"><v-icon size="20" color="primary">mdi-link-variant</v-icon> Connections</h2>
+        <GoogleConnectCard class="mb-4" />
+        <InatConnectCard class="mb-4" />
+      </section>
+    </v-container>
+  </div>
 </template>
+
+<style scoped>
+.settings-hero { padding-bottom: 44px; }
+.hero-sub { opacity: .9; }
+.hero-avatar { animation: fa-pop .5s var(--fa-ease); }
+.settings-body { margin-top: -22px; position: relative; z-index: 2; }
+.section-title { display: flex; align-items: center; gap: 8px; font-size: 1.05rem; font-weight: 700; margin: 4px 4px 10px; }
+.break { word-break: break-all; }
+.fa-fade-enter-active, .fa-fade-leave-active { transition: opacity .2s var(--fa-ease), transform .2s var(--fa-ease); }
+.fa-fade-enter-from, .fa-fade-leave-to { opacity: 0; transform: translateY(4px); }
+</style>

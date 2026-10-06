@@ -1,7 +1,9 @@
 <template>
-  <div>
-    <canvas ref="el" class="label-preview" :width="W" :height="H" aria-label="Label preview" />
-    <div class="text-caption text-medium-emphasis mt-1">50 × 30 mm, 1-bit as printed</div>
+  <div class="sticker-wrap">
+    <div class="sticker">
+      <canvas ref="el" class="label-preview" :width="W" :height="H" aria-label="Label preview" />
+    </div>
+    <div class="text-caption text-medium-emphasis mt-3 text-center">50 × 30 mm, 1-bit as printed</div>
   </div>
 </template>
 
@@ -26,5 +28,13 @@ watch(() => props.specimen, draw, { deep: true })
 </script>
 
 <style scoped>
-.label-preview { width: 100%; max-width: 400px; border: 1px solid rgba(128,128,128,.5); background: #fff; image-rendering: pixelated; }
+.sticker-wrap { padding: 12px 8px 4px; }
+.sticker {
+  width: fit-content; max-width: 100%; margin: 0 auto; padding: 8px; background: #fff;
+  border-radius: 14px; transform: rotate(-2deg); box-shadow: var(--fa-shadow-lift);
+  transition: transform .3s var(--fa-ease);
+  animation: fa-pop .4s var(--fa-ease);
+}
+.sticker:hover { transform: rotate(0deg) scale(1.02); }
+.label-preview { display: block; width: 100%; max-width: 360px; border-radius: 8px; background: #fff; image-rendering: pixelated; }
 </style>

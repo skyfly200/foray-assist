@@ -1,0 +1,36 @@
+/* Foray screen extras (register in nuxt.config css after theme.css). Colours come from Vuetify theme vars only. */
+
+/* CSS-only confetti burst: <span class="fa-burst"><i v-for="n in 10" :style="{'--i': n}"/></span> */
+.fa-burst { position: absolute; left: 50%; top: 50%; width: 0; height: 0; pointer-events: none; z-index: 5; }
+.fa-burst > i { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; border-radius: 3px; opacity: 0;
+  background: rgb(var(--v-theme-primary)); animation: fa-burst .8s var(--fa-ease) forwards; }
+.fa-burst > i:nth-child(3n+1) { background: rgb(var(--v-theme-secondary)); }
+.fa-burst > i:nth-child(3n+2) { background: rgb(var(--v-theme-accent)); border-radius: 50%; }
+.fa-burst > i:nth-child(4n) { background: rgb(var(--v-theme-info)); width: 7px; height: 14px; }
+@keyframes fa-burst {
+  0% { opacity: 1; transform: rotate(calc(var(--i) * 36deg)) translateY(0) scale(.4); }
+  100% { opacity: 0; transform: rotate(calc(var(--i) * 36deg)) translateY(calc(-62px - (var(--i) * 4px))) rotate(200deg) scale(1); }
+}
+
+/* Shimmer skeleton */
+.fa-shimmer { position: relative; overflow: hidden; background: rgba(var(--v-theme-on-surface), .08); }
+.fa-shimmer::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(var(--v-theme-on-surface), .10), transparent); animation: fa-shimmer 1.3s infinite; }
+@keyframes fa-shimmer { to { transform: translateX(100%); } }
+
+/* Check bubble pop */
+.fa-check-pop { animation: fa-check-pop .35s var(--fa-ease); }
+@keyframes fa-check-pop { 0% { transform: scale(0); } 60% { transform: scale(1.3); } 100% { transform: scale(1); } }
+
+/* Success celebration */
+.fa-celebrate { animation: fa-celebrate .6s var(--fa-ease); }
+@keyframes fa-celebrate { 0% { transform: scale(.8); } 50% { transform: scale(1.06); } 100% { transform: scale(1); } }
+
+/* Soft idle pulse for the big camera button */
+.fa-breathe { animation: fa-breathe 2.6s ease-in-out infinite; }
+@keyframes fa-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fa-burst { display: none; }
+  .fa-breathe, .fa-shimmer::after { animation: none !important; }
+}

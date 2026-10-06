@@ -185,93 +185,175 @@ class Cap extends AudioWorkletProcessor {
 registerProcessor('forray-capture', Cap)
 `
 
+export type MicErrorKind = 'permission' | 'no-mic' | 'in-use' | 'unsupported' | 'busy' | 'other'
+
+/** Map a getUserMedia / setup error to a friendly message. Pure. */
+export function describeMicError(e: any): { kind: MicErrorKind; message: string } {
+  const name = String(e?.name ?? '')
+  if (name === 'NotAllowedError' || name === 'SecurityError' || name === 'PermissionDeniedError')
+    return { kind: 'permission', message: 'Microphone permission was denied. Allow it in your browser settings to record.' }
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError')
+    return { kind: 'no-mic', message: 'No microphone was found on this device.' }
+  if (name === 'NotReadableError' || name === 'TrackStartError' || name === 'AbortError' || name === 'OverconstrainedError')
+    return { kind: 'in-use', message: 'Another app or browser tab is using the microphone. Close it and try again.' }
+  if (name === 'RecorderUnsupported')
+    return { kind: 'unsupported', message: 'This browser cannot record audio.' }
+  if (name === 'RecorderBusy')
+    return { kind: 'busy', message: 'Another recording is already starting. Try again in a moment.' }
+  return { kind: 'other', message: `Could not start the microphone: ${e?.message ?? e}` }
+}
+
+/** Errors worth one retry with unconstrained `{audio:true}`. */
+export function isRetryableMicError(e: any): boolean {
+  const n = String(e?.name ?? '')
+  return n === 'NotReadableError' || n === 'OverconstrainedError' || n === 'AbortError' || n === 'TrackStartError'
+}
+
+/** Suffix of the onnxruntime-web WASM files transformers.js uses ('.asyncify', or '' for Safari < 26 without WebGPU). */
+export function ortVariantSuffix(ua: string = '', hasGpu = false): string {
+  const m = /Version\/(\d+)[\d.]*.*Safari/.exec(ua)
+  const safariBelow26 = !!m && !/Chrome|Chromium|CriOS|Android/.test(ua) && parseInt(m[1], 10) < 26
+  return safariBelow26 && !hasGpu ? '' : '.asyncify'
+}
+
 export interface RecorderHandle {
-  /** Stop capture; resolves with the full raw audio Blob (empty Blob if MediaRecorder unsupported). */
+  /** Stop capture; resolves with the full raw audio Blob (empty Blob if MediaRecorder unsupported). Safe to call twice. */
   stop(): Promise<{ blob: Blob; mimeType: string; durationMs: number }>
   /** 0..1 recent input level for a meter. */
   level(): number
 }
 
+export type InterruptReason = 'replaced' | 'hidden' | 'ended'
+
 export interface StartRecorderOptions {
   /** Called with 16 kHz mono Float32 frames (~every 128-4096 samples) as they arrive. */
   onSamples: (samples: Float32Array) => void
+  /**
+   * Called when the capture was ended by something other than stop(): another
+   * recorder started ('replaced'), the page was hidden ('hidden'), or the OS
+   * took the mic ('ended'). The mic is already released; stop() still resolves
+   * with the audio captured so far.
+   */
+  onInterrupted?: (reason: InterruptReason) => void
+}
+
+// App-wide singleton: only one capture may exist at a time (Android gives the mic to one consumer).
+let activeCapture: { release: (reason: InterruptReason) => void } | null = null
+let starting = false
+
+/** Stop whatever capture is active (e.g. before handing the mic to SpeechRecognition). */
+export function releaseActiveRecorder(reason: InterruptReason = 'replaced'): void {
+  activeCapture?.release(reason)
+}
+export function isRecorderActive(): boolean {
+  return !!activeCapture || starting
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+async function openMicStream(): Promise<MediaStream> {
+  const md = navigator.mediaDevices
+  if (!md?.getUserMedia) throw Object.assign(new Error('getUserMedia unavailable'), { name: 'RecorderUnsupported' })
+  try {
+    return await md.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    })
+  } catch (e) {
+    if (!isRetryableMicError(e)) throw e
+    await sleep(400)
+    return await md.getUserMedia({ audio: true })
+  }
 }
 
 /**
  * Open the mic. Streams 16 kHz mono PCM to onSamples (AudioWorklet, falling back
  * to ScriptProcessor) while a MediaRecorder keeps the full raw audio.
- * Throws if permission is denied / no mic.
+ * Throws (use describeMicError) if permission is denied / no mic / mic busy.
+ * Any previous capture in this page is stopped first; if setup fails after the
+ * mic opened, every track and the AudioContext are released.
  */
 export async function startRecorder(opts: StartRecorderOptions): Promise<RecorderHandle> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-  })
-  const Ctx: typeof AudioContext = (globalThis as any).AudioContext || (globalThis as any).webkitAudioContext
-  const ctx = new Ctx()
-  if (ctx.state === 'suspended') await ctx.resume().catch(() => {})
-  const src = ctx.createMediaStreamSource(stream)
-  const srcRate = ctx.sampleRate
-  let lvl = 0
-  const deliver = (frame: Float32Array) => {
-    lvl = Math.max(rms(frame) * 4, lvl * 0.8)
-    opts.onSamples(resample(frame, srcRate, WHISPER_RATE))
+  if (starting) throw Object.assign(new Error('already starting'), { name: 'RecorderBusy' })
+  starting = true
+  // Only one capture at a time: release the previous one and let the OS free the device.
+  if (activeCapture) {
+    activeCapture.release('replaced')
+    await sleep(150)
   }
-
+  let stream: MediaStream | null = null
+  let ctx: AudioContext | null = null
   let cleanup: () => void = () => {}
   try {
-    if (!ctx.audioWorklet) throw new Error('no worklet')
-    const url = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'text/javascript' }))
+    stream = await openMicStream()
+    const Ctx: typeof AudioContext = (globalThis as any).AudioContext || (globalThis as any).webkitAudioContext
+    ctx = new Ctx()
+    if (ctx.state === 'suspended') await ctx.resume().catch(() => {})
+    const src = ctx.createMediaStreamSource(stream)
+    const srcRate = ctx.sampleRate
+    let lvl = 0
+    const deliver = (frame: Float32Array) => {
+      lvl = Math.max(rms(frame) * 4, lvl * 0.8)
+      opts.onSamples(resample(frame, srcRate, WHISPER_RATE))
+    }
+
     try {
-      await ctx.audioWorklet.addModule(url)
-    } finally {
-      URL.revokeObjectURL(url)
+      if (!ctx.audioWorklet) throw new Error('no worklet')
+      const url = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'text/javascript' }))
+      try {
+        await ctx.audioWorklet.addModule(url)
+      } finally {
+        URL.revokeObjectURL(url)
+      }
+      const node = new AudioWorkletNode(ctx, 'forray-capture')
+      node.port.onmessage = (e) => deliver(e.data as Float32Array)
+      const mute = ctx.createGain()
+      mute.gain.value = 0
+      src.connect(node)
+      node.connect(mute).connect(ctx.destination)
+      cleanup = () => {
+        node.port.onmessage = null
+        try { src.disconnect() } catch { /* ignore */ }
+        try { node.disconnect() } catch { /* ignore */ }
+      }
+    } catch {
+      const node = ctx.createScriptProcessor(4096, 1, 1)
+      node.onaudioprocess = (e) => deliver(new Float32Array(e.inputBuffer.getChannelData(0)))
+      const mute = ctx.createGain()
+      mute.gain.value = 0
+      src.connect(node)
+      node.connect(mute).connect(ctx.destination)
+      cleanup = () => {
+        node.onaudioprocess = null
+        try { src.disconnect() } catch { /* ignore */ }
+        try { node.disconnect() } catch { /* ignore */ }
+      }
     }
-    const node = new AudioWorkletNode(ctx, 'forray-capture')
-    node.port.onmessage = (e) => deliver(e.data as Float32Array)
-    const mute = ctx.createGain()
-    mute.gain.value = 0
-    src.connect(node)
-    node.connect(mute).connect(ctx.destination)
-    cleanup = () => {
-      node.port.onmessage = null
-      src.disconnect()
-      node.disconnect()
-    }
-  } catch {
-    const node = ctx.createScriptProcessor(4096, 1, 1)
-    node.onaudioprocess = (e) => deliver(new Float32Array(e.inputBuffer.getChannelData(0)))
-    const mute = ctx.createGain()
-    mute.gain.value = 0
-    src.connect(node)
-    node.connect(mute).connect(ctx.destination)
-    cleanup = () => {
-      node.onaudioprocess = null
-      src.disconnect()
-      node.disconnect()
-    }
-  }
 
-  let rec: MediaRecorder | null = null
-  const parts: BlobPart[] = []
-  let mimeType = ''
-  try {
-    rec = new MediaRecorder(stream)
-    mimeType = rec.mimeType
-    rec.ondataavailable = (e) => e.data.size && parts.push(e.data)
-    rec.start(1000)
-  } catch {
-    rec = null
-  }
-  const t0 = Date.now()
+    let rec: MediaRecorder | null = null
+    const parts: BlobPart[] = []
+    let mimeType = ''
+    try {
+      rec = new MediaRecorder(stream)
+      mimeType = rec.mimeType
+      rec.ondataavailable = (e) => e.data.size && parts.push(e.data)
+      rec.start(1000)
+    } catch {
+      rec = null
+    }
+    const t0 = Date.now()
+    const s = stream
+    const c = ctx
 
-  return {
-    level: () => lvl,
-    stop: () =>
-      new Promise((resolve) => {
+    let result: Promise<{ blob: Blob; mimeType: string; durationMs: number }> | null = null
+    const finalize = () => {
+      if (result) return result
+      removeListeners()
+      if (activeCapture === me) activeCapture = null
+      result = new Promise((resolve) => {
         const finish = () => {
           cleanup()
-          stream.getTracks().forEach((t) => t.stop())
-          ctx.close().catch(() => {})
+          s.getTracks().forEach((t) => t.stop())
+          c.close().catch(() => {})
           resolve({
             blob: new Blob(parts, { type: mimeType || 'audio/webm' }),
             mimeType: mimeType || 'audio/webm',
@@ -280,8 +362,35 @@ export async function startRecorder(opts: StartRecorderOptions): Promise<Recorde
         }
         if (rec && rec.state !== 'inactive') {
           rec.onstop = finish
-          rec.stop()
+          try { rec.stop() } catch { finish() }
         } else finish()
-      }),
+      })
+      return result
+    }
+    const interrupt = (reason: InterruptReason) => {
+      if (result) return
+      finalize()
+      try { opts.onInterrupted?.(reason) } catch { /* ignore */ }
+    }
+    const onVis = () => { if (document.visibilityState === 'hidden') interrupt('hidden') }
+    const onHide = () => interrupt('hidden')
+    const removeListeners = () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('pagehide', onHide)
+    }
+    const me = { release: interrupt }
+    document.addEventListener('visibilitychange', onVis)
+    window.addEventListener('pagehide', onHide)
+    s.getAudioTracks().forEach((t) => t.addEventListener('ended', () => interrupt('ended')))
+    activeCapture = me
+
+    return { level: () => lvl, stop: () => finalize() }
+  } catch (e) {
+    try { cleanup() } catch { /* ignore */ }
+    stream?.getTracks().forEach((t) => t.stop())
+    ctx?.close().catch(() => {})
+    throw e
+  } finally {
+    starting = false
   }
 }
