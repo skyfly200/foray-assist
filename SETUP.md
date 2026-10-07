@@ -63,12 +63,14 @@ You already created the project. Verify it deploys.
    2. `0002_sync_schema.sql`
    3. `0003_integrations.sql`
    4. `0004_unique_specimen_id.sql`
-3. Check **Table Editor**: you should see `forays`, `specimens`, `photos`, `voice_notes`, `integration_tokens`. `integration_tokens` should show RLS enabled with no policies. That's intentional, and only the server can read it.
+   5. `0005_id_sets.sql`
+3. Check **Table Editor**: you should see `forays`, `specimens`, `photos`, `voice_notes`, `integration_tokens`, `id_networks`, `id_sets`. `integration_tokens` should show RLS enabled with no policies. That's intentional, and only the server can read it. `id_networks` and `id_sets` let you read your own rows only; they are written solely by the `claim_id_sets` function.
 4. Check **Storage**: there should be a private bucket named `foray-media`.
 
 (If you prefer the CLI: install the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started), run `supabase link`, then `supabase db push`.)
 
 ### 2.4 Allow sign-in links to return to your app
+Each person signs in **once**, at first launch, with a verified email address. That sign-in is what lets the server issue them their own specimen ID range (the `claim_id_sets` function refuses accounts whose email is not verified). After that the app works offline and only needs a connection to top up its ID stock.
 1. Go to **Authentication → URL Configuration**.
 2. Set **Site URL** to your production URL (e.g. `https://forray-assist.vercel.app`).
 3. Under **Redirect URLs** add `https://forray-assist.vercel.app/settings` (your URL + `/settings`). For local development also add `http://localhost:3000/settings`.
@@ -76,6 +78,15 @@ You already created the project. Verify it deploys.
 
 ### 2.5 Sign-in emails
 Sign-in uses an emailed magic link. Supabase's built-in email sender is heavily rate-limited (a few emails per hour), which is fine for one person trying things out. For regular use, set your own SMTP under **Authentication → SMTP Settings** ([docs](https://supabase.com/docs/guides/auth/auth-smtp)).
+
+Make the email contain a 6-digit code as well as the link. A link opens in whatever browser or app handles email, which is often not the one where the app is installed (for example an in-app mail browser instead of the installed PWA). The app lets people type the code instead, so sign-in works either way.
+1. Go to **Authentication → Email Templates → Magic Link** (also edit **Confirm signup**, which new users receive).
+2. Add the code next to the link, for example:
+   ```html
+   <p><a href="{{ .ConfirmationURL }}">Sign in</a></p>
+   <p>Or enter this code in the app: <strong>{{ .Token }}</strong></p>
+   ```
+3. Save. Under **Authentication → Providers → Email** the code length is 6 by default.
 
 ### 2.6 Test it
 Open your deployed app → **Settings** → enter your email → **Send link** → open the email on the same device → you should land back on Settings showing signed in, and the sync pill should turn green after a moment. In Supabase **Table Editor → forays** you should see your forays appear.

@@ -19,10 +19,10 @@ export const ID_PROBLEM_HELP: Record<string, { label: string; help: string }> = 
   malformed: { label: 'Not an ID', help: 'The code has the wrong length or characters, so it is not a Foray Assist ID. It may have been typed or imported by hand.' },
   bad_check: { label: 'Typo in ID', help: 'The last character does not match the rest, so one or more characters were changed after the ID was issued.' },
   duplicate: { label: 'Used twice', help: 'Two or more finds on this device carry the same ID. Each find needs its own.' },
-  not_issued: { label: 'Not issued', help: 'The server has no record of issuing this ID to you.' },
-  unknown_network: { label: 'Unknown network', help: 'This ID belongs to a network the server does not know.' },
-  not_yours: { label: 'Belongs to someone else', help: 'The server issued this ID to a different account.' },
-  duplicate_server: { label: 'Used twice (cloud)', help: 'The cloud already holds another find with this ID.' },
+  // Returned by the server's verify_ids function (supabase/migrations/0005_id_sets.sql).
+  'bad format': { label: 'Not an ID', help: 'The server does not recognise this as a Foray Assist ID (wrong length, characters or class).' },
+  'bad check character': { label: 'Typo in ID', help: 'The last character does not match the rest, so one or more characters were changed after the ID was issued.' },
+  'not issued to you': { label: 'Not issued to you', help: 'The server has no record of issuing this ID to your account. It may belong to another account or have been typed in by hand.' },
 }
 
 export async function verifyIds(): Promise<VerifyResult> {

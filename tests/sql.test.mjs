@@ -73,7 +73,8 @@ test('SQL fa_id_valid agrees with TS isValidId (valid IDs and single-char mutati
 
 test('b32 helpers round trip', async () => {
   const r = await db.query(`select fa_encode_b32(1023, 2) a, fa_decode_b32('YX') b, fa_decode_b32('0A') c`)
-  assert.equal(r.rows[0].a, 'ZZ'.replace(/Z/g, ID_ALPHABET[31 - 0] ) === 'ZZ' ? r.rows[0].a : r.rows[0].a)
+  assert.equal(r.rows[0].a, '99')
+  assert.equal(Number(r.rows[0].b), 725)
   assert.equal(Number((await db.query(`select fa_decode_b32(fa_encode_b32(1023,2)) n`)).rows[0].n), 1023)
   assert.equal(r.rows[0].c, null)
   await assert.rejects(db.query('select fa_encode_b32(1024, 2)'))
@@ -146,7 +147,8 @@ test('rate limit: 64 sets per rolling 24h', async () => {
 })
 
 test('trigger: accepts pending and own IDs; rejects foreign, bad check, unissued, non-personal', async () => {
-  const [mine] = await claim(U1, 1) // may be rate limited? backdate first
+  await db.exec(`update id_sets set claimed_at = now() - interval '2 days'`)
+  const [mine] = await claim(U1, 1)
   await as(U1)
   const own = formatId(mine.network, mine.set_no, 5)
   await insertSpec(U1, '')
