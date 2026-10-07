@@ -1,8 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { wrapText, packLuminance, locationText, qrPayload, buildLabelModel, bitmapToRgba, rgbaToBitmap } from '../utils/label.ts'
+import { formatId, displayId, isPendingId } from '../utils/idCode.ts'
 import { encodeEscPos } from '../utils/escpos.ts'
 import { encodeTspl } from '../utils/tspl.ts'
+
+const ID = formatId('B7QM', 5, 42)
 
 test('wrapText wraps, hard-splits and truncates', () => {
   assert.deepEqual(wrapText('aaa bbb ccc', 7), ['aaa bbb', 'ccc'])
@@ -36,16 +39,19 @@ test('location privacy', () => {
 })
 
 test('qr payload', () => {
-  assert.equal(qrPayload({ specimenId: 'F-1' }), 'foray://specimen/F-1')
-  assert.equal(qrPayload({ specimenId: 'F-1', iNatObservationId: 42 }), 'https://www.inaturalist.org/observations/42')
+  assert.equal(qrPayload({ specimenId: ID }), `foray://specimen/${ID}`)
+  assert.equal(qrPayload({ specimenId: ID, iNatObservationId: 42 }), 'https://www.inaturalist.org/observations/42')
 })
 
 test('buildLabelModel', () => {
-  const m = buildLabelModel({ id: 'u', specimenId: 'F-1', forayId: 'f', timestamp: '2026-10-05T12:00:00Z', geoprivacy: 'private', latitude: 1, longitude: 2,
+  const m = buildLabelModel({ id: 'u', specimenId: ID, forayId: 'f', timestamp: '2026-10-05T12:00:00Z', geoprivacy: 'private', latitude: 1, longitude: 2,
     fieldNotes: { speciesGuess: 'Amanita muscaria', substrate: 'soil', notes: 'red cap white spots' }, updatedAt: '' })
   assert.equal(m.location, '')
   assert.deepEqual(m.substrate, ['Sub: soil'])
-  assert.equal(m.qr, 'foray://specimen/F-1')
+  assert.equal(m.qr, `foray://specimen/${ID}`)
+  assert.equal(m.id, displayId(ID))
+  assert.match(m.id, /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]$/)
+  assert.equal(isPendingId(''), true)
 })
 
 const bmp = { width: 16, height: 2, bytesPerRow: 2, data: new Uint8Array([0xff, 0x00, 0x0f, 0xf0]) }

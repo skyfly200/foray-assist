@@ -15,7 +15,9 @@ test('maps a find to an observation payload', () => {
   assert.equal(o.latitude, 45.1); assert.equal(o.longitude, -122.5)
   assert.equal(o.geoprivacy, 'open'); assert.equal(o.species_guess, 'Cantharellus')
   assert.equal(o.positional_accuracy, 12)
-  assert.match(o.description, /Fruity odor[\s\S]*Substrate: soil[\s\S]*Host tree: Douglas fir[\s\S]*Specimen ID: ' + displayId(find.specimenId).replace(/-/g, '\\-') + '/)
+  assert.match(o.description, /Fruity odor[\s\S]*Substrate: soil[\s\S]*Host tree: Douglas fir[\s\S]*Specimen ID: /)
+  assert.ok(o.description.endsWith('Specimen ID: ' + displayId(find.specimenId)))
+  assert.match(displayId(find.specimenId), /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]$/)
 })
 test('omits coords/accuracy when missing; defaults geoprivacy to obscured', () => {
   const { observation: o } = buildObservationPayload({ timestamp: find.timestamp, positionalAccuracy: 5, geoprivacy: 'bogus' })
