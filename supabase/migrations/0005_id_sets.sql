@@ -15,11 +15,14 @@ create unique index if not exists specimens_specimen_id_key
 create sequence if not exists public.id_network_seq minvalue 0 maxvalue 262143 start 0 no cycle;
 
 create table if not exists public.id_networks (
-  net_no int primary key default nextval('public.id_network_seq') check (net_no between 0 and 262143),
+  net_no int primary key check (net_no between 0 and 262143),
   code text not null unique,
   user_id uuid not null references auth.users (id) on delete cascade,
   created_at timestamptz not null default now()
 );
+-- net_no is set only by claim_id_sets, which draws one sequence value for both net_no and
+-- code. (An earlier version also had a column default, which burned a second value per network.)
+alter table public.id_networks alter column net_no drop default;
 create index if not exists id_networks_user_idx on public.id_networks (user_id, net_no);
 
 create table if not exists public.id_sets (
@@ -136,6 +139,7 @@ declare
   v_net text;
   v_next int;
   v_claimed int;
+  v_no bigint;
 begin
   if v_uid is null
      or not exists (select 1 from auth.users u where u.id = v_uid and u.email_confirmed_at is not null) then
@@ -157,8 +161,9 @@ begin
 
   while v_left > 0 loop
     if v_net is null or v_next > 1023 then
-      insert into public.id_networks (code, user_id)
-        values (public.fa_network_code(nextval('public.id_network_seq')), v_uid)
+      v_no := nextval('public.id_network_seq');
+      insert into public.id_networks (net_no, code, user_id)
+        values (v_no, public.fa_network_code(v_no), v_uid)
         returning code into v_net;
       v_next := 0;
     end if;
