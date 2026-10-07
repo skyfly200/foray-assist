@@ -178,7 +178,7 @@ interface SpecimenRecord {
 M1–M4 are implemented but only partly verified: the offline flow, blur scoring and clustering run in a real browser against the production build (`tests/offline.mjs`), and pure logic has unit tests (`tests/*.test.mjs`). **Not yet verified:** on-device Whisper model download and transcription, Bluetooth printing on real hardware, Google Photos Picker and iNaturalist against live APIs, sync against a real Supabase project. Known deviations: the Google Photos Picker API replaces the time-window Library query (closed to new projects) and returns no GPS; Niimbot printers need a proprietary protocol and are unsupported.
 
 ## 6. Out of scope for MVP
-Voice-guided collection (Roadmap Phase 3), advanced vision, ZK/federated learning, tokens, GBIF export, and server-side image processing (Phase 10). Printable specimen forms, ID barcodes and NFC tags are Phase 6; preprinted ID code sheets and pre-programmed NFC tags are Phase 7; Bluetooth observation sharing is Phase 12.
+Voice-guided collection (Roadmap Phase 3), advanced vision, ZK/federated learning, tokens, GBIF export, and server-side image processing (Phase 10). Printable specimen forms, ID barcodes and NFC tags are Phase 6; preprinted ID code sheets and pre-programmed NFC tags are Phase 7; shared forays and societies are Phase 12; Bluetooth mesh sync and nearby find alerts are Phase 13.
 
 ---
 

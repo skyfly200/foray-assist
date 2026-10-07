@@ -75,7 +75,7 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 *Goal: Let collectors label specimens before a record exists (no printer needed in the field) and tie the physical labels to digital records afterwards.*
 
 * **Reserved Code Blocks**:
-  * Generate sheets or rolls of unique, pre-allocated IDs (with check characters) from a block reserved for this user or device, printed in advance on adhesive label sheets from the app (PDF) or over BLE.
+  * Generate sheets or rolls of unique, pre-allocated IDs (with check characters) from a **set** reserved for this user (a set is 1,024 IDs; a sheet is a range inside it), printed in advance on adhesive label sheets from the app (PDF) or over BLE.
   * Multiple identical stickers per code, for the bag, the photo card and the notebook.
 * **Associating Codes with Records**:
   * Scan or type a preprinted code to attach it to a find, or create a find from a scanned code. Codes can be used before the record exists and reconciled later.
@@ -131,12 +131,31 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
-## Phase 12: Bluetooth Observation Share
-*Goal: Let foragers hand observations to each other in the field with no signal and no cloud account, for example sharing a find with a companion or a mentor.*
+## Phase 12: Shared Forays & Societies (Online)
+*Goal: Let people share a foray and see everyone's observations in one set, and let societies such as the Front Range Mycological Society (FRMS) and the Colorado Mycological Society (CMS) run events and issue their own IDs.*
 
-* **Nearby Sharing of Observations**:
-  * Send a find (photos, notes, location according to its geoprivacy, voice notes and Specimen ID) to a nearby device over Bluetooth, and import it on the other side as a new record with its provenance (collector code, original ID) kept. Imports are previewed and approved by the receiver, deduplicated by Specimen ID, and never overwrite local records.
-* **Feasibility and Approach**:
-  * Browsers can connect to Bluetooth devices but cannot advertise or accept connections as one, so direct phone-to-phone Bluetooth needs the native wrapper from Phase 11 (a BLE peripheral/central plugin) or a platform nearby-share mechanism. Until then, the share bundle (JSON plus photos) can travel through the Web Share API (which can use Android Nearby Share) or a file.
+* **Shared Forays**:
+  * A shared foray is a grouping record with a short join code or QR, separate from the observations themselves. Members join with the code; each observation points to one or more forays. Everyone's finds appear together in one combined set, live while anyone has signal (Supabase Realtime), with access limited to members by row-level security.
+  * IDs always identify the **author** (their network and set), never the foray, so two members can never produce the same ID, even offline in the same woods. Nobody edits anyone else's record; other members add comments, ID suggestions and confirmations as separate records.
+* **Societies**:
+  * A society (FRMS, CMS, and others) is an organisation with members, roles (officers, foray leaders) and its own **society network** in the `U`–`Z` ID class, used for voucher/collection numbers and preprinted sheets issued under the society's name. Members' own finds keep their personal network.
+  * Society foray events: leaders create a shared foray, members join by code, and the society gets a combined record afterwards (exportable as Darwin Core, see Phase 9).
 * **Privacy**:
-  * Exact coordinates are shared only if the sender chooses; obscured or private finds stay obscured. Share bundles can be signed with the sender's collector code so the origin is clear, and nothing leaves the device without the sender's tap.
+  * Members only see locations as precisely as each author's per-find setting allows; leaving a foray removes live access but not past contributions the author chose to share.
+
+---
+
+## Phase 13: Nearby Mesh Sync & Find Alerts (Bluetooth, Native)
+*Goal: Keep a crowd of devices in sync in real time with no signal, and tell nearby foragers about finds, using the shared foray and ID space from Phase 12.*
+
+* **Why native**: browsers can connect to Bluetooth devices but cannot advertise or accept connections, and standard Bluetooth Mesh is built for tiny control messages, not records and photos. This phase needs the native wrapper from Phase 11 with BLE peripheral/central plugins. iOS restricts background Bluetooth, so Android comes first.
+* **Three tiers, opportunistic and store-and-forward**:
+  1. **Nearby alerts**: tiny messages of about 100 bytes sent over Bluetooth advertising (the ID, a coarse location cell, a species code, a timestamp), for example "3 finds within 200 m".
+  2. **Record sync**: when two phones meet, they exchange the records the other is missing (a few KB of metadata) and relay onward as people move, so a crowd converges without anyone having signal.
+  3. **Photos**: bulk transfer over Nearby Connections / Wi-Fi Direct when peers agree, otherwise wait for the cloud.
+* **Conflict-free by design**: every record has a globally unique author-based ID and is changed only by its author, so merging devices needs no coordination; comments and suggestions are separate records.
+* **Privacy and abuse**:
+  * Alerts are coarse by default, opt-in, limited to members of the same shared foray, and encrypted with a key shared through the join code (non-members see noise). They respect each find's location setting and suppress sensitive species.
+  * Advertised records are signed by the author's device key so strangers can't spoof finds.
+* **Share a single find**: send one observation (photos, notes, voice notes, ID) to a nearby device, previewed and approved by the receiver, deduplicated by ID, never overwriting local records. Until the native wrapper exists this can travel through the Web Share API (Android Nearby Share) or a file.
+* **Costs to manage**: continuous scanning and advertising drain the battery, so scanning is duty-cycled and only active during a foray.
