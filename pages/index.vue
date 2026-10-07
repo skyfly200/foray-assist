@@ -176,6 +176,8 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
       <div class="fa-home__mode fa-mobile-only"><ModeToggle /></div>
     </section>
 
+    <OnboardingCard />
+
     <h2 v-if="forays.length" class="fa-home__section">Your forays</h2>
 
     <TransitionGroup v-if="forays.length" name="fa-list" tag="div" class="fa-home__list">

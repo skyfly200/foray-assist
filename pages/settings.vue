@@ -16,6 +16,9 @@ const configured = (() => {
 const email = ref('')
 const sending = ref(false)
 const message = ref('')
+const code = ref('')
+const verifying = ref(false)
+const codeError = ref('')
 const authError = ref('')
 const accountEmail = ref('')
 const lastError = ref('')
@@ -45,13 +48,27 @@ async function signIn() {
   try {
     const { error } = await sb.auth.signInWithOtp({
       email: email.value,
-      options: { emailRedirectTo: window.location.origin + '/settings' },
+      options: { shouldCreateUser: true, emailRedirectTo: window.location.origin + '/settings' },
     })
     if (error) authError.value = error.message
-    else message.value = 'Check your email for the sign-in link.'
+    else message.value = 'Check your email: tap the link, or enter the 6-digit code below.'
   } catch (e: any) {
     authError.value = e?.message ?? 'Sign-in failed'
   } finally { sending.value = false }
+}
+
+async function verifyCode() {
+  codeError.value = ''
+  if (!configured || !email.value) return
+  if (!/^\d{6}$/.test(code.value.trim())) { codeError.value = 'Enter the 6-digit code from the email.'; return }
+  verifying.value = true
+  try {
+    const { error } = await sb.auth.verifyOtp({ email: email.value, token: code.value.trim(), type: 'email' })
+    if (error) codeError.value = error.message
+    else { code.value = ''; message.value = '' }
+  } catch (e: any) {
+    codeError.value = e?.message ?? 'Verification failed'
+  } finally { verifying.value = false }
 }
 
 async function signOut() {
@@ -94,8 +111,9 @@ const status = computed(() => {
           </div>
 
           <v-alert type="info" variant="tonal" density="compact" class="mb-3" icon="mdi-leaf">
-            Foray Assist works fully without signing in. Everything is stored on this device;
-            signing in only adds optional backup and sync across your devices.
+            Sign in once, with internet, using a verified email. The server uses it to issue your personal
+            ID block for specimen IDs. After that everything works offline, and signing in also backs up and
+            syncs your finds across devices.
           </v-alert>
 
           <v-alert v-if="!configured" type="warning" variant="tonal" density="compact" class="mb-3">
@@ -118,6 +136,17 @@ const status = computed(() => {
             </transition>
           </form>
 
+          <form v-if="configured && !signedIn" class="mb-3" @submit.prevent="verifyCode">
+            <div class="text-body-2 text-medium-emphasis mb-2">
+              Link opened in a different browser? Enter the 6-digit code from the same email instead.
+            </div>
+            <v-text-field v-model="code" label="6-digit code" inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+              density="comfortable" hide-details="auto" :error-messages="codeError" />
+            <v-btn class="mt-3" type="submit" color="primary" variant="tonal" block :loading="verifying" :disabled="!email || code.length < 6">
+              Verify code
+            </v-btn>
+          </form>
+
           <v-list density="compact" lines="one" bg-color="transparent" class="rounded-lg">
             <v-list-item title="Connection" :subtitle="online ? 'Online' : 'Offline'" prepend-icon="mdi-wifi" />
             <v-list-item title="Waiting to sync" :subtitle="String(pending)" prepend-icon="mdi-timer-sand" />
@@ -127,10 +156,12 @@ const status = computed(() => {
           <v-btn class="mt-2" color="primary" variant="tonal" prepend-icon="mdi-sync" :loading="syncing" :disabled="!online || !signedIn || syncing" @click="syncNow()">
             Sync now
           </v-btn>
-          <div v-if="!signedIn" class="text-caption mt-1">Sign in to enable syncing.</div>
+          <div v-if="!signedIn" class="text-caption mt-1">Sign in (verified email) to get your ID block and enable syncing.</div>
           <div v-else-if="!online" class="text-caption mt-1">Offline: changes sync when you reconnect.</div>
         </v-card-text>
       </v-card>
+
+      <IdStatusCard class="mb-4" />
 
       <SyncIssues class="mb-4" />
       </div>
