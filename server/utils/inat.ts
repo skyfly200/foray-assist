@@ -5,6 +5,8 @@
 // Server helpers below rely on Nitro auto-imports (auth.ts, h3) and are only
 // called from routes.
 
+import { displayId } from '../../utils/idCode.ts'
+
 export const INAT_SITE = 'https://www.inaturalist.org'
 export const INAT_API = 'https://api.inaturalist.org/v1'
 
@@ -36,7 +38,7 @@ export function composeDescription(f: FindInput): string {
   ]
   const fl = facts.filter(([, v]) => v?.trim()).map(([k, v]) => `${k}: ${v!.trim()}`)
   if (fl.length) lines.push(fl.join('\n'))
-  if (f.specimenId) lines.push(`Specimen ID: ${f.specimenId}`)
+  if (f.specimenId) lines.push(`Specimen ID: ${displayId(f.specimenId)}`)
   return lines.join('\n\n')
 }
 

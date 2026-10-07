@@ -1,4 +1,5 @@
 import type { Geoprivacy } from '~/utils/db'
+import { isPendingId } from '~/utils/idCode'
 // iNaturalist publish queue (SPEC 3.6). State lives in Specimen.inatStatus /
 // inatError / iNatObservationId (Dexie); never blocks field logging. Runs
 // sequentially when online + signed in + iNat connected.
@@ -50,6 +51,8 @@ async function publishOne(id: string) {
   const db = useDb()
   const sp = await db.specimens.get(id)
   if (!sp) return
+  // Never publish a find that has no ID yet; park it as a draft instead of failing it.
+  if (isPendingId(sp.specimenId)) { await setStatus(id, { inatStatus: undefined, inatError: undefined }); return }
   try {
     let obsId = sp.iNatObservationId
     if (!obsId) {
@@ -122,11 +125,14 @@ export function usePublish() {
       const sp = await useDb().specimens.get(id)
       if (!sp || sp.inatStatus === 'queued') continue
       if (sp.inatStatus === 'published') continue
+      if (isPendingId(sp.specimenId)) continue // never queue a find without an ID
       await setStatus(id, { inatStatus: 'queued', inatError: undefined })
     }
     runQueue()
   }
   async function retry(id: string) {
+    const sp = await useDb().specimens.get(id)
+    if (!sp || isPendingId(sp.specimenId)) return
     await setStatus(id, { inatStatus: 'queued', inatError: undefined })
     runQueue()
   }

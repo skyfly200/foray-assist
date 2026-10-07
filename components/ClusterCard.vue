@@ -1,7 +1,12 @@
 <template>
   <v-card class="fa-card" variant="flat">
     <v-card-title class="d-flex align-center flex-wrap ga-2">
-      <span class="text-subtitle-1 font-weight-bold">{{ find ? find.specimenId : 'Ungrouped photos' }}</span>
+      <span v-if="!find" class="text-subtitle-1 font-weight-bold">Ungrouped photos</span>
+      <span v-else-if="pending" class="fa-badge id-pending" title="You'll get an ID when you sign in and have a connection">
+        <v-icon icon="mdi-timer-sand" size="14" /> ID pending
+        <v-tooltip activator="parent" location="bottom">You'll get an ID when you sign in and have a connection</v-tooltip>
+      </span>
+      <span v-else class="text-subtitle-1 font-weight-bold">{{ displayId(find.specimenId) }}</span>
       <span class="fa-badge"><v-icon icon="mdi-check-circle" size="14" /> {{ selectedCount }}/{{ photos.length }} selected</span>
       <v-spacer />
       <span v-if="find" class="text-caption text-medium-emphasis">{{ timeLabel }}</span>
@@ -40,6 +45,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { movePhoto, movePhotoToNewFind, setPhotoSelected } from '~/composables/useReview'
 import type { Photo, Specimen } from '~/utils/db'
+import { displayId, isPendingId } from '~/utils/idCode'
 
 const props = defineProps<{
   find: Specimen | null
@@ -47,6 +53,7 @@ const props = defineProps<{
   otherFinds: { id: string; label: string }[]
 }>()
 
+const pending = computed(() => !!props.find && isPendingId(props.find.specimenId))
 const timeLabel = computed(() => (props.find ? new Date(props.find.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : ''))
 const selectedCount = computed(() => props.photos.filter((p) => p.isSelected).length)
 
@@ -82,6 +89,7 @@ const moveNew = (id: string) => movePhotoToNewFind(id)
 </script>
 
 <style scoped>
+.id-pending { color: #8a5a00; background: #fff3d6; }
 .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
 @media (min-width: 960px) {
   .thumbs { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 12px; }

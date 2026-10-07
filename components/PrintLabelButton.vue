@@ -22,9 +22,11 @@
             <div class="text-body-2">{{ printer.unsupportedReason }}</div>
           </v-card>
 
+          <v-alert v-if="pending" type="warning" variant="tonal" density="compact" icon="mdi-timer-sand" class="mb-3">{{ NO_ID_MSG }}</v-alert>
+
           <div class="print-layout">
           <div class="print-preview">
-          <LabelPreview v-if="specimen" :specimen="specimen" @bitmap="(b) => (bitmap = b)" />
+          <LabelPreview v-if="specimen && !pending" :specimen="specimen" @bitmap="(b) => (bitmap = b)" />
           </div>
 
           <div class="print-controls">
@@ -58,7 +60,7 @@
           <v-btn variant="tonal" :disabled="!printer.supported || printer.busy.value" @click="printer.connect()">
             {{ printer.connected.value ? 'Switch printer' : 'Connect' }}
           </v-btn>
-          <v-btn color="primary" variant="flat" :loading="printer.busy.value" :disabled="!printer.supported || !bitmap" @click="doPrint">Print</v-btn>
+          <v-btn color="primary" variant="flat" :loading="printer.busy.value" :disabled="pending || !printer.supported || !bitmap" @click="doPrint">Print</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -69,6 +71,7 @@
 import { ref, watch, computed } from 'vue'
 import { useDisplay } from 'vuetify'
 import type { Specimen } from '~/utils/db'
+import { isPendingId } from '~/utils/idCode'
 import type { MonoBitmap } from '~/utils/label'
 import type { PrinterProtocol } from '~/composables/usePrinter'
 
@@ -79,6 +82,8 @@ const open = ref(false)
 const specimen = ref<Specimen | null>(null)
 const bitmap = ref<MonoBitmap | null>(null)
 const done = ref(false)
+const NO_ID_MSG = 'No ID yet. Sign in once with internet to get your IDs, then print.'
+const pending = computed(() => !!specimen.value && isPendingId(specimen.value.specimenId))
 const protocols = [
   { title: 'ESC/POS (Phomemo, generic receipt-style)', value: 'escpos' },
   { title: 'TSPL (label printers)', value: 'tspl' },
@@ -106,7 +111,7 @@ watch(open, async (v) => {
 })
 
 async function doPrint() {
-  if (!bitmap.value || !specimen.value) return
+  if (!bitmap.value || !specimen.value || isPendingId(specimen.value.specimenId)) return
   done.value = false
   if (!(await printer.print(bitmap.value))) return
   const t = nowIso()

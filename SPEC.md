@@ -17,7 +17,7 @@ Optimized for one-handed, glanceable, offline use under canopy.
 * **In-app photo capture** (camera), each photo stamped with time and GPS and attached to the current find.
 * **Voice notes** via on-device Whisper, with live interactive transcription.
 * **Structured attribute form**: quick toggles for substrate, host tree, odor, cap texture, staining.
-* **Find management**: start a new find, get a Specimen ID, add photos/notes/attributes, print a tag.
+* **Find management**: start a new find (it gets a server-issued Specimen ID, or "ID pending" until the device has IDs), add photos/notes/attributes, print a tag.
 * No network-dependent step is required to log or print a find.
 
 ### 2.2 Review Mode (after a foray)
@@ -56,8 +56,14 @@ Optimized for a larger screen and connectivity.
 * Transcripts attach to the current find as `rawVoiceTranscript` and as timestamped segments.
 
 ### 3.4 Specimen IDs
-* Format: `COLLECTOR-BNNNC`, e.g. `SF-M042K` (8 characters): a 2–3 letter **collector code** (default `SF`), one **block letter** from a 32-character alphabet without `I`, `O`, `0`, `1`, a 3-digit **running number** `001`–`999`, and one **check character** that catches a mistyped/misread character and swapped neighbours. The date lives in the record, not the ID.
-* Generated locally with no server round-trip. Numbers are assigned in a local transaction (no duplicates on rapid taps). Each device draws its own random block (999 IDs per block); a database unique index on `(user_id, specimen_id)` turns the rare two-devices-same-block collision into a visible, parked sync item. Preprinted sheets and server-side block reservation (roadmap Phase 7) remove that edge case. Pure logic and tests: `utils/idCode.ts`, `tests/idcode.test.mjs`.
+* **Format:** 9 characters shown as `4-4-1`, e.g. `B7QM-4T9R-X`, from a 32-character alphabet with no `I`, `O`, `0`, `1`. Parts: **class** (1) · **network** (3) · **set** (2) · **observation** (2) · **check** (1). The date lives in the record, not the ID.
+  * **Class** (first character) selects the layout, like an IP address class, so other lengths can be added without breaking old codes: `A`–`H` personal (9 chars, issued today), `J`–`N` extended (12 chars, reserved), `P`–`T` local (reserved, not issued), `U`–`Z` society networks (9 chars, roadmap Phase 12), `2`–`9` reserved.
+  * **Network** identifies the **author** (a person, later a society). The server issues each network to exactly one verified user. **Set** is a block of 1,024 IDs the server issues to exactly one device; **observation** counts 0–1023 inside it. 1,024 sets per network, and a user who fills a network is issued another. Capacity: 8 classes × 32,768 networks.
+  * **IDs identify the author, never a foray.** A shared foray is a separate grouping record (roadmap Phase 12), so two people adding to one foray cannot produce the same ID, even offline.
+  * **Check character:** Damm-style over GF(32); it catches every single wrong character and every swap of two neighbouring characters (verified in `tests/idcode.test.mjs`: all substitutions and >20,000 sampled swaps). Pure logic: `utils/idCode.ts`.
+* **Guarantee by construction.** Networks and sets are allocated by the database (`claim_id_sets`, migration 0005) under a lock, never reused; a device only counts up inside its own sets; a database trigger rejects an ID whose network and set were not issued to the uploading account, and a global unique index rejects duplicates. A "Verify IDs" check in Settings re-validates local IDs (format, check character, duplicates) and asks the server whether each ID was issued to the account (`verify_ids`).
+* **Sign-in.** A **verified email** (6-digit code or magic link) is required once, while online, so the server can issue the user's network and a first stock of sets (4 sets, 4,096 IDs; refilled in the background when low, rate-limited to 64 sets per user per day). The first launch of a web app is always online, so this happens at install time; after that everything works offline from the stock.
+* **ID pending.** If a find is logged before the device has any IDs (not signed in yet, or the stock ran out offline), it shows "ID pending" and receives its real ID automatically at the next connection, oldest first. A pending find cannot be printed or published. Labels never carry an ID that the server did not issue.
 * Links notes, attributes, photos, printed tags and the eventual iNaturalist Observation ID into one record.
 
 ### 3.5 Label Printing
@@ -128,7 +134,7 @@ interface Foray {
 }
 
 interface SpecimenRecord {
-  id: string;                  // "SF-M042K"
+  id: string;                  // "B7QM4T9RX" (shown B7QM-4T9R-X); "" while the ID is pending
   forayId: string;
   timestamp: string;           // ISO 8601
   latitude?: number;

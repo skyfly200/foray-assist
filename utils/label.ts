@@ -2,6 +2,7 @@
 // Everything except renderLabelBitmap() is DOM-free and unit tested (tests/label.test.mjs).
 // Type-only imports so the file runs under node --experimental-strip-types.
 import type { Specimen } from './db.ts'
+import { displayId, isPendingId, normalizeId } from './idCode.ts'
 
 export const LABEL_WIDTH_PX = 400 // 50 mm @ 203 dpi (multiple of 8)
 export const LABEL_HEIGHT_PX = 240 // 30 mm @ 203 dpi
@@ -29,7 +30,7 @@ export interface LabelModel {
 export function qrPayload(s: Pick<Specimen, 'specimenId' | 'iNatObservationId'>): string {
   return s.iNatObservationId
     ? `https://www.inaturalist.org/observations/${s.iNatObservationId}`
-    : `foray://specimen/${s.specimenId}`
+    : `foray://specimen/${normalizeId(s.specimenId) ?? s.specimenId}`
 }
 
 /** Obscured location text. 'private' or missing coords -> ''. Non-open rounds to 0.1 deg. */
@@ -99,7 +100,7 @@ export function buildLabelModel(s: Specimen, opts: BuildOpts = {}): LabelModel {
   const fn = s.fieldNotes ?? {}
   return {
     header: 'FORAY',
-    id: s.specimenId,
+    id: displayId(s.specimenId),
     species: fn.speciesGuess ? wrapText(fn.speciesGuess, w, 2, m) : ['(unidentified)'],
     when: formatWhen(s.timestamp),
     location: locationText(s),
@@ -181,6 +182,7 @@ export async function renderLabelBitmap(
   s: Specimen,
   opts: { canvas?: HTMLCanvasElement; dither?: boolean } = {},
 ): Promise<MonoBitmap> {
+  if (isPendingId(s.specimenId)) throw new Error('No ID yet: refusing to render a label without a specimen ID')
   const W = LABEL_WIDTH_PX, H = LABEL_HEIGHT_PX
   const canvas: any =
     opts.canvas ??

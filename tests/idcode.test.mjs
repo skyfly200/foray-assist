@@ -1,84 +1,138 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ID_ALPHABET, BLOCK_SIZE, checkChar, formatId, parseId, isValidId, pickBlock, normalizeCollector } from '../utils/idCode.ts'
+import { ID_ALPHABET, SET_SIZE, classOf, checkChar, encodeB32, decodeB32, formatId, parseId, isValidId, displayId, normalizeId, isPendingId } from '../utils/idCode.ts'
+import { remaining, takeId, mergeSets, needsRefill } from '../utils/idStock.ts'
 
-test('format: collector-block-number-check, 8 chars for a 2-letter collector', () => {
-  const id = formatId('SF', 'M', 42)
-  assert.match(id, /^SF-M042[A-HJ-NP-Z2-9]$/)
-  assert.equal(id.length, 8) // "SF-" + 5
-  assert.equal(parseId(id).number, 42)
-  assert.ok(isValidId(id))
-})
-
-test('alphabet has 32 unambiguous characters', () => {
+test('alphabet: 32 unambiguous symbols', () => {
   assert.equal(ID_ALPHABET.length, 32)
+  assert.equal(new Set(ID_ALPHABET).size, 32)
   for (const bad of ['I', 'O', '0', '1']) assert.ok(!ID_ALPHABET.includes(bad))
 })
 
+test('base-32 round trip and bounds', () => {
+  for (const n of [0, 1, 31, 32, 1023, 32767]) assert.equal(decodeB32(encodeB32(n, 3)), n)
+  assert.throws(() => encodeB32(1024, 2))
+  assert.throws(() => encodeB32(-1, 2))
+})
+
+test('format: 9 chars, class + network 4, set 2, obs 2, check 1', () => {
+  const id = formatId('B7QM', 5, 42)
+  assert.equal(id.length, 9)
+  const p = parseId(id)
+  assert.deepEqual({ k: p.kind, n: p.network, s: p.set, o: p.obs }, { k: 'personal', n: 'B7QM', s: 5, o: 42 })
+  assert.ok(isValidId(id))
+  assert.match(displayId(id), /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]$/)
+})
+
+test('display accepts separators, spaces and lower case', () => {
+  const id = formatId('B7QM', 5, 42)
+  const shown = displayId(id)
+  assert.ok(isValidId(shown))
+  assert.ok(isValidId(shown.toLowerCase()))
+  assert.ok(isValidId(shown.replace(/-/g, ' ')))
+  assert.equal(normalizeId(shown), id)
+})
+
+test('first character selects the layout', () => {
+  assert.equal(classOf('A').kind, 'personal'); assert.equal(classOf('H').kind, 'personal')
+  assert.equal(classOf('J').kind, 'extended'); assert.equal(classOf('N').length, 12)
+  assert.equal(classOf('P').kind, 'local'); assert.equal(classOf('T').kind, 'local')
+  assert.equal(classOf('U').kind, 'society'); assert.equal(classOf('Z').kind, 'society')
+  assert.equal(classOf('2').kind, 'reserved'); assert.equal(classOf('9').length, null)
+  assert.equal(classOf('O'), null)
+  // each class char appears in exactly one class
+  const counts = {}
+  for (const c of ID_ALPHABET) counts[classOf(c).kind] = (counts[classOf(c).kind] ?? 0) + 1
+  assert.deepEqual(counts, { personal: 8, extended: 5, local: 5, society: 6, reserved: 8 })
+})
+
+test('society and extended layouts format and validate', () => {
+  const soc = formatId('U2KD', 3, 7)
+  assert.equal(parseId(soc).kind, 'society'); assert.ok(isValidId(soc))
+  assert.equal(formatId('J2345', 9, 9).length, 12)
+  assert.ok(isValidId(formatId('J2345', 9, 9)))
+  assert.equal(displayId(formatId('J2345', 9, 9)).length, 14)
+})
+
 test('every single-character substitution is detected', () => {
-  const id = formatId('SF', 'K', 7)
-  const chars = id.split('')
-  for (let i = 0; i < chars.length; i++) {
-    if (chars[i] === '-') continue
-    const pool = i === 3 ? ID_ALPHABET : i >= 4 && i <= 6 ? '0123456789' : ID_ALPHABET
-    for (const c of pool) {
-      if (c === chars[i]) continue
-      const t = chars.slice(); t[i] = c
-      if (i < 2) continue // collector letters: any A-Z handled below
-      assert.ok(!isValidId(t.join('')), `substituting position ${i} with ${c} in ${id} went undetected`)
+  let tested = 0
+  for (const base of [formatId('B7QM', 5, 42), formatId('AAAA', 0, 0), formatId('H999', 1023, 1023), formatId('U2KD', 3, 7)]) {
+    for (let i = 0; i < base.length; i++) for (const c of ID_ALPHABET) {
+      if (c === base[i]) continue
+      const t = base.slice(0, i) + c + base.slice(i + 1)
+      assert.ok(!isValidId(t), `${base} -> ${t} (position ${i}) went undetected`)
+      tested++
     }
   }
-  for (let i = 0; i < 2; i++) for (const c of 'ABCDEFGHIJKLMNOPQRSTUVWXYZ') {
-    if (c === id[i]) continue
-    const t = id.split(''); t[i] = c
-    assert.ok(!isValidId(t.join('')), `collector substitution ${c} undetected`)
-  }
+  assert.ok(tested > 1000)
 })
 
-test('adjacent transpositions of digits and block/digit are detected', () => {
-  let missed = 0, total = 0
-  for (const block of ['A', 'M', 'Z', '7']) for (let n = 1; n <= BLOCK_SIZE; n += 7) {
-    const id = formatId('SF', block, n)
-    const body = id.slice(3, 8) // block + 3 digits + check
-    for (let i = 0; i < body.length - 1; i++) {
-      if (body[i] === body[i + 1]) continue
-      const t = body.split(''); [t[i], t[i + 1]] = [t[i + 1], t[i]]
-      const cand = id.slice(0, 3) + t.join('')
-      // a transposed candidate must either fail the shape or the check
-      total++
-      if (isValidId(cand)) missed++
+test('every adjacent transposition is detected (random sample)', () => {
+  let seed = 12345
+  const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff
+  let tested = 0
+  for (let n = 0; n < 4000; n++) {
+    const id = formatId(ID_ALPHABET[Math.floor(rnd() * 8)] + Array.from({ length: 3 }, () => ID_ALPHABET[Math.floor(rnd() * 32)]).join(''), Math.floor(rnd() * 1024), Math.floor(rnd() * 1024))
+    for (let i = 0; i < id.length - 1; i++) {
+      if (id[i] === id[i + 1]) continue
+      const t = id.slice(0, i) + id[i + 1] + id[i] + id.slice(i + 2)
+      assert.ok(!isValidId(t), `${id} -> ${t} (swap at ${i}) went undetected`)
+      tested++
     }
   }
-  assert.ok(total > 0)
-  assert.equal(missed, 0, `${missed}/${total} adjacent swaps undetected`)
+  assert.ok(tested > 20000)
 })
 
-test('rejects bad shapes and out-of-range numbers', () => {
-  assert.ok(!isValidId('SF-M000' + checkChar('SFM000')))
+test('rejects wrong length, unknown class, ambiguous characters, old formats', () => {
+  const id = formatId('B7QM', 5, 42)
+  assert.ok(!isValidId(id.slice(0, 8)))
+  assert.ok(!isValidId(id + 'A'))
+  assert.ok(!isValidId('SF-M042K'))
   assert.ok(!isValidId('FORAY-20261005-K7-001'))
-  assert.ok(!isValidId('SF-O042K')) // O is not in the alphabet
-  assert.throws(() => formatId('SF', 'M', 0))
-  assert.throws(() => formatId('SF', 'M', 1000))
-  assert.throws(() => formatId('SF', 'O', 5))
-  assert.throws(() => formatId('S', 'M', 5))
+  assert.ok(!isValidId(''))
+  assert.ok(!isValidId(id.replace(/[A-Z2-9]/, 'O')))
+  assert.equal(parseId('29999999A'), null) // reserved class has no layout yet
+  assert.throws(() => formatId('B7Q', 0, 0))
+  assert.throws(() => formatId('B7QM', 1024, 0))
+  assert.throws(() => formatId('B7QM', 0, 1024))
+  assert.throws(() => formatId('29AB', 0, 0))
 })
 
-test('all 999 numbers in a block are unique and valid', () => {
+test('all 1024 IDs in a set are unique and valid', () => {
   const seen = new Set()
-  for (let n = 1; n <= BLOCK_SIZE; n++) { const id = formatId('SF', 'M', n); assert.ok(isValidId(id)); seen.add(id) }
-  assert.equal(seen.size, BLOCK_SIZE)
+  for (let o = 0; o < SET_SIZE; o++) { const id = formatId('B7QM', 3, o); assert.ok(isValidId(id)); seen.add(id) }
+  assert.equal(seen.size, SET_SIZE)
 })
 
-test('pickBlock avoids used blocks and returns null when exhausted', () => {
-  assert.equal(pickBlock(['A'], () => 0), 'B')
-  assert.equal(pickBlock(ID_ALPHABET.split('')), null)
-  const used = ID_ALPHABET.split('').slice(1)
-  assert.equal(pickBlock(used, () => 0.9), 'A')
+test('check character is deterministic over the payload', () => {
+  const payload = 'B7QM4T9'
+  assert.equal(checkChar(payload), checkChar(payload))
+  assert.ok(ID_ALPHABET.includes(checkChar(payload)))
 })
 
-test('collector normalisation', () => {
-  assert.equal(normalizeCollector(' sf '), 'SF')
-  assert.equal(normalizeCollector('s'), 'SF')
-  assert.equal(normalizeCollector('abcd'), 'ABC')
-  assert.equal(normalizeCollector(undefined), 'SF')
+test('pending IDs are the empty string', () => {
+  assert.ok(isPendingId('')); assert.ok(isPendingId(undefined)); assert.ok(!isPendingId('B7QM4T9RX'))
+})
+
+test('stock: IDs come out in order, then run dry and refill', () => {
+  let sets = mergeSets([], [{ network: 'B7QM', set: 0 }, { network: 'B7QM', set: 1 }])
+  assert.equal(remaining(sets), 2048)
+  const seen = new Set()
+  for (let i = 0; i < 2048; i++) {
+    const r = takeId(sets); assert.ok(r.id && isValidId(r.id)); assert.ok(!seen.has(r.id)); seen.add(r.id); sets = r.sets
+  }
+  assert.equal(remaining(sets), 0)
+  assert.equal(takeId(sets).id, null)
+  assert.ok(needsRefill(sets))
+  sets = mergeSets(sets, [{ network: 'B7QM', set: 1 }, { network: 'B7QM', set: 2 }]) // set 1 already known
+  assert.equal(sets.length, 3)
+  assert.equal(remaining(sets), 1024)
+  assert.ok(!seen.has(takeId(sets).id))
+})
+
+test('takeId does not mutate its input', () => {
+  const sets = [{ network: 'B7QM', set: 0, next: 5 }]
+  const r = takeId(sets)
+  assert.equal(sets[0].next, 5)
+  assert.equal(r.sets[0].next, 6)
 })

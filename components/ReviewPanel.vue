@@ -51,6 +51,7 @@ import { computed, ref } from 'vue'
 import { useLiveQuery } from '~/composables/useFinds'
 import { clusterUnassigned, importFiles, scorePhotos } from '~/composables/useReview'
 import type { Photo, Specimen } from '~/utils/db'
+import { displayId, isPendingId } from '~/utils/idCode'
 
 const props = defineProps<{ forayId: string }>()
 
@@ -72,7 +73,7 @@ const photosBySpecimen = computed(() => {
   for (const p of photos.value) if (p.specimenRowId) m.set(p.specimenRowId, [...(m.get(p.specimenRowId) ?? []), p])
   return m
 })
-const label = (f: Specimen) => ({ id: f.id, label: f.specimenId })
+const label = (f: Specimen) => ({ id: f.id, label: isPendingId(f.specimenId) ? `ID pending (${new Date(f.timestamp).toLocaleTimeString([], { timeStyle: 'short' })})` : displayId(f.specimenId) })
 
 async function runScoring() {
   progress.value = { done: 0, total: 0 }

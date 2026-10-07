@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { liveQuery } from 'dexie'
 import type { Geoprivacy } from '~/utils/db'
+import { displayId, isPendingId } from '~/utils/idCode'
 const props = defineProps<{ forayId: string }>()
 const { connected, signedIn, online, queue, retry, setGeoprivacy, observationUrl } = usePublish()
 
-interface Row { id: string; label: string; guess: string; photos: number; geoprivacy: Geoprivacy; status: string; error?: string; obsId?: number }
+interface Row { id: string; label: string; pending: boolean; guess: string; photos: number; geoprivacy: Geoprivacy; status: string; error?: string; obsId?: number }
 const rows = ref<Row[]>([])
 const checked = ref<string[]>([])
 let sub: any
@@ -15,7 +16,7 @@ onMounted(() => {
     const specs = await db.specimens.where('forayId').equals(props.forayId).sortBy('timestamp')
     const photos = await db.photos.where('forayId').equals(props.forayId).toArray()
     return specs.map((s): Row => ({
-      id: s.id, label: s.specimenId, guess: s.fieldNotes?.speciesGuess ?? '', geoprivacy: s.geoprivacy,
+      id: s.id, label: isPendingId(s.specimenId) ? 'ID pending' : displayId(s.specimenId), pending: isPendingId(s.specimenId), guess: s.fieldNotes?.speciesGuess ?? '', geoprivacy: s.geoprivacy,
       photos: photos.filter((p) => p.specimenRowId === s.id && p.isSelected).length,
       status: s.inatStatus ?? 'draft', error: s.inatError, obsId: s.iNatObservationId,
     }))
@@ -23,9 +24,10 @@ onMounted(() => {
 })
 onBeforeUnmount(() => sub?.unsubscribe())
 
-const eligible = (r: Row) => r.status === 'draft' || r.status === 'failed'
+const eligible = (r: Row) => !r.pending && (r.status === 'draft' || r.status === 'failed')
 const selectable = computed(() => rows.value.filter(eligible))
 const ready = computed(() => signedIn.value && connected.value)
+const pendingCount = computed(() => rows.value.filter((r) => r.pending && r.status !== 'published').length)
 const colors: Record<string, string> = { draft: 'grey', queued: 'info', published: 'success', failed: 'error' }
 const icons: Record<string, string> = { draft: 'mdi-pencil-outline', queued: 'mdi-clock-outline', published: 'mdi-check-circle', failed: 'mdi-alert-circle' }
 const publishedCount = computed(() => rows.value.filter((r) => r.status === 'published').length)
@@ -64,6 +66,10 @@ async function publishSelected() {
         Offline: queued finds publish when you reconnect.
       </v-alert>
 
+      <v-alert v-if="pendingCount" type="warning" variant="tonal" density="compact" class="mb-3" icon="mdi-timer-sand">
+        {{ pendingCount }} find{{ pendingCount === 1 ? '' : 's' }} still waiting for an ID and left out of 'Publish selected'. Sign in with a connection to get IDs.
+      </v-alert>
+
       <div v-if="allDone" :key="burst" class="success-banner fa-celebrate mb-3" role="status">
         <span class="fa-burst" aria-hidden="true"><i v-for="n in 10" :key="n" :style="{ '--i': n }" /></span>
         <div class="success-emoji" aria-hidden="true">🎉</div>
@@ -81,9 +87,14 @@ async function publishSelected() {
             <v-checkbox-btn v-model="checked" :value="r.id" :disabled="!eligible(r)" :aria-label="`Select ${r.label}`" />
             <div class="flex-grow-1 min-w-0">
               <div class="d-flex align-center flex-wrap ga-2">
-                <span class="font-weight-bold">{{ r.label }}</span>
+                <span v-if="r.pending" class="fa-badge id-pending">
+                  <v-icon icon="mdi-timer-sand" size="14" /> ID pending
+                  <v-tooltip activator="parent" location="bottom">You'll get an ID when you sign in and have a connection</v-tooltip>
+                </span>
+                <span v-else class="font-weight-bold">{{ r.label }}</span>
                 <v-chip size="small" :color="colors[r.status]" variant="flat" :prepend-icon="icons[r.status]" class="fa-pill">{{ r.status }}</v-chip>
               </div>
+              <div v-if="r.pending" class="text-caption text-warning-emphasis pending-note">Can't publish yet: you'll get an ID when you sign in and have a connection.</div>
               <div v-if="r.guess" class="text-body-2 text-medium-emphasis">{{ r.guess }}</div>
               <div class="text-caption">
                 {{ r.photos }} selected photo{{ r.photos === 1 ? '' : 's' }}
@@ -123,6 +134,8 @@ async function publishSelected() {
 </template>
 
 <style scoped>
+.id-pending { color: #8a5a00; background: #fff3d6; }
+.pending-note { color: #8a5a00; }
 .min-w-0 { min-width: 0; }
 .success-banner { position: relative; text-align: center; padding: 16px; border-radius: var(--fa-radius); background: var(--fa-hero-gradient); color: #fff; }
 .success-emoji { font-size: 2.2rem; }

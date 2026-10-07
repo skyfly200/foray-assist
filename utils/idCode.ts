@@ -1,76 +1,161 @@
-// Specimen ID codes: COLLECTOR-BNNNC, e.g. SF-M042K
-//   COLLECTOR  2-3 letters chosen by the user (default SF), like a collector's number series.
-//   B          one block letter from a 32-character alphabet without I, O (and digits 0, 1),
-//              so 'O' vs '0' and 'I' vs '1' can never be confused by position.
-//   NNN        001-999, a running number within the block (plain decimal, easy to write).
-//   C          one check character that catches a mistyped or misread character and swapped
-//              neighbours (weighted sum mod 31 over the collector, block and number).
-// A block holds 999 IDs; each device draws its own blocks, and a preprinted sheet (roadmap
-// Phase 7) is just a range of numbers inside a reserved block. Pure module: no imports,
-// erasable TypeScript, unit-tested under plain Node.
+// Specimen ID codes (v2): CNNN-SSOO-K, e.g. B7QM-4T9R-X  (9 characters, shown as 4-4-1)
+//
+//   C    class      first character: says which layout the rest uses (like an IP class)
+//   NNN  network    the AUTHOR (a person, or a society): issued by the server at sign-in
+//   SS   set        a block of 1,024 IDs owned by ONE device: issued by the server
+//   OO   observation 0-1023 within the set: counted up by the owning device
+//   K    check      catches any single wrong character and any swap of neighbours
+//
+// IDs identify the author, never a foray. A shared foray is a separate grouping record, so
+// two people adding to one foray can never produce the same ID. Uniqueness is by
+// construction: the server hands each network to exactly one person and each set to exactly
+// one device, and a device only counts up inside sets it owns.
+//
+// Alphabet: 32 symbols, no I, O, 0 or 1. Pure module: no imports, erasable TypeScript,
+// unit-tested under plain Node.
 
 export const ID_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-export const BLOCK_SIZE = 999
-export const DEFAULT_COLLECTOR = 'SF'
-const CHECK_MODULUS = 31 // prime, <= alphabet size
+export const SET_SIZE = 1024 // observation numbers 0..1023 per set (2 base-32 chars)
+export const SETS_PER_NETWORK = 1024 // set numbers 0..1023 per network
 
-const ID_RE = /^([A-Z]{2,3})-([A-HJ-NP-Z2-9])(\d{3})([A-HJ-NP-Z2-9])$/
+export type IdKind = 'personal' | 'extended' | 'local' | 'society' | 'reserved'
+
+export interface IdClass {
+  kind: IdKind
+  /** Total length including the check character; null when the layout is not defined yet. */
+  length: number | null
+  netLen: number
+  setLen: number
+  obsLen: number
+}
+
+const INDEX = new Map<string, number>(ID_ALPHABET.split('').map((c, i) => [c, i]))
+
+/** First-character dispatch (see roadmap Phases 6, 7, 12). Only 'personal' IDs are issued today. */
+export function classOf(first: string): IdClass | null {
+  const i = INDEX.get(first)
+  if (i === undefined) return null
+  if (i <= 7) return { kind: 'personal', length: 9, netLen: 3, setLen: 2, obsLen: 2 } // A-H
+  if (i <= 12) return { kind: 'extended', length: 12, netLen: 4, setLen: 3, obsLen: 3 } // J-N (reserved)
+  if (i <= 17) return { kind: 'local', length: 9, netLen: 3, setLen: 2, obsLen: 2 } // P-T (reserved)
+  if (i <= 23) return { kind: 'society', length: 9, netLen: 3, setLen: 2, obsLen: 2 } // U-Z (societies)
+  return { kind: 'reserved', length: null, netLen: 0, setLen: 0, obsLen: 0 } // 2-9
+}
+
+// ---- check character: Damm-style over GF(32) ---------------------------------------------
+// GF(32) = GF(2)[x] / (x^5 + x^2 + 1). Multiplying by 2 (the element x) is a shift plus a
+// conditional XOR. The operation c o s = 2*c XOR s is a weakly totally anti-symmetric
+// quasigroup, so the final remainder detects every single-symbol error and every
+// transposition of adjacent symbols (Damm 2004). Valid codes leave a remainder of 0.
+function mul2(v: number): number {
+  let m = v << 1
+  if (m & 32) m ^= 0b100101
+  return m & 31
+}
+
+function remainder(symbols: string): number {
+  let r = 0
+  for (const ch of symbols) {
+    const idx = INDEX.get(ch)
+    if (idx === undefined) throw new Error(`Invalid ID character: ${ch}`)
+    r = mul2(r) ^ idx
+  }
+  return r
+}
+
+/** Check character for a payload (every character except the last). */
+export function checkChar(payload: string): string {
+  return ID_ALPHABET[mul2(remainder(payload))]!
+}
+
+export function encodeB32(n: number, width: number): string {
+  if (!Number.isInteger(n) || n < 0 || n >= 32 ** width) throw new Error(`Value ${n} does not fit ${width} characters`)
+  let out = ''
+  for (let i = 0; i < width; i++) {
+    out = ID_ALPHABET[n % 32]! + out
+    n = Math.floor(n / 32)
+  }
+  return out
+}
+
+export function decodeB32(s: string): number {
+  let n = 0
+  for (const ch of s) {
+    const i = INDEX.get(ch)
+    if (i === undefined) throw new Error(`Invalid ID character: ${ch}`)
+    n = n * 32 + i
+  }
+  return n
+}
+
+/** Build an ID. `network` is the class character plus the network characters, e.g. "B7QM". */
+export function formatId(network: string, set: number, obs: number): string {
+  const cls = classOf(network[0] ?? '')
+  if (!cls || cls.length === null) throw new Error('Unknown ID class')
+  if (network.length !== 1 + cls.netLen) throw new Error(`Network must be ${1 + cls.netLen} characters`)
+  if (![...network].every((c) => INDEX.has(c))) throw new Error('Network has invalid characters')
+  if (!Number.isInteger(set) || set < 0 || set >= 32 ** cls.setLen) throw new Error('Set out of range')
+  if (!Number.isInteger(obs) || obs < 0 || obs >= 32 ** cls.obsLen) throw new Error('Observation out of range')
+  const payload = network + encodeB32(set, cls.setLen) + encodeB32(obs, cls.obsLen)
+  return payload + checkChar(payload)
+}
 
 export interface ParsedId {
-  collector: string
-  block: string
-  number: number
+  kind: IdKind
+  /** Class character + network characters, e.g. "B7QM". */
+  network: string
+  set: number
+  obs: number
   check: string
+  /** Canonical form without separators. */
+  id: string
 }
 
-function charValue(c: string): number {
-  const code = c.charCodeAt(0)
-  if (code >= 48 && code <= 57) return code - 48 // 0-9
-  if (code >= 65 && code <= 90) return code - 55 // A=10 .. Z=35
-  throw new Error(`Invalid ID character: ${c}`)
+/** Strip separators/spaces and upper-case. Returns null for anything that isn't a plain ID shape. */
+export function normalizeId(input: string): string | null {
+  const s = String(input ?? '').toUpperCase().replace(/[\s\-_.]/g, '')
+  if (!s || ![...s].every((c) => INDEX.has(c))) return null
+  return s
 }
 
-/** Check character for the payload `collector + block + 3-digit number`. */
-export function checkChar(payload: string): string {
-  let sum = 0
-  for (let i = 0; i < payload.length; i++) sum += charValue(payload[i]!) * (i + 1)
-  return ID_ALPHABET[sum % CHECK_MODULUS]!
+/** Parse a well-formed ID of a known layout (does not verify the check character). */
+export function parseId(input: string): ParsedId | null {
+  const id = normalizeId(input)
+  if (!id) return null
+  const cls = classOf(id[0]!)
+  if (!cls || cls.length === null || id.length !== cls.length) return null
+  const netEnd = 1 + cls.netLen
+  const setEnd = netEnd + cls.setLen
+  const obsEnd = setEnd + cls.obsLen
+  return {
+    kind: cls.kind,
+    network: id.slice(0, netEnd),
+    set: decodeB32(id.slice(netEnd, setEnd)),
+    obs: decodeB32(id.slice(setEnd, obsEnd)),
+    check: id.slice(obsEnd),
+    id,
+  }
 }
 
-export function normalizeCollector(input: string | undefined | null): string {
-  const c = String(input ?? '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3)
-  return c.length >= 2 ? c : DEFAULT_COLLECTOR
-}
-
-export function isBlock(b: string): boolean {
-  return b.length === 1 && ID_ALPHABET.includes(b)
-}
-
-export function formatId(collector: string, block: string, n: number): string {
-  if (!/^[A-Z]{2,3}$/.test(collector)) throw new Error('Collector code must be 2-3 letters')
-  if (!isBlock(block)) throw new Error('Invalid block letter')
-  if (!Number.isInteger(n) || n < 1 || n > BLOCK_SIZE) throw new Error('Number must be 1-999')
-  const body = block + String(n).padStart(3, '0')
-  return `${collector}-${body}${checkChar(collector + body)}`
-}
-
-/** Parse an ID shape (does not verify the check character). */
-export function parseId(id: string): ParsedId | null {
-  const m = ID_RE.exec(String(id).trim().toUpperCase())
-  if (!m) return null
-  return { collector: m[1]!, block: m[2]!, number: Number(m[3]), check: m[4]! }
-}
-
-/** True when the ID is well-formed and its check character matches. */
-export function isValidId(id: string): boolean {
+/** True when the ID has a known layout and a matching check character. */
+export function isValidId(input: string): boolean {
+  const id = normalizeId(input)
+  if (!id) return false
   const p = parseId(id)
-  if (!p || p.number < 1) return false
-  return checkChar(p.collector + p.block + String(p.number).padStart(3, '0')) === p.check
+  if (!p) return false
+  return remainder(id) === 0
 }
 
-/** Pick a block not in `used`. `rand` returns [0,1); inject for tests. Null when all 32 are used. */
-export function pickBlock(used: string[], rand: () => number = Math.random): string | null {
-  const free = ID_ALPHABET.split('').filter((b) => !used.includes(b))
-  if (!free.length) return null
-  return free[Math.floor(rand() * free.length)]!
+/** Human display: 4-4-1 for 9 characters, 4-4-4 for 12. Returns the input unchanged if not an ID. */
+export function displayId(input: string): string {
+  const id = normalizeId(input)
+  if (!id) return String(input ?? '')
+  if (id.length === 9) return `${id.slice(0, 4)}-${id.slice(4, 8)}-${id.slice(8)}`
+  if (id.length === 12) return `${id.slice(0, 4)}-${id.slice(4, 8)}-${id.slice(8)}`
+  return id
+}
+
+/** '' means "ID pending": the find was logged before this device received any IDs. */
+export function isPendingId(id: string | undefined | null): boolean {
+  return !id
 }

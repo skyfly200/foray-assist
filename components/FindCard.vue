@@ -4,7 +4,11 @@
     <div class="cover" :class="{ empty: !cover }">
       <img v-if="cover" :key="cover.id" :src="cover.url" alt="Cover photo of this find" class="cover-img" />
       <div v-else class="cover-empty" aria-hidden="true">🍄</div>
-      <span class="fa-badge id-pill">{{ find.specimenId }}</span>
+      <span v-if="pending" class="fa-badge id-pill id-pending" title="You'll get an ID when you sign in and have a connection">
+        <v-icon icon="mdi-timer-sand" size="14" /> ID pending
+        <v-tooltip activator="parent" location="bottom">You'll get an ID when you sign in and have a connection</v-tooltip>
+      </span>
+      <span v-else class="fa-badge id-pill">{{ displayId(find.specimenId) }}</span>
       <span class="time-pill">{{ timeLabel }}</span>
       <span v-if="burst" :key="burst" class="fa-burst" aria-hidden="true"><i v-for="n in 10" :key="n" :style="{ '--i': n }" /></span>
     </div>
@@ -64,7 +68,7 @@
     </div>
 
     <v-dialog v-model="confirmOpen" max-width="360">
-      <v-card :title="`Delete ${find.specimenId}?`" text="This removes the find and its photos from this device.">
+      <v-card :title="`Delete ${pending ? 'this find' : displayId(find.specimenId)}?`" text="This removes the find and its photos from this device.">
         <v-card-actions>
           <v-spacer />
           <v-btn @click="confirmOpen = false">Cancel</v-btn>
@@ -79,9 +83,11 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { deleteFind, removePhoto, setGeoprivacy, useLiveQuery } from '~/composables/useFinds'
 import type { Geoprivacy, Photo, Specimen } from '~/utils/db'
+import { displayId, isPendingId } from '~/utils/idCode'
 
 const props = defineProps<{ find: Specimen }>()
 const confirmOpen = ref(false)
+const pending = computed(() => isPendingId(props.find.specimenId))
 
 const privacyItems = [
   { title: 'Open (exact location)', short: 'Open', value: 'open', icon: 'mdi-lock-open-variant' },
@@ -150,6 +156,7 @@ async function onDelete() {
 .cover-img { width: 100%; height: 100%; object-fit: cover; display: block; animation: fa-pop .35s var(--fa-ease); }
 .cover-empty { height: 100%; display: grid; place-items: center; font-size: 4rem; opacity: 0.85; }
 .id-pill { position: absolute; left: 12px; top: 12px; background: rgb(var(--v-theme-surface)); color: rgb(var(--v-theme-primary)); font-size: 0.95rem; box-shadow: var(--fa-shadow); }
+.id-pill.id-pending { color: #8a5a00; background: #fff3d6; max-width: calc(100% - 24px); }
 .time-pill { position: absolute; right: 12px; bottom: 12px; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: rgba(0, 0, 0, 0.5); color: #fff; }
 .thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 2px; scroll-snap-type: x proximity; }
 .thumb { position: relative; flex: 0 0 auto; scroll-snap-align: start; }

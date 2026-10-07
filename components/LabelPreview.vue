@@ -10,6 +10,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
 import type { Specimen } from '~/utils/db'
+import { isPendingId } from '~/utils/idCode'
 import { renderLabelBitmap, bitmapToRgba, LABEL_WIDTH_PX as W, LABEL_HEIGHT_PX as H, type MonoBitmap } from '~/utils/label'
 
 const props = defineProps<{ specimen: Specimen }>()
@@ -17,7 +18,7 @@ const emit = defineEmits<{ (e: 'bitmap', b: MonoBitmap): void }>()
 const el = ref<HTMLCanvasElement | null>(null)
 
 async function draw() {
-  if (!el.value) return
+  if (!el.value || isPendingId(props.specimen.specimenId)) return
   const bmp = await renderLabelBitmap(props.specimen)
   const ctx = el.value.getContext('2d')!
   ctx.putImageData(new ImageData(bitmapToRgba(bmp), W, H), 0, 0)
