@@ -137,6 +137,13 @@ test('claiming past 1024 sets spills into a second network (24h limit lifted by 
   assert.equal(nn.rows[0].n, 2)
 })
 
+test('each network uses one sequence value: code = fa_network_code(net_no), no gaps', async () => {
+  const r = await db.query(`select count(*)::int n, max(net_no)::int mx, bool_and(code = fa_network_code(net_no)) ok from id_networks`)
+  assert.ok(r.rows[0].n >= 3)
+  assert.equal(r.rows[0].ok, true)
+  assert.equal(r.rows[0].mx, r.rows[0].n - 1)
+})
+
 test('rate limit: 64 sets per rolling 24h', async () => {
   await db.exec(`update id_sets set claimed_at = now() - interval '2 days'`)
   for (let i = 0; i < 4; i++) await claim(U2, 16)
