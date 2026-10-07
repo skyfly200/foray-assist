@@ -4,7 +4,7 @@
 // Never downloads by itself: call download() from a button press. transcribe()
 // only loads a model that is already cached (offline-safe).
 import { computed, ref } from 'vue'
-import { ortVariantSuffix } from '~/utils/audio'
+import { normalizePeak, ortVariantSuffix } from '~/utils/audio'
 
 export type WhisperModel = 'tiny.en' | 'base.en'
 export type WhisperStatus =
@@ -222,7 +222,8 @@ async function removeCache(m: WhisperModel = model.value) {
 }
 
 /** Transcribe 16 kHz mono Float32 audio. Requires a cached model; serialised in order. The array's buffer is transferred (detached) to the worker. */
-function transcribe(audio: Float32Array): Promise<string> {
+function transcribe(input: Float32Array): Promise<string> {
+  const audio = normalizePeak(input)
   const run = async () => {
     await ensureLoaded()
     const id = nextId++
