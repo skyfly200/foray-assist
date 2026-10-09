@@ -162,6 +162,7 @@ const status = computed(() => {
       </v-card>
 
       <IdStatusCard class="mb-4" />
+      <SocietiesCard class="mb-4" />
 
       <SyncIssues class="mb-4" />
       </div>

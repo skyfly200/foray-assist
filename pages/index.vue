@@ -173,6 +173,14 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
         />
       </div>
 
+      <div class="fa-home__join">
+        <JoinForayDialog>
+          <template #activator="{ props: act }">
+            <v-btn v-bind="act" variant="tonal" color="white" rounded="xl" size="small" prepend-icon="mdi-account-multiple-plus">Join a shared foray</v-btn>
+          </template>
+        </JoinForayDialog>
+      </div>
+
       <div class="fa-home__mode fa-mobile-only"><ModeToggle /></div>
     </section>
 
@@ -217,6 +225,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
           <div class="fa-home__name-row">{{ f.name }}</div>
           <div class="fa-home__meta">
             <span class="fa-badge"><v-icon icon="mdi-mushroom" size="14" />{{ plural(findCounts[f.id] ?? 0, 'find') }}</span>
+            <span v-if="f.shared" class="fa-badge"><v-icon icon="mdi-account-group" size="14" />{{ f.shared.role === 'owner' ? 'Shared' : f.shared.ownerName ? `With ${f.shared.ownerName}` : 'Joined' }}</span>
             <span class="fa-home__date">{{ fmtDate(f.startedAt) }}<template v-if="f.endedAt"> · ended</template></span>
           </div>
         </div>
@@ -255,6 +264,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 .fa-home__name { width: 100%; max-width: 340px; text-align: left; }
 .fa-home__name :deep(.v-field) { border-radius: 999px; }
 .fa-home__mode { margin-top: 16px; }
+.fa-home__join { margin-top: 12px; }
 @keyframes fa-home-breathe { 50% { transform: scale(1.05); } }
 
 .fa-home__section { margin: 22px 4px 10px; font-size: 1.1rem; font-weight: 800; }
@@ -285,13 +295,14 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 @media (min-width: 960px) {
   .fa-home { max-width: none; }
   .fa-home__hero {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'hello start' 'title start' 'stats start';
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'hello start' 'title start' 'stats start' 'stats join';
     align-content: center; column-gap: 40px; padding: 32px 40px; text-align: left;
   }
   .fa-home__hello { grid-area: hello; align-self: end; }
   .fa-home__title { grid-area: title; font-size: 2.1rem; margin: 6px 0 18px; }
   .fa-home__stats { grid-area: stats; justify-content: flex-start; margin-bottom: 0; align-self: start; }
   .fa-home__start { grid-area: start; flex-direction: row; align-items: center; gap: 16px; }
+  .fa-home__join { grid-area: join; justify-self: end; margin-top: 8px; }
   .fa-home__fab-label { order: 1; font-size: 1.15rem; }
   .fa-home__name { order: 2; width: 300px; max-width: 300px; }
   .fa-home__section { margin: 32px 4px 14px; font-size: 1.3rem; }
@@ -300,7 +311,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
   .fa-home__card--compact .fa-home__cover { height: 100px; }
 }
 @media (min-width: 960px) and (max-width: 1279.98px) {
-  .fa-home__hero { grid-template-columns: 1fr; grid-template-areas: 'hello' 'title' 'stats' 'start'; }
+  .fa-home__hero { grid-template-columns: 1fr; grid-template-areas: 'hello' 'title' 'stats' 'start' 'join'; }
   .fa-home__start { margin-top: 20px; flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) { .fa-home__fab, .fa-home__dot { animation: none; } }

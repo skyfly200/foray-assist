@@ -57,11 +57,40 @@
             <div class="text-caption text-medium-emphasis mt-2">{{ privacyLabel }}</div>
           </v-expansion-panel-text>
         </v-expansion-panel>
+        <v-expansion-panel v-if="societies.length" rounded="lg" elevation="0">
+          <v-expansion-panel-title>
+            <v-icon icon="mdi-numeric" class="mr-2" color="primary" /> Society voucher
+            <span class="text-caption text-medium-emphasis ml-2">{{ find.voucherId ? displayId(find.voucherId) : 'None' }}</span>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-text-field
+              v-model="voucher"
+              label="Voucher number from a society sheet"
+              placeholder="UABC-DEFG-H"
+              density="comfortable"
+              variant="outlined"
+              autocapitalize="characters"
+              :error-messages="voucherError"
+              @blur="saveVoucher"
+              @keydown.enter="saveVoucher"
+            />
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+        <v-expansion-panel v-if="isShared" rounded="lg" elevation="0">
+          <v-expansion-panel-title>
+            <v-icon icon="mdi-comment-multiple-outline" class="mr-2" color="primary" /> Comments and IDs
+            <span v-if="commentCount" class="text-caption text-medium-emphasis ml-2">{{ commentCount }}</span>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <CommentThread :foray-id="find.forayId" :specimen-row-id="find.id" />
+          </v-expansion-panel-text>
+        </v-expansion-panel>
       </v-expansion-panels>
     </v-card-text>
 
     <v-card-actions class="px-4 pb-4 fc-actions">
       <PrintLabelButton :specimen-row-id="find.id" />
+      <v-btn variant="text" prepend-icon="mdi-share-variant" :loading="sharing" @click="onShare">Send</v-btn>
       <v-spacer />
       <v-btn color="error" variant="text" prepend-icon="mdi-delete" @click="confirmOpen = true">Delete</v-btn>
     </v-card-actions>
@@ -76,6 +105,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <v-snackbar v-model="snack" :timeout="4000">{{ snackText }}</v-snackbar>
   </v-card>
 </template>
 
@@ -84,8 +114,41 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { deleteFind, removePhoto, setGeoprivacy, useLiveQuery } from '~/composables/useFinds'
 import type { Geoprivacy, Photo, Specimen } from '~/utils/db'
 import { displayId, isPendingId } from '~/utils/idCode'
+import { shareFind } from '~/composables/useFindShare'
 
 const props = defineProps<{ find: Specimen }>()
+
+// Shared foray: comments on our own finds. Societies: voucher number field.
+const isShared = useLiveQuery<boolean>(async () => !!(await useDb().forays.get(props.find.forayId))?.shared, false)
+const commentCount = useLiveQuery<number>(() => useDb().comments.where('specimenRowId').equals(props.find.id).count(), 0)
+const { societies, voucherProblem, setVoucher } = useSocieties()
+const voucher = ref(props.find.voucherId ? displayId(props.find.voucherId) : '')
+const voucherError = ref('')
+watch(() => props.find.voucherId, (v) => { voucher.value = v ? displayId(v) : '' })
+async function saveVoucher() {
+  const v = voucher.value.trim()
+  voucherError.value = v ? voucherProblem(v) : ''
+  if (voucherError.value) return
+  if ((props.find.voucherId ?? '') === (v ? v.toUpperCase().replace(/[^A-Z0-9]/g, '') : '')) return
+  try { await setVoucher(props.find.id, v) } catch (e: any) { voucherError.value = e?.message ?? String(e) }
+}
+
+// Send this find to someone nearby as a file (share sheet on Android, download elsewhere).
+const sharing = ref(false)
+const snack = ref(false)
+const snackText = ref('')
+async function onShare() {
+  sharing.value = true
+  try {
+    const how = await shareFind(props.find)
+    if (how === 'downloaded') { snackText.value = 'Saved as a file. Send it to the other person, who opens it from their foray screen.'; snack.value = true }
+  } catch (e: any) {
+    snackText.value = e?.message ?? String(e)
+    snack.value = true
+  } finally {
+    sharing.value = false
+  }
+}
 const confirmOpen = ref(false)
 const pending = computed(() => isPendingId(props.find.specimenId))
 
