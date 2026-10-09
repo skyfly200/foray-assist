@@ -198,23 +198,24 @@ test('mesh: alerts reach members once; outsiders on another foray hear nothing',
   assert.equal(X.alerts.length, 0)
 })
 
-test('duty cycle switches the radio on and off', async () => {
+test('duty cycle switches the radio on and off', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] }) // deterministic, even on a busy machine
   const hub = new LoopbackHub()
-  const t = hub.connect()
+  const tr = hub.connect()
   let wakes = 0
-  const dc = new DutyCycle(t, 100, 300, () => wakes++)
+  const dc = new DutyCycle(tr, 100, 300, () => wakes++)
   try {
     dc.start()
     assert.equal(dc.active, true)
-    await tick(160) // on for 100 ms, then off
+    t.mock.timers.tick(150) // on for 100 ms, then off
     assert.equal(dc.active, false)
-    await tick(240) // next window starts at 300 ms
+    t.mock.timers.tick(200) // next window starts at 300 ms
     assert.equal(dc.active, true)
   } finally {
     dc.stop() // never leave timers running, even when an assertion fails
   }
   assert.equal(dc.active, false)
-  assert.ok(wakes >= 2)
+  assert.equal(wakes, 2)
 })
 
 test('find package: build, parse, refuse junk, and judge imports', async () => {
