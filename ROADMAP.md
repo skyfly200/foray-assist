@@ -132,6 +132,8 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 ---
 
 ## Phase 12: Shared Forays & Societies (Online)
+*Status: built (migration 0006 and the Share, Join, Everyone's finds and Societies screens). Not yet tried against a live Supabase project. Members' finds refresh every 20 s rather than through Supabase Realtime, and each find belongs to one foray.*
+
 *Goal: Let people share a foray and see everyone's observations in one set, and let societies such as the Front Range Mycological Society (FRMS) and the Colorado Mycological Society (CMS) run events and issue their own IDs.*
 
 * **Shared Forays**:
@@ -146,6 +148,8 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 ---
 
 ## Phase 13: Nearby Mesh Sync & Find Alerts (Bluetooth, Native)
+*Status: the web part is built (`utils/mesh/`): encrypted, signed 128-byte alerts, record sync that relays between devices, single-find sharing as a file, and a duty-cycled nearby mode that runs between windows of the app on one device. Still to do: the native Bluetooth transport (needs Phase 11), and photo transfer over Nearby Connections / Wi-Fi Direct.*
+
 *Goal: Keep a crowd of devices in sync in real time with no signal, and tell nearby foragers about finds, using the shared foray and ID space from Phase 12.*
 
 * **Why native**: browsers can connect to Bluetooth devices but cannot advertise or accept connections, and standard Bluetooth Mesh is built for tiny control messages, not records and photos. This phase needs the native wrapper from Phase 11 with BLE peripheral/central plugins. iOS restricts background Bluetooth, so Android comes first.
