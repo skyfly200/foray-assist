@@ -221,15 +221,18 @@ async function removeCache(m: WhisperModel = model.value) {
   await refreshCache()
 }
 
-/** Transcribe 16 kHz mono Float32 audio. Requires a cached model; serialised in order. The array's buffer is transferred (detached) to the worker. */
-function transcribe(input: Float32Array): Promise<string> {
+/**
+ * Transcribe 16 kHz mono Float32 audio. Requires a cached model; serialised in order. The array's buffer is transferred (detached) to the worker.
+ * `prompt` is text Whisper treats as the previous transcript, to bias vocabulary (see utils/mycoVocab.ts).
+ */
+function transcribe(input: Float32Array, prompt?: string): Promise<string> {
   const audio = normalizePeak(input)
   const run = async () => {
     await ensureLoaded()
     const id = nextId++
     return new Promise<string>((resolve, reject) => {
       pending.set(id, { resolve, reject })
-      getWorker().postMessage({ type: 'transcribe', id, audio }, [audio.buffer])
+      getWorker().postMessage({ type: 'transcribe', id, audio, prompt }, [audio.buffer])
     })
   }
   const p = busy.then(run, run)

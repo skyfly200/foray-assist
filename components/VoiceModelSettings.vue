@@ -28,6 +28,20 @@
         {{ autoText }}
       </div>
 
+      <v-textarea
+        v-model="vocabText"
+        class="mt-4"
+        label="Species and words to recognise"
+        hint="One per line, e.g. your society's species list. Species already entered on this foray's finds are used automatically."
+        persistent-hint
+        rows="3"
+        auto-grow
+        variant="outlined"
+        density="comfortable"
+        data-testid="voice-vocab"
+        @blur="saveVocab"
+      />
+
       <div class="mt-3">
         <v-progress-linear v-if="status === 'downloading'" :model-value="progress" height="8" rounded color="primary" />
         <div class="text-body-2 mt-1" :class="{ 'text-error': status === 'error' }" role="status">{{ statusText }}</div>
@@ -62,12 +76,26 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import { VOICE_VOCAB_KEY } from '~/composables/useVoiceVocab'
+
 const { model, models, status, progress, error, device, cachedModels, isCached, setModel, download, removeCache } = useWhisper()
 
 const online = ref<boolean | null>(null)
 const upd = () => (online.value = navigator.onLine)
 onMounted(() => { upd(); window.addEventListener('online', upd); window.addEventListener('offline', upd) })
 onBeforeUnmount(() => { window.removeEventListener('online', upd); window.removeEventListener('offline', upd) })
+
+const vocabText = ref('')
+let vocabLoaded = false
+onMounted(async () => {
+  try { vocabText.value = ((await useDb().settings.get(VOICE_VOCAB_KEY))?.value as string) ?? '' } catch { /* ignore */ }
+  vocabLoaded = true
+})
+async function saveVocab() {
+  if (!vocabLoaded) return
+  try { await useDb().settings.put({ key: VOICE_VOCAB_KEY, value: vocabText.value }) } catch { /* ignore */ }
+}
+onBeforeUnmount(saveVocab)
 
 const auto = ref<{ at: string; status: string } | null>(null)
 const saveData = ref(false)

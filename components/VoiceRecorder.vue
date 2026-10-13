@@ -85,6 +85,7 @@ import { useLiveQuery } from '~/composables/useFinds'
 import type { VoiceNote } from '~/utils/db'
 import { Chunker, cleanTranscript, decodeBlobTo16kMono, describeMicError, joinTranscript, releaseActiveRecorder, startRecorder, type RecorderHandle } from '~/utils/audio'
 import { stopActiveSpeech, useWebSpeech, webSpeechSupported } from '~/composables/useWebSpeech'
+import { voiceVocabFor } from '~/composables/useVoiceVocab'
 
 const props = defineProps<{ forayId: string; specimenRowId?: string }>()
 
@@ -149,6 +150,8 @@ let chunkJobs: Promise<void>[] = []
 let chunkFailed = false
 let startedAt = ''
 let transcribeLive = false
+// Mycology prompt + correction pass for the current recording (see utils/mycoVocab.ts).
+let vocab: Awaited<ReturnType<typeof voiceVocabFor>> | null = null
 
 const updOnline = () => (offline.value = !navigator.onLine)
 const onHidden = () => {
@@ -168,7 +171,7 @@ onMounted(() => {
 function handleChunk(chunk: Float32Array) {
   if (!transcribeLive) return
   pendingChunks.value++
-  const job = transcribe(chunk)
+  const job = transcribe(chunk, vocab?.prompt)
     .then((t) => {
       const clean = cleanTranscript(t)
       if (clean) interim.value = joinTranscript(interim.value, clean)
@@ -202,6 +205,9 @@ async function startRecording() {
   mode.value = whisperUsable.value ? 'whisper' : speechAvailable.value ? 'speech' : 'raw'
   transcribeLive = mode.value === 'whisper'
   chunker = new Chunker()
+  vocab = null
+  // Not awaited: keep the mic start inside the tap. Chunks arrive seconds later.
+  voiceVocabFor(props.forayId).then((v) => { vocab = v }).catch(() => {})
 
   if (mode.value === 'speech') {
     releaseActiveRecorder('replaced') // another component's getUserMedia capture
@@ -273,6 +279,7 @@ async function stopRecording() {
       blob = res.blob.size ? res.blob : undefined
       tag = transcribeLive ? modelTag.value : 'none'
     }
+    if (text && vocab) text = vocab.correct(text)
     if (!blob && !text) {
       notice.value = notice.value || 'Nothing was recorded.'
     } else {
@@ -310,7 +317,8 @@ async function retranscribe(n: VoiceNote) {
   delete rowErrors.value[n.id]
   try {
     const pcm = await decodeBlobTo16kMono(n.audio)
-    const text = cleanTranscript(await transcribe(pcm))
+    const v = await voiceVocabFor(n.forayId)
+    const text = v.correct(cleanTranscript(await transcribe(pcm, v.prompt)))
     const db = useDb()
     await db.transaction('rw', db.voiceNotes, db.outbox, async () => {
       await db.voiceNotes.update(n.id, { transcript: text, model: modelTag.value, updatedAt: nowIso() })

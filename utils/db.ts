@@ -151,7 +151,8 @@ export interface OutboxItem {
 }
 
 // Known settings keys: 'mode' ('foray'|'review'), 'idSets' (this device's stock of reserved ID sets, see utils/idStock.ts), 'deviceId',
-// 'whisperModel' ('tiny.en'|'base.en'), 'printer' (last used printer info), 'displayName' (name shown to
+// 'whisperModel' ('tiny.en'|'base.en'), 'voiceVocab' (extra species/words for speech-to-text, one per line),
+// 'printer' (last used printer info), 'displayName' (name shown to
 // foray members), 'societies' (cached my_societies() rows), 'societySets' (voucher sets this device claimed),
 // 'deviceKey' ({ privateKey, publicKey } CryptoKeys for signing, Phase 13), 'deviceKeyPublished' (key id sent
 // to the server), 'nearbyEnabled' (opt-in for nearby alerts).
