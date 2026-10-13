@@ -1,0 +1,114 @@
+# Foray Assist: hand-testing checklist
+
+Everything here needs a real phone, a real printer or a real account, so it can't be checked from the cloud. Automated tests already cover the logic (ID codes, clustering, blur scoring, sync retry, label layout, and the ID flow on a local Supabase stack, 25 of 25 checks in draft PR #2). This list is what's left for you.
+
+Steps refer to sections of `SETUP.md`. Last updated 2026-10-09.
+
+## 0. Before you start (one-time setup)
+
+- [ ] Vercel: latest `main` deployment is **Ready**, Nuxt preset, no `onnxruntime-node` install error (SETUP 1)
+- [ ] Create a Supabase project for Foray Assist (your account doesn't have one yet) (SETUP 2.1–2.2)
+- [ ] Add `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_KEY`, `APP_ORIGIN` in Vercel and redeploy
+- [ ] Decide on draft PR #2 (network-number fix) before applying migrations, so `0005` goes on with the fix
+- [ ] Apply migrations `0001` to `0005` in order; check the 7 tables, RLS on `integration_tokens`, and the private `foray-media` bucket (SETUP 2.3)
+- [ ] Set Site URL and the `/settings` redirect URL (SETUP 2.4)
+
+## 1. Sign-in and ID v2 (real Supabase)
+
+- [ ] Add `{{ .Token }}` to **both** the Magic Link and Confirm signup email templates (SETUP 2.5)
+- [ ] Sign in with the **link** on the same phone: you land on Settings, signed in
+- [ ] Sign in with the **6-digit code** typed into the installed app (the case where the link opens in another browser)
+- [ ] Onboarding card appears on first launch and the ID stock fills (about 4,096 IDs) after sign-in
+- [ ] A new find gets an ID like `B7QM-4T9R-X`; the check character catches a one-letter typo in the verify box
+- [ ] Log finds while signed out or offline: they show **ID pending**, then get numbered once you sign in and reconnect
+- [ ] An unverified email is refused by `claim_id_sets` (try an account that never confirmed)
+- [ ] **Two devices claim IDs at the same moment** (two phones, or phone and laptop, signed in as different users, tap sign-in together): no overlapping IDs
+- [ ] Same user on two devices: each device gets its own sets, no duplicates after both sync
+- [ ] Access rules: a second user can't see your forays, finds, photos, ID networks or sets
+- [ ] Optional: run `tests/supabase-e2e.mjs` from PR #2 against the real project
+- [ ] Decide: old-format IDs (`SF-M042K`) still on a device will never sync. Ignore if nobody has pre-ID-v2 finds
+
+## 2. Offline sync
+
+- [ ] Sync pill turns green after sign-in; forays, finds, photos and voice notes appear in Supabase (SETUP 2.6)
+- [ ] Airplane mode: create a foray, log finds with photos and voice notes, edit one, then reconnect; everything uploads once with no duplicates
+- [ ] Kill the app mid-upload and reopen: the queue resumes
+- [ ] Force a failure (e.g. revoke the session): the item shows under **Settings → Sync issues** with Retry and Discard, and other items keep syncing
+- [ ] Phone storage stays put after a few days (the app asks the browser for persistent storage)
+
+## 3. Install and offline app (Android, Chrome)
+
+- [ ] Install from the Chrome menu; it opens full-screen from the home-screen icon (SETUP 5)
+- [ ] First launch on Wi-Fi auto-downloads the voice model (~70 MB); progress shows in **Settings → Voice**
+- [ ] With Data Saver on, the auto-download waits and the manual button works
+- [ ] Microphone, Camera and Location permission prompts appear and work; finds get a location stamp
+- [ ] Airplane mode after the first visit: app loads and all of Foray mode works
+- [ ] Optional: iPhone Safari "Add to Home Screen" (everything except printing should work)
+
+## 4. Speech (from the "Test speech on phone" thread)
+
+- [ ] **Web Speech** (online, no voice model yet): 15-second note, check for doubled words
+- [ ] **Whisper** (after download, hint says "On-device Whisper"): 15-second note, check the transcript isn't empty
+- [ ] **Whisper offline** in airplane mode
+- [ ] "Could not start audio source" when another app holds the mic: closing it and retrying works
+- [ ] Report phone model and browser for each step
+
+## 5. Camera and Review mode
+
+- [ ] In-app camera capture in Foray mode
+- [ ] Review mode: add a burst from the phone's photo picker, **Group into finds** clusters it sensibly by time and place
+- [ ] Best 2–4 sharp photos are pre-selected and blurry ones hidden
+- [ ] Desktop layout: side navigation and two-pane foray and review screens on a laptop browser
+
+## 6. Google Photos import
+
+- [ ] Google Cloud project, Photos Picker API, consent screen with you as test user, OAuth client with the callback URL (SETUP 3)
+- [ ] `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` in Vercel, redeploy
+- [ ] **Settings → Google Photos → Connect** returns showing connected
+- [ ] Review mode → **Pick from Google Photos** imports photos with time and location intact
+- [ ] Reconnect prompt after a week is expected while the app is in Testing mode
+
+## 7. iNaturalist publishing
+
+- [ ] Register the OAuth app with the callback URL; `INAT_APP_ID`, `INAT_APP_SECRET` in Vercel (SETUP 4)
+- [ ] **Settings → iNaturalist → Connect** returns showing your username
+- [ ] Publish **one** test find: photos, species guess, notes, time and location arrive correctly
+- [ ] Geoprivacy: one find each as Open, Obscured and Private shows the right location on iNaturalist
+- [ ] A find with **ID pending** is left out of Publish selected, with the warning shown
+- [ ] Delete the test observations afterwards
+
+## 8. Bluetooth label printing (Chrome on Android)
+
+- [ ] Printer: an ESC/POS or TSPL Bluetooth thermal printer (Niimbot isn't supported) (SETUP 6)
+- [ ] Bluetooth and Location both on; **Print label → Connect** lists the printer without pairing first
+- [ ] Print with **ESC/POS**, then **TSPL** if blank
+- [ ] Label reads correctly: ID, QR code scans back to the ID, text not inverted or cut off
+- [ ] A find with **ID pending** shows the no-ID warning and Print stays disabled
+- [ ] Printing works in airplane mode
+- [ ] Report printer model and which protocol worked
+
+## 9. Coming next: Phases 12 and 13 (being built in "Continue earlier session")
+
+These don't exist yet. Items will be firmed up once that thread's PR is up.
+
+- [ ] Shared foray: create one, join from a second phone with the code or QR, see each other's finds live
+- [ ] Row-level security: a non-member can't see a shared foray's finds
+- [ ] Comments, ID suggestions and confirmations on someone else's find, without editing their record
+- [ ] Location precision for other members follows each author's per-find setting
+- [ ] Leaving a foray removes live access but keeps past shared finds
+- [ ] Society: officer and leader roles, society-network IDs (`U`–`Z` class), society event forays
+- [ ] Share a single find to a nearby phone (Android share sheet or file): preview, approve, no duplicate, no overwrite
+- [ ] Nearby alerts and phone-to-phone record sync over Bluetooth (only once a native Android wrapper exists)
+
+## 10. Voice notes: mycology vocabulary (draft PR #4)
+
+Speech hasn't been tried on a real phone yet, so do the basic voice items first.
+
+- [ ] With the Whisper model downloaded, record: "Stipe white with an annulus, cap with a low umbo, spore print white, probably Amanita muscaria." Terms and the Latin name come out spelled right
+- [ ] Record a few more names (Cantharellus cibarius, Laetiporus sulphureus, Hericium erinaceus) and note any that are still wrong
+- [ ] Enter a species guess on a find (one not in the built-in list), then say it in a voice note on that foray: it's recognised
+- [ ] Settings → Voice notes model: add a name to "Species and words to recognise", leave the page and come back (it's saved), then say it in a note
+- [ ] Record about 5 seconds of silence: no prompt text (lists of species or terms) appears in the transcript
+- [ ] Record a long note (over 30 seconds) and use Re-transcribe: no missing or doubled words at the 30-second mark
+- [ ] Try both Tiny and Base models; report which gets the Latin names right and how slow each feels
+- [ ] Without the model (Web Speech, online): "um bow" / "stype" / misspelled Latin names still get cleaned up in the saved note
