@@ -2,7 +2,7 @@
 
 Everything here needs a real phone, a real printer or a real account, so it can't be checked from the cloud. Automated tests already cover the logic (ID codes, clustering, blur scoring, sync retry, label layout, and the ID flow on a local Supabase stack, 25 of 25 checks in draft PR #2). This list is what's left for you.
 
-Steps refer to sections of `SETUP.md`. Last updated 2026-10-09.
+Steps refer to sections of `SETUP.md`. Last updated 2026-10-13.
 
 ## 0. Before you start (one-time setup)
 
@@ -10,7 +10,7 @@ Steps refer to sections of `SETUP.md`. Last updated 2026-10-09.
 - [ ] Create a Supabase project for Foray Assist (your account doesn't have one yet) (SETUP 2.1–2.2)
 - [ ] Add `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_KEY`, `APP_ORIGIN` in Vercel and redeploy
 - [ ] Decide on draft PR #2 (network-number fix) before applying migrations, so `0005` goes on with the fix
-- [ ] Apply migrations `0001` to `0005` in order; check the 7 tables, RLS on `integration_tokens`, and the private `foray-media` bucket (SETUP 2.3)
+- [ ] Apply migrations `0001` to `0006` in order; check the 13 tables, RLS on `integration_tokens`, and the private `foray-media` bucket (SETUP 2.3)
 - [ ] Set Site URL and the `/settings` redirect URL (SETUP 2.4)
 
 ## 1. Sign-in and ID v2 (real Supabase)
@@ -30,7 +30,7 @@ Steps refer to sections of `SETUP.md`. Last updated 2026-10-09.
 
 ## 2. Offline sync
 
-- [ ] Sync pill turns green after sign-in; forays, finds, photos and voice notes appear in Supabase (SETUP 2.6)
+- [ ] Sync pill turns green after sign-in; forays, finds, photos and voice notes appear in Supabase (SETUP 2.7)
 - [ ] Airplane mode: create a foray, log finds with photos and voice notes, edit one, then reconnect; everything uploads once with no duplicates
 - [ ] Kill the app mid-upload and reopen: the queue resumes
 - [ ] Force a failure (e.g. revoke the session): the item shows under **Settings → Sync issues** with Retry and Discard, and other items keep syncing
@@ -87,18 +87,25 @@ Steps refer to sections of `SETUP.md`. Last updated 2026-10-09.
 - [ ] Printing works in airplane mode
 - [ ] Report printer model and which protocol worked
 
-## 9. Coming next: Phases 12 and 13 (being built in "Continue earlier session")
+## 9. Shared forays, societies and nearby sharing (Phases 12 and 13, PR #3)
 
-These don't exist yet. Items will be firmed up once that thread's PR is up.
+Needs migration `0006` and two signed-in phones (or a phone and a laptop) on different accounts.
 
-- [ ] Shared foray: create one, join from a second phone with the code or QR, see each other's finds live
-- [ ] Row-level security: a non-member can't see a shared foray's finds
-- [ ] Comments, ID suggestions and confirmations on someone else's find, without editing their record
-- [ ] Location precision for other members follows each author's per-find setting
-- [ ] Leaving a foray removes live access but keeps past shared finds
-- [ ] Society: officer and leader roles, society-network IDs (`U`–`Z` class), society event forays
-- [ ] Share a single find to a nearby phone (Android share sheet or file): preview, approve, no duplicate, no overwrite
-- [ ] Nearby alerts and phone-to-phone record sync over Bluetooth (only once a native Android wrapper exists)
+- [ ] Share a foray: the Share dialog shows a join code and QR; the second phone joins by scanning the QR, opening `/join/<code>`, or typing the code
+- [ ] Everyone's finds: each phone sees the other's finds, and new finds appear while both have signal
+- [ ] A third account that hasn't joined can't see the foray or its finds
+- [ ] Comment and add an ID suggestion on the other person's find; it shows on their phone, and you can't edit their record
+- [ ] Location privacy: a find set to Obscured or Private shows only a coarse location (or none) on the other phone
+- [ ] Download a shared photo from a find with a hidden location: it has no GPS in its EXIF
+- [ ] Owner rotates the join code and turns joining off: the old code stops working, existing members keep access
+- [ ] Leave the foray: live access stops, past shared finds stay with their authors
+- [ ] Sharing or joining while signed out or unverified shows "Confirm your email"
+- [ ] Society: create one in the SQL Editor (SETUP 2.6), the officer sees the join code under Settings → Societies, a member joins with it
+- [ ] Officer or leader gets a voucher sheet (`U`–`Z` class) and adds a voucher number to a find; run a shared foray as a society foray
+- [ ] Send a single find (Send on the find card) and open it on another phone (Open a shared find): preview, approve, no duplicate, nothing overwritten
+- [ ] Opening the same shared find twice doesn't create a second copy
+- [ ] Nearby mode: today it only reaches other windows on the same device; check it turns on and off cleanly and doesn't drain the battery
+- [ ] Not testable yet: alerts and record sync over Bluetooth between phones (needs the native Android wrapper)
 
 ## 10. Voice notes: mycology vocabulary (draft PR #4)
 
