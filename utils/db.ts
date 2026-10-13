@@ -88,7 +88,7 @@ export interface OutboxItem {
 }
 
 // Known settings keys: 'mode' ('foray'|'review'), 'idSets' (this device's stock of reserved ID sets, see utils/idStock.ts), 'deviceId',
-// 'whisperModel' ('tiny.en'|'base.en'), 'printer' (last used printer info).
+// 'whisperModel' ('tiny.en'|'base.en'), 'voiceVocab' (extra species/words for speech-to-text, one per line), 'printer' (last used printer info).
 export interface Setting {
   key: string
   value: unknown
