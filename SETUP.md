@@ -64,7 +64,8 @@ You already created the project. Verify it deploys.
    3. `0003_integrations.sql`
    4. `0004_unique_specimen_id.sql`
    5. `0005_id_sets.sql`
-3. Check **Table Editor**: you should see `forays`, `specimens`, `photos`, `voice_notes`, `integration_tokens`, `id_networks`, `id_sets`. `integration_tokens` should show RLS enabled with no policies. That's intentional, and only the server can read it. `id_networks` and `id_sets` let you read your own rows only; they are written solely by the `claim_id_sets` function.
+   6. `0006_shared_forays.sql` (shared forays, comments, societies, device keys)
+3. Check **Table Editor**: you should see `forays`, `specimens`, `photos`, `voice_notes`, `integration_tokens`, `id_networks`, `id_sets`, `foray_members`, `find_comments`, `societies`, `society_members`, `society_id_sets`, `device_keys`. `integration_tokens` should show RLS enabled with no policies. That's intentional, and only the server can read it. `id_networks` and `id_sets` let you read your own rows only; they are written solely by the `claim_id_sets` function.
 4. Check **Storage**: there should be a private bucket named `foray-media`.
 
 (If you prefer the CLI: install the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started), run `supabase link`, then `supabase db push`.)
@@ -88,7 +89,15 @@ Make the email contain a 6-digit code as well as the link. A link opens in whate
    ```
 3. Save. Under **Authentication → Providers → Email** the code length is 6 by default.
 
-### 2.6 Test it
+### 2.6 Societies (FRMS, CMS, ...)
+Societies are created by you, the project admin, in the **SQL Editor** (nobody can create one from the app). The officer's email must already have signed in to the app once.
+```sql
+select create_society('frms', 'Front Range Mycological Society', 'officer@example.com');
+select create_society('cms', 'Colorado Mycological Society', 'officer@example.com');
+```
+Each society gets its own voucher-number range starting with a letter from U to Z. In the app, the officer sees the society's join code under **Settings → Societies** and shares it with members. Officers and foray leaders can get voucher numbers there too (1,024 per sheet), and can run a shared foray as a society foray.
+
+### 2.7 Test it
 Open your deployed app → **Settings** → enter your email → **Send link** → open the email on the same device → you should land back on Settings showing signed in, and the sync pill should turn green after a moment. In Supabase **Table Editor → forays** you should see your forays appear.
 
 ---
@@ -161,6 +170,10 @@ Printing works from **Chrome on Android only** (iPhones can't print yet, which i
 - [ ] Google Photos pick works (section 3)
 - [ ] Publish one find to iNaturalist (section 4)
 - [ ] Label prints (section 6)
+- [ ] Share a foray (Share button on the foray screen), join it from a second phone with the code or QR, and see each other's finds
+- [ ] On a shared find, add a comment and an ID suggestion; it shows on the other phone
+- [ ] Send a find (Send on the find card) and open it on another phone (Open a shared find)
+- [ ] Join a society with its code (Settings → Societies) and add a voucher number to a find
 
 ## Troubleshooting
 
@@ -173,4 +186,6 @@ Printing works from **Chrome on Android only** (iPhones can't print yet, which i
 | Google asks you to sign in again after a week | Normal while the app is in Testing mode (section 3) |
 | iNaturalist connect fails | Redirect URI must exactly match `APP_ORIGIN` + `/api/inat/callback`; check `INAT_APP_ID` and `INAT_APP_SECRET` |
 | Items stuck "waiting" to sync | Settings → Sync issues shows anything that failed permanently, with Retry/Discard |
+| "The server is missing the shared-foray update" | Run `0006_shared_forays.sql` (section 2.3) |
+| "Confirm your email" when sharing or joining | Sign in on Settings and use the link or code from the email |
 | Voice model won't download | Needs internet once; try Wi-Fi; check Settings → Voice for the error |
