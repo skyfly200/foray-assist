@@ -57,14 +57,18 @@ You already created the project. Verify it deploys.
 ### 2.3 Apply the database migrations
 > **Warning:** `0002` **drops and recreates** the `forays` and `transcript_segments` tables from the early prototype. On a fresh project that's fine. Don't run it on a project holding data you want to keep.
 
+**Easiest: the Supabase GitHub integration.** In the Supabase dashboard go to **Project Settings → Integrations → GitHub**, connect this repo with working directory `.`, production branch `main`, and turn on **Deploy to production**. Supabase then applies any migration in `supabase/migrations/` that the database hasn't run yet whenever `main` changes (merge a PR, or push to `main`). Check progress under **Branches → main → View logs**, then do the checks in steps 3 and 4 below. Use either the integration or the SQL Editor steps below, not both: migrations pasted by hand aren't recorded, so the integration would try to run them again.
+
+**By hand:**
+
 1. In the Supabase dashboard open **SQL Editor** → **New query**.
 2. Open each file from the repo's `supabase/migrations/` folder, **in this order**, paste it into the editor, and click **Run**:
-   1. `0001_init.sql`
-   2. `0002_sync_schema.sql`
-   3. `0003_integrations.sql`
-   4. `0004_unique_specimen_id.sql`
-   5. `0005_id_sets.sql`
-   6. `0006_shared_forays.sql` (shared forays, comments, societies, device keys)
+   1. `20261001000001_init.sql`
+   2. `20261001000002_sync_schema.sql`
+   3. `20261001000003_integrations.sql`
+   4. `20261001000004_unique_specimen_id.sql`
+   5. `20261001000005_id_sets.sql`
+   6. `20261001000006_shared_forays.sql` (shared forays, comments, societies, device keys)
 3. Check **Table Editor**: you should see `forays`, `specimens`, `photos`, `voice_notes`, `integration_tokens`, `id_networks`, `id_sets`, `foray_members`, `find_comments`, `societies`, `society_members`, `society_id_sets`, `device_keys`. `integration_tokens` should show RLS enabled with no policies. That's intentional, and only the server can read it. `id_networks` and `id_sets` let you read your own rows only; they are written solely by the `claim_id_sets` function.
 4. Check **Storage**: there should be a private bucket named `foray-media`.
 
@@ -188,6 +192,6 @@ For the full list of things to test by hand on a real phone, printer and account
 | Google asks you to sign in again after a week | Normal while the app is in Testing mode (section 3) |
 | iNaturalist connect fails | Redirect URI must exactly match `APP_ORIGIN` + `/api/inat/callback`; check `INAT_APP_ID` and `INAT_APP_SECRET` |
 | Items stuck "waiting" to sync | Settings → Sync issues shows anything that failed permanently, with Retry/Discard |
-| "The server is missing the shared-foray update" | Run `0006_shared_forays.sql` (section 2.3) |
+| "The server is missing the shared-foray update" | Run `20261001000006_shared_forays.sql` (section 2.3) |
 | "Confirm your email" when sharing or joining | Sign in on Settings and use the link or code from the email |
 | Voice model won't download | Needs internet once; try Wi-Fi; check Settings → Voice for the error |

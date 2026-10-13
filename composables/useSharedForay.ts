@@ -2,7 +2,7 @@
 // sign-in; everything else keeps working offline: the foray, its member list and the last
 // copy of everyone's finds are cached in Dexie, and our own finds and comments queue in the
 // outbox as usual. While the foray screen is open and online, the feed refreshes every 20 s.
-// Server side: supabase/migrations/0006_shared_forays.sql.
+// Server side: supabase/migrations/20261001000006_shared_forays.sql.
 import { feedRowToPeerFind, mergeFeed, normalizeJoinCode, type FeedRow } from '~/utils/sharing'
 import type { FindComment, Foray, ForayMember, SharedInfo } from '~/utils/db'
 import { publishDeviceKey } from './useDeviceKey'

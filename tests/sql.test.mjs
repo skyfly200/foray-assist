@@ -1,4 +1,4 @@
-// Runs supabase/migrations/0005_id_sets.sql for real in PGlite (in-process Postgres) against
+// Runs supabase/migrations/20261001000005_id_sets.sql for real in PGlite (in-process Postgres) against
 // minimal Supabase stubs. Not covered: real Supabase roles/grants/RLS enforcement.
 import test, { before } from 'node:test'
 import assert from 'node:assert/strict'
@@ -35,11 +35,11 @@ before(async () => {
     create unique index specimens_user_specimen_id_key on public.specimens (user_id, specimen_id);
     insert into auth.users values ('${U1}','a@x', now()), ('${U2}','b@x', now()), ('${U3}','c@x', null);
   `)
-  await db.exec(readFileSync(new URL('../supabase/migrations/0005_id_sets.sql', import.meta.url), 'utf8'))
+  await db.exec(readFileSync(new URL('../supabase/migrations/20261001000005_id_sets.sql', import.meta.url), 'utf8'))
 })
 
 test('migration is idempotent', async () => {
-  await db.exec(readFileSync(new URL('../supabase/migrations/0005_id_sets.sql', import.meta.url), 'utf8'))
+  await db.exec(readFileSync(new URL('../supabase/migrations/20261001000005_id_sets.sql', import.meta.url), 'utf8'))
 })
 
 test('SQL check char equals TS checkChar for 2000 random payloads', async () => {
