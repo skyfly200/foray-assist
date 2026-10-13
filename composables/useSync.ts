@@ -3,6 +3,7 @@
 // no Supabase env it degrades to signedIn=false. Return shape is a contract.
 import { liveQuery } from 'dexie'
 import { countParked, countPending, pickNext, planFailure, type SyncOutboxItem } from '../utils/syncPolicy'
+import { stripPhotoBlob } from '../utils/jpeg'
 
 const MEDIA_BUCKET = 'foray-media'
 
@@ -68,10 +69,11 @@ function toRow(obj: Record<string, any>, drop: string[] = []): Record<string, an
 }
 
 const TABLE_MAP = {
-  forays: { remote: 'forays', drop: ['syncedAt'] },
+  forays: { remote: 'forays', drop: ['syncedAt', 'shared', 'joined'] },
   specimens: { remote: 'specimens', drop: ['syncedAt'] },
   photos: { remote: 'photos', drop: ['syncedAt', 'blob'] },
   voiceNotes: { remote: 'voice_notes', drop: ['syncedAt', 'audio'] },
+  comments: { remote: 'find_comments', drop: ['syncedAt', 'authorName', 'userId', 'mine'] },
 } as const
 
 async function processItem(sb: any, item: OutboxItem) {
@@ -92,10 +94,13 @@ async function processItem(sb: any, item: OutboxItem) {
 
   const row: any = await (db as any)[item.table].get(item.rowId)
   if (!row) return // deleted locally since queued; a delete item (if any) follows
+  // A foray someone else shared with us is theirs: only its owner writes the row.
+  if (item.table === 'forays' && (row.joined || (row.shared && row.shared.role !== 'owner'))) return
 
   let blob: Blob | undefined
   let path: string | undefined
-  if (item.table === 'photos' && row.blob instanceof Blob) { blob = row.blob; path = mediaPath('photos') }
+  // Uploaded photos lose their EXIF (GPS) so a find's location setting holds once it is shared.
+  if (item.table === 'photos' && row.blob instanceof Blob) { blob = await stripPhotoBlob(row.blob); path = mediaPath('photos') }
   if (item.table === 'voiceNotes' && row.audio instanceof Blob) { blob = row.audio; path = mediaPath('voice') }
 
   const payload = toRow(row, [...map.drop])
@@ -175,5 +180,5 @@ async function discardParked(): Promise<void> {
 
 export function useSync() {
   init()
-  return { online, pending, parked, signedIn, syncing, syncNow, retryParked, discardParked }
+  return { online, pending, parked, signedIn, syncing, syncNow, retryParked, discardParked, currentUserId: () => userId }
 }

@@ -44,6 +44,10 @@ onMounted(() => {
         Started {{ new Date(foray.startedAt).toLocaleString() }}
         <span v-if="foray.endedAt"> · ended {{ new Date(foray.endedAt).toLocaleString() }}</span>
       </div>
+      <div class="hero-share mt-2">
+        <ShareForayDialog :foray="foray" />
+        <span v-if="foray?.shared && foray.shared.role !== 'owner' && foray.shared.ownerName" class="hero-sub ml-2">Shared by {{ foray.shared.ownerName }}</span>
+      </div>
       <div class="hero-pills d-flex flex-wrap ga-2 mt-3">
         <span class="hero-pill"><v-icon icon="mdi-leaf" size="16" /> {{ counts.finds }} find{{ counts.finds === 1 ? '' : 's' }}</span>
         <span class="hero-pill"><v-icon icon="mdi-camera" size="16" /> {{ counts.photos }} photo{{ counts.photos === 1 ? '' : 's' }}</span>
@@ -68,11 +72,14 @@ onMounted(() => {
               </div>
             </section>
             <VoiceRecorder :foray-id="id" class="mb-4 desk-voice" />
+            <NearbyCard v-if="foray?.shared" :foray-id="id" :foray="foray" class="mb-4" />
             <!-- FindList teleports its camera / New find action here on desktop. -->
             <div id="fa-desk-actions" class="desk-actions" />
           </aside>
           <div class="fa-split-main">
             <FindList :foray-id="id" />
+            <v-divider class="my-6" />
+            <SharedFindsPanel :foray-id="id" :foray="foray" />
           </div>
         </div>
         <div v-else key="review" class="fa-split">
@@ -98,6 +105,7 @@ onMounted(() => {
 .hero-kicker { opacity: 0.9; }
 .hero-title { line-height: 1.2; word-break: break-word; }
 .hero-sub { opacity: 0.9; font-size: 0.85rem; }
+.hero-share :deep(.v-btn) { background: rgba(255, 255, 255, 0.22); color: inherit; }
 .hero-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); font-weight: 600; font-size: 0.85rem; }
 
 .desk-summary { display: none; }
