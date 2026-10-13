@@ -23,7 +23,7 @@ You already created the project. Verify it deploys.
 2. Open the latest deployment from `main`. It should say **Ready**. The app now loads even with no environment variables, so an older deployment that crashed with a 500 error should be fixed by the latest one.
 3. Check **Settings → Build & Development** (or **Build and Deployment**): Framework Preset should be **Nuxt.js**, Build Command `npm run build` (default).
 4. Open the **Build Logs** of a deployment and look at the install step. If you see an error from `onnxruntime-node` (a download failing during `npm install`), tell me and I'll fix it. It shouldn't be needed in the browser.
-5. Note your production URL (for example `https://forray-assist.vercel.app`). You'll need it as `APP_ORIGIN` below.
+5. Note your production URL (for example `https://foray-assist.vercel.app`). You'll need it as `APP_ORIGIN` below.
 
 **Adding environment variables** (used in sections 2–4): project → **Settings → Environment Variables** ([docs](https://vercel.com/docs/projects/environment-variables)). Add each one for **Production** (and Preview if you use previews). **After adding or changing any variable, you must redeploy** (Deployments → ⋯ on the latest → **Redeploy**). The site is prerendered, so public values are baked in at build time.
 
@@ -77,8 +77,8 @@ You already created the project. Verify it deploys.
 ### 2.4 Allow sign-in links to return to your app
 Each person signs in **once**, at first launch, with a verified email address. That sign-in is what lets the server issue them their own specimen ID range (the `claim_id_sets` function refuses accounts whose email is not verified). After that the app works offline and only needs a connection to top up its ID stock.
 1. Go to **Authentication → URL Configuration**.
-2. Set **Site URL** to your production URL (e.g. `https://forray-assist.vercel.app`).
-3. Under **Redirect URLs** add `https://forray-assist.vercel.app/settings` (your URL + `/settings`). For local development also add `http://localhost:3000/settings`.
+2. Set **Site URL** to your production URL (e.g. `https://foray-assist.vercel.app`).
+3. Under **Redirect URLs** add `https://foray-assist.vercel.app/settings` (your URL + `/settings`). For local development also add `http://localhost:3000/settings`.
 4. Save.
 
 ### 2.5 Sign-in emails

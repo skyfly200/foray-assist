@@ -173,6 +173,7 @@ class ForayDB extends Dexie {
   nearbyAlerts!: Table<NearbyAlert, string>
 
   constructor() {
+    // Keeps the original misspelled name: renaming it would orphan data already on devices.
     super('forray-assist')
     this.version(1).stores({
       forays: 'id, startedAt, updatedAt',
