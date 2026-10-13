@@ -163,6 +163,8 @@ Printing works from **Chrome on Android only** (iPhones can't print yet, which i
 
 ## Smoke-test checklist
 
+For the full list of things to test by hand on a real phone, printer and accounts, see [HAND-TESTING.md](HAND-TESTING.md).
+
 - [ ] Deployed site loads and works in airplane mode after the first visit
 - [ ] Create a foray, log a find, add a photo (camera), record a voice note
 - [ ] Settings shows sync **configured** and you can sign in (needs section 2)
