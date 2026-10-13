@@ -4,6 +4,15 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
+## Pending: Turn on iNaturalist Publishing
+*Status: the code is built (Review mode → Publish, `server/api/inat/`) but not configured in production, because iNaturalist must approve the app first.*
+
+* **Blocker**: iNaturalist approves new API apps by hand. The applying account must be at least 2 months old and have made at least 10 improving identifications for other users in the last month. As of 2026-10-13 Skyler's account is working toward this.
+* **Application pitch**: a field notebook for mushroom forays. A person photographs and describes each find, reviews it, and publishes it themselves, so nothing is machine-generated or posted without a human choosing to.
+* **Once approved**: create the app at <https://www.inaturalist.org/oauth/applications/new> with redirect URI `https://foray-assist.vercel.app/api/inat/callback`, add `INAT_APP_ID` and `INAT_APP_SECRET` in Vercel, redeploy, then publish one test observation (SETUP.md section 4).
+
+---
+
 ## Phase 2: Advanced On-Device Computer Vision & Diagnostic Quality Scoring
 *Goal: Expand beyond simple Laplacian blur checks to intelligent macro-feature detection.*
 

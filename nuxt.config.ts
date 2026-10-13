@@ -35,8 +35,8 @@ export default defineNuxtConfig({
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
-      name: 'Forray Assist',
-      short_name: 'Forray',
+      name: 'Foray Assist',
+      short_name: 'Foray',
       description: 'Offline-first foray field logger',
       theme_color: '#2e7d32',
       background_color: '#ffffff',

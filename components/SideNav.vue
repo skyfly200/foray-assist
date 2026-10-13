@@ -11,9 +11,9 @@ function toggleMode() {
 
 <template>
   <aside class="fa-side">
-    <NuxtLink to="/" class="fa-side__brand" aria-label="Forray Assist home">
+    <NuxtLink to="/" class="fa-side__brand" aria-label="Foray Assist home">
       <span class="fa-side__mark" aria-hidden="true"><v-icon icon="mdi-mushroom" size="22" /></span>
-      <span class="fa-side__name">Forray Assist</span>
+      <span class="fa-side__name">Foray Assist</span>
     </NuxtLink>
 
     <nav class="fa-side__nav" aria-label="Main">
