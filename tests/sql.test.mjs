@@ -1,4 +1,4 @@
-// Runs supabase/migrations/0005_id_sets.sql for real in PGlite (in-process Postgres) against
+// Runs supabase/migrations/20261001000005_id_sets.sql for real in PGlite (in-process Postgres) against
 // minimal Supabase stubs. Not covered: real Supabase roles/grants/RLS enforcement.
 import test, { before } from 'node:test'
 import assert from 'node:assert/strict'
@@ -35,11 +35,11 @@ before(async () => {
     create unique index specimens_user_specimen_id_key on public.specimens (user_id, specimen_id);
     insert into auth.users values ('${U1}','a@x', now()), ('${U2}','b@x', now()), ('${U3}','c@x', null);
   `)
-  await db.exec(readFileSync(new URL('../supabase/migrations/0005_id_sets.sql', import.meta.url), 'utf8'))
+  await db.exec(readFileSync(new URL('../supabase/migrations/20261001000005_id_sets.sql', import.meta.url), 'utf8'))
 })
 
 test('migration is idempotent', async () => {
-  await db.exec(readFileSync(new URL('../supabase/migrations/0005_id_sets.sql', import.meta.url), 'utf8'))
+  await db.exec(readFileSync(new URL('../supabase/migrations/20261001000005_id_sets.sql', import.meta.url), 'utf8'))
 })
 
 test('SQL check char equals TS checkChar for 2000 random payloads', async () => {
@@ -135,6 +135,13 @@ test('claiming past 1024 sets spills into a second network (24h limit lifted by 
   assert.equal(dup.rows[0].n, 0)
   const nn = await db.query(`select count(*)::int n from id_networks where user_id=$1`, [U1])
   assert.equal(nn.rows[0].n, 2)
+})
+
+test('each network uses one sequence value: code = fa_network_code(net_no), no gaps', async () => {
+  const r = await db.query(`select count(*)::int n, max(net_no)::int mx, bool_and(code = fa_network_code(net_no)) ok from id_networks`)
+  assert.ok(r.rows[0].n >= 3)
+  assert.equal(r.rows[0].ok, true)
+  assert.equal(r.rows[0].mx, r.rows[0].n - 1)
 })
 
 test('rate limit: 64 sets per rolling 24h', async () => {

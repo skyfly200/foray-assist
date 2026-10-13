@@ -50,7 +50,7 @@ before(async () => {
     insert into auth.users values
       ('${OWNER}','owner@x', now()), ('${AMY}','amy@x', now()), ('${EVE}','eve@x', now()), ('${UNV}','unv@x', null);
   `)
-  for (const f of ['0001_init.sql', '0002_sync_schema.sql', '0003_integrations.sql', '0004_unique_specimen_id.sql', '0005_id_sets.sql', '0006_shared_forays.sql']) {
+  for (const f of ['20261001000001_init.sql', '20261001000002_sync_schema.sql', '20261001000003_integrations.sql', '20261001000004_unique_specimen_id.sql', '20261001000005_id_sets.sql', '20261001000006_shared_forays.sql']) {
     await db.exec(mig(f))
   }
   // Supabase's default grants on public tables.
@@ -71,7 +71,7 @@ async function addFind(user, forayId, geoprivacy, lat = 39.7392, lon = -104.9903
 let code = ''
 
 test('migration 0006 is idempotent', async () => {
-  await db.exec(mig('0006_shared_forays.sql'))
+  await db.exec(mig('20261001000006_shared_forays.sql'))
 })
 
 test('sharing needs a verified email', async () => {
