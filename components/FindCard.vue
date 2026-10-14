@@ -28,13 +28,14 @@
         </div>
       </TransitionGroup>
 
-      <PhotoCapture :specimen-row-id="find.id" :foray-id="find.forayId" class="mb-3" />
+      <PhotoCapture v-if="capture" :specimen-row-id="find.id" :foray-id="find.forayId" class="mb-3" />
 
-      <VoiceRecorder :foray-id="find.forayId" :specimen-row-id="find.id" class="mb-3" />
+      <VoiceRecorder :foray-id="find.forayId" :specimen-row-id="find.id" :list-only="!capture" class="mb-3" />
 
       <AttributeForm :specimen-row-id="find.id" :model-value="find.fieldNotes" class="mb-2" />
 
-      <v-expansion-panels variant="accordion" class="sections">
+      <!-- Field capture keeps the card short; privacy, vouchers and comments are Review work. -->
+      <v-expansion-panels v-if="!capture" variant="accordion" class="sections">
         <v-expansion-panel rounded="lg" elevation="0">
           <v-expansion-panel-title>
             <v-icon :icon="privacyIcon" class="mr-2" color="primary" /> Location privacy
@@ -90,7 +91,7 @@
 
     <v-card-actions class="px-4 pb-4 fc-actions">
       <PrintLabelButton :specimen-row-id="find.id" />
-      <FieldFormButton :specimen-row-id="find.id" />
+      <FieldFormButton v-if="!capture" :specimen-row-id="find.id" />
       <v-btn variant="text" prepend-icon="mdi-share-variant" :loading="sharing" @click="onShare">Send</v-btn>
       <v-spacer />
       <v-btn color="error" variant="text" prepend-icon="mdi-delete" @click="confirmOpen = true">Delete</v-btn>
@@ -117,7 +118,9 @@ import type { Geoprivacy, Photo, Specimen } from '~/utils/db'
 import { displayId, isPendingId } from '~/utils/idCode'
 import { shareFind } from '~/composables/useFindShare'
 
-const props = defineProps<{ find: Specimen }>()
+// 'capture' (Foray mode): photos, voice, notes and a label. 'review' (Review mode): editing, IDs, forms, publishing details.
+const props = withDefaults(defineProps<{ find: Specimen; variant?: 'capture' | 'review' }>(), { variant: 'capture' })
+const capture = computed(() => props.variant === 'capture')
 
 // Shared foray: comments on our own finds. Societies: voucher number field.
 const isShared = useLiveQuery<boolean>(async () => !!(await useDb().forays.get(props.find.forayId))?.shared, false)
@@ -230,6 +233,7 @@ async function onDelete() {
 .sections :deep(.v-expansion-panel) { background: rgba(var(--v-theme-primary), 0.06); border-radius: var(--fa-radius-sm) !important; }
 .sections :deep(.v-expansion-panel::after) { display: none; }
 .privacy { height: 48px; }
+.fc-actions { flex-wrap: wrap; row-gap: 4px; }
 
 /* Desktop: shorter stacked cover so more finds fit on screen. */
 @media (min-width: 960px) {

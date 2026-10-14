@@ -110,15 +110,7 @@ async function createForay() {
   if (starting.value) return
   starting.value = true
   try {
-    const now = nowIso()
-    const row: Foray = {
-      id: newId(),
-      name: newName.value.trim() || `Foray ${new Date().toLocaleDateString()}`,
-      startedAt: now,
-      updatedAt: now,
-    }
-    await useDb().forays.add(row)
-    await enqueue('forays', row.id)
+    const row = await startForay(newName.value)
     newName.value = ''
     router.push(`/forays/${row.id}`)
   } finally {
@@ -140,7 +132,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
   <div class="fa-home">
     <section class="fa-hero fa-home__hero fa-pop-enter-active">
       <p class="fa-home__hello">{{ greeting.text }} <span aria-hidden="true">{{ greeting.emoji }}</span></p>
-      <h1 class="fa-home__title">Ready to find some fungi?</h1>
+      <h1 class="fa-home__title">{{ isForay ? 'Ready to find some fungi?' : 'Time to sort your finds' }}</h1>
 
       <div class="fa-home__stats" aria-label="Your totals">
         <span class="fa-badge fa-home__stat"><v-icon icon="mdi-pine-tree" size="16" />{{ shown.forays }} forays</span>
@@ -181,7 +173,6 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
         </JoinForayDialog>
       </div>
 
-      <div class="fa-home__mode fa-mobile-only"><ModeToggle /></div>
     </section>
 
     <OnboardingCard />
@@ -263,7 +254,6 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 .fa-home__fab-label { font-weight: 800; font-size: 1.05rem; }
 .fa-home__name { width: 100%; max-width: 340px; text-align: left; }
 .fa-home__name :deep(.v-field) { border-radius: 999px; }
-.fa-home__mode { margin-top: 16px; }
 .fa-home__join { margin-top: 12px; }
 @keyframes fa-home-breathe { 50% { transform: scale(1.05); } }
 
