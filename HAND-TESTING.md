@@ -134,3 +134,11 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] Print label: the label has a 0 to 3 cm scale bar at the bottom; check it measures 3 cm
 - [ ] Settings → Field form: hide a field (it disappears from finds and the printout), add a field with quick picks (e.g. Taste: mild, bitter, acrid), then say "taste is bitter" in a voice note: it fills in
 - [ ] Field form → Forms per page 2 and 4, This find and All finds: each layout fits the page, the cut lines are straight, and empty spots print as blank forms
+
+## 12. Browser speech option and Whisper retranscribe
+
+- [ ] Settings → Voice → Speech recognition → Browser speech recognition. Record a note on a find: words appear as you speak and the field form still fills in
+- [ ] The saved note has an audio player and a "Retranscribe with Whisper" button (needs the Whisper model downloaded). Tap it: the transcript is replaced and any new details fill empty fields
+- [ ] If the Settings text says this browser can't keep the audio, recording still works, just with no audio on the note. Report phone and Chrome version
+- [ ] Airplane mode with Browser speech chosen: the recorder uses Whisper (if downloaded)
+- [ ] Switch back to On-device Whisper: notes use Whisper again
