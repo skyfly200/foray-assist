@@ -1,5 +1,6 @@
 import type { Geoprivacy } from '~/utils/db'
 import { isPendingId } from '~/utils/idCode'
+import { friendlyError } from '~/utils/taskGuard'
 // iNaturalist publish queue (SPEC 3.6). State lives in Specimen.inatStatus /
 // inatError / iNatObservationId (Dexie); never blocks field logging. Runs
 // sequentially when online + signed in + iNat connected.
@@ -84,7 +85,7 @@ async function publishOne(id: string) {
     }
     await setStatus(id, { inatStatus: 'published', inatError: undefined })
   } catch (e: any) {
-    const msg = e?.statusMessage || e?.data?.statusMessage || e?.message || 'Publish failed'
+    const msg = friendlyError(e, 'iNaturalist') || 'Publish failed'
     await setStatus(id, { inatStatus: 'failed', inatError: String(msg).slice(0, 300) })
   }
 }

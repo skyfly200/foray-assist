@@ -60,11 +60,12 @@
         :disabled="busy"
         @click="download"
       >
-        Download voice model (~{{ models[model].approxMB }} MB)
+        {{ status === 'error' ? 'Retry download' : `Download voice model (~${models[model].approxMB} MB)` }}
       </v-btn>
       <v-btn v-else-if="status !== 'ready'" variant="tonal" prepend-icon="mdi-power" :loading="status === 'loading'" @click="download">
         Load model
       </v-btn>
+      <v-btn v-if="busy" variant="text" prepend-icon="mdi-stop" data-testid="voice-model-stop" @click="cancel">Stop</v-btn>
       <v-spacer />
       <v-btn v-if="isCached" color="error" variant="text" prepend-icon="mdi-delete" :disabled="busy" @click="removeCache()">
         Remove from device
@@ -78,7 +79,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { VOICE_VOCAB_KEY } from '~/composables/useVoiceVocab'
 
-const { model, models, status, progress, error, device, cachedModels, isCached, setModel, download, removeCache } = useWhisper()
+const { model, models, status, progress, error, device, cachedModels, isCached, setModel, download, removeCache, cancel } = useWhisper()
 
 const online = ref<boolean | null>(null)
 const upd = () => (online.value = navigator.onLine)

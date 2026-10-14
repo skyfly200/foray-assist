@@ -4,8 +4,12 @@
 import { liveQuery } from 'dexie'
 import { countParked, countPending, pickNext, planFailure, type SyncOutboxItem } from '../utils/syncPolicy'
 import { stripPhotoBlob } from '../utils/jpeg'
+import { withTimeout } from '../utils/taskGuard'
 
 const MEDIA_BUCKET = 'foray-media'
+// One outbox item (row + media upload). A request that never answers would otherwise keep
+// `syncing` true forever and block every later sync; on timeout the item backs off as transient.
+const ITEM_TIMEOUT_MS = 120_000
 
 // Singleton state shared by the plugin and any page calling useSync().
 const online = ref(true)
@@ -136,7 +140,7 @@ async function syncNow(): Promise<void> {
       if (!item) break
       const id = item.id!
       try {
-        await processItem(sb, item)
+        await withTimeout(processItem(sb, item), ITEM_TIMEOUT_MS, 'Sync request timed out')
         await db.outbox.delete(id)
       } catch (e: any) {
         const plan = planFailure(item, e, Date.now())

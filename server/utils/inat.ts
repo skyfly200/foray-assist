@@ -217,6 +217,6 @@ export async function getInatJwt(userId: string): Promise<string> {
 /** Map an iNat failure to a Nitro error with a safe message (never includes tokens). */
 export function toHttpError(e: any) {
   if (e?.statusCode) return e
-  const st = e instanceof InatError ? (e.status === 401 || e.status === 403 ? 409 : e.status === 422 ? 422 : 502) : 502
+  const st = e instanceof InatError ? (e.status === 401 || e.status === 403 ? 409 : e.status === 422 ? 422 : e.status === 429 ? 429 : 502) : 502
   return createError({ statusCode: st, statusMessage: e?.message ?? 'iNaturalist request failed' })
 }

@@ -3,6 +3,7 @@
 // Worker -> main: {type:'progress', ...} | {type:'ready', device} | {type:'result', id, text} | {type:'error', id?, message}
 import { pipeline, env } from '@huggingface/transformers'
 import { joinTranscript, ortVariantSuffix } from '../utils/audio'
+import { friendlyError, retryAfterSeconds } from '../utils/taskGuard'
 
 env.allowLocalModels = false
 env.useBrowserCache = true // Cache API 'transformers-cache'; survives offline
@@ -14,6 +15,31 @@ env.useBrowserCache = true // Cache API 'transformers-cache'; survives offline
   const base = new URL('/ort/', self.location.origin).href
   const wasm = (env.backends as any)?.onnx?.wasm
   if (wasm) wasm.wasmPaths = { mjs: `${base}ort-wasm-simd-threaded${suffix}.mjs`, wasm: `${base}ort-wasm-simd-threaded${suffix}.wasm` }
+}
+
+// Model files come from the Hugging Face Hub (anonymous, so limits are per network/IP).
+// Give up on a request whose headers never arrive, and turn HTTP 429 into a message that says so.
+// A body that stalls mid-download is caught by the watchdog in composables/useWhisper.ts.
+const HEADERS_TIMEOUT_MS = 30_000
+{
+  const base = env.fetch ?? fetch.bind(self)
+  env.fetch = async (input: any, init: any = {}) => {
+    const ctl = new AbortController()
+    const t = setTimeout(() => ctl.abort(), HEADERS_TIMEOUT_MS)
+    let res: Response
+    try {
+      res = await base(input, { ...init, signal: ctl.signal })
+    } catch (e: any) {
+      if (ctl.signal.aborted) throw new Error('The voice model server did not answer within 30 seconds. Check your connection, then press Retry.')
+      throw e
+    } finally {
+      clearTimeout(t)
+    }
+    if (res.status === 429) {
+      throw new Error(friendlyError({ status: 429 }, 'Hugging Face (where the voice model is downloaded from)', retryAfterSeconds(res.headers.get('retry-after'))))
+    }
+    return res
+  }
 }
 
 const REPOS: Record<string, string> = {

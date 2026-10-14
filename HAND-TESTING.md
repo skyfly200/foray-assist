@@ -134,3 +134,11 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] Print label: the label has a 0 to 3 cm scale bar at the bottom; check it measures 3 cm
 - [ ] Settings → Field form: hide a field (it disappears from finds and the printout), add a field with quick picks (e.g. Taste: mild, bitter, acrid), then say "taste is bitter" in a voice note: it fills in
 - [ ] Field form → Forms per page 2 and 4, This find and All finds: each layout fits the page, the cut lines are straight, and empty spots print as blank forms
+
+## 12. Stopping and retrying stuck tasks
+
+- [ ] Settings → Voice notes model → Remove from device, then Download: a Stop button shows while it downloads; Stop puts it back to "Not downloaded" and Download starts again cleanly
+- [ ] Start the download, then turn on airplane mode: within about a minute it stops with a message saying it stopped making progress, and Retry download works once you are back online
+- [ ] Record a long note (a few minutes), tap Re-transcribe, then tap Stop next to "Transcribing…": it stops, says "Stopped", and Retry transcribes it
+- [ ] Record a note with the model ready and stop recording: "Saving…" never stays up for more than about 20 seconds; if transcription was slow the note still saves with its audio and offers Retry
+- [ ] If you ever see "limiting requests right now (HTTP 429…)", note which service it names and when

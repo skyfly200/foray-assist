@@ -1,6 +1,7 @@
 // Client side of the Google Photos Picker import. Optional: nothing else in the app depends on it.
 import { computed, ref } from 'vue'
 import { enqueue, newId, nowIso, useDb, type Photo } from '~/utils/db'
+import { friendlyError } from '~/utils/taskGuard'
 
 export interface GoogleStatus { configured: boolean; connected: boolean; scopeOk: boolean }
 interface PickedMeta { id: string; createTime?: string; filename?: string; mimeType?: string; width?: number; height?: number; latitude?: number; longitude?: number }
@@ -108,7 +109,7 @@ export function useGooglePhotos() {
       // Best-effort: tidy up is left to Google's session expiry.
       return result
     } catch (e: any) {
-      error.value = e?.data?.statusMessage || e?.message || 'Google Photos import failed'
+      error.value = friendlyError(e, 'Google Photos') || 'Google Photos import failed'
       return result
     } finally {
       busy.value = false; phase.value = 'idle'

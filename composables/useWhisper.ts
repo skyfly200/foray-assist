@@ -5,6 +5,11 @@
 // only loads a model that is already cached (offline-safe).
 import { computed, ref } from 'vue'
 import { normalizePeak, ortVariantSuffix } from '~/utils/audio'
+import { friendlyError, stallWatch, transcribeTimeoutMs, withTimeout } from '~/utils/taskGuard'
+
+// No progress for this long means the download or start-up is stuck: stop it and offer Retry.
+const DOWNLOAD_STALL_MS = 60_000
+const LOAD_STALL_MS = 120_000 // compiling the runtime on a slow phone sends no progress
 
 export type WhisperModel = 'tiny.en' | 'base.en'
 export type WhisperStatus =
@@ -38,14 +43,19 @@ const pending = new Map<number, { resolve: (t: string) => void; reject: (e: Erro
 const fileBytes = new Map<string, { loaded: number; total: number }>()
 let loadedModel: WhisperModel | '' = ''
 let busy: Promise<unknown> = Promise.resolve()
+let watch: ReturnType<typeof stallWatch> | null = null
+const HF = 'Hugging Face (where the voice model is downloaded from)'
 
 function getWorker(): Worker {
   if (worker) return worker
   worker = new Worker(new URL('../workers/whisper.worker.ts', import.meta.url), { type: 'module' })
   worker.onmessage = (e: MessageEvent) => {
     const m = e.data
+    watch?.poke()
     if (m.type === 'progress') onProgress(m)
     else if (m.type === 'ready') {
+      watch?.stop()
+      watch = null
       device.value = m.device
       loadedModel = model.value
       status.value = 'ready'
@@ -61,7 +71,9 @@ function getWorker(): Worker {
         pending.get(m.id)!.reject(new Error(m.message))
         pending.delete(m.id)
       } else {
-        error.value = m.message
+        watch?.stop()
+        watch = null
+        error.value = friendlyError(new Error(m.message), HF)
         status.value = 'error'
         loadWaiter?.reject(new Error(m.message))
         loadWaiter = null
@@ -69,16 +81,41 @@ function getWorker(): Worker {
     }
   }
   worker.onerror = (e) => {
-    error.value = e.message || 'Voice worker crashed'
-    status.value = 'error'
-    loadWaiter?.reject(new Error(error.value))
-    loadWaiter = null
-    for (const p of pending.values()) p.reject(new Error(error.value))
-    pending.clear()
-    worker = null
-    loadedModel = ''
+    terminate(e.message || 'Voice worker crashed', 'error')
   }
   return worker
+}
+
+/**
+ * Kill the worker (the only way to stop a running download or WASM transcription) and fail
+ * everything waiting on it. The next download()/transcribe() starts a fresh worker.
+ * `as`: 'error' shows `reason`; 'idle' goes back to cached / not-downloaded (a Stop press).
+ */
+function terminate(reason: string, as: 'error' | 'idle') {
+  watch?.stop()
+  watch = null
+  try { worker?.terminate() } catch { /* ignore */ }
+  worker = null
+  loadedModel = ''
+  loadPromise = null
+  const err = new Error(reason)
+  loadWaiter?.reject(err)
+  loadWaiter = null
+  for (const p of pending.values()) p.reject(err)
+  pending.clear()
+  progress.value = 0
+  if (as === 'error') {
+    error.value = reason
+    status.value = 'error'
+  } else {
+    error.value = ''
+    status.value = cachedModels.value[model.value] ? 'cached' : 'not-downloaded'
+  }
+}
+
+/** Stop a download, model start-up, or transcription in progress. Recordings stay saved. */
+function cancel() {
+  terminate('Stopped', 'idle')
 }
 
 function onProgress(p: any) {
@@ -143,7 +180,18 @@ function startLoad(): Promise<void> {
   fileBytes.clear()
   error.value = ''
   progress.value = 0
-  status.value = cachedModels.value[model.value] ? 'loading' : 'downloading'
+  const downloading = !cachedModels.value[model.value]
+  status.value = downloading ? 'downloading' : 'loading'
+  watch?.stop()
+  const limit = downloading ? DOWNLOAD_STALL_MS : LOAD_STALL_MS
+  watch = stallWatch(limit, () => {
+    terminate(
+      downloading
+        ? `The voice model download stopped making progress (nothing received for ${limit / 1000} seconds). Check your connection, then press Retry.`
+        : 'The voice model took too long to start. Press Retry, or close other apps to free memory.',
+      'error',
+    )
+  })
   return new Promise<void>((resolve, reject) => {
     loadWaiter = { resolve, reject }
     w.postMessage({ type: 'load', model: model.value })
@@ -174,16 +222,17 @@ async function fetchOrt(): Promise<void> {
 async function download(): Promise<void> {
   await init()
   if (status.value !== 'ready' && !loadPromise && !ortFetched && navigator.onLine && !(await isOrtCached())) {
-    try { await fetchOrt(); ortFetched = true } catch (e: any) {
-      error.value = e?.message ?? String(e)
+    try { await withTimeout(fetchOrt(), DOWNLOAD_STALL_MS * 3, 'Downloading the speech runtime timed out'); ortFetched = true } catch (e: any) {
+      error.value = friendlyError(e, 'The app server')
       status.value = 'error'
       return
     }
   }
   if (status.value === 'ready' && loadedModel === model.value) return
   if (loadPromise) return loadPromise
-  loadPromise = startLoad().finally(() => { loadPromise = null })
-  try { await loadPromise } catch { /* status/error already set */ }
+  const p = startLoad().finally(() => { if (loadPromise === p) loadPromise = null })
+  loadPromise = p
+  try { await p } catch { /* status/error already set */ }
 }
 
 /** Initialise a cached model without touching the network. Throws if not cached. */
@@ -230,9 +279,14 @@ function transcribe(input: Float32Array, prompt?: string): Promise<string> {
   const run = async () => {
     await ensureLoaded()
     const id = nextId++
-    return new Promise<string>((resolve, reject) => {
+    const ms = transcribeTimeoutMs(audio.length)
+    const job = new Promise<string>((resolve, reject) => {
       pending.set(id, { resolve, reject })
       getWorker().postMessage({ type: 'transcribe', id, audio, prompt }, [audio.buffer])
+    })
+    // A stuck worker would otherwise hold up every later transcription (they run in order).
+    return withTimeout(job, ms, `Transcription took longer than ${Math.round(ms / 1000)} seconds and was stopped`, () => {
+      if (pending.has(id)) terminate('Transcription was stopped because it took too long', 'idle')
     })
   }
   const p = busy.then(run, run)
@@ -262,5 +316,6 @@ export function useWhisper() {
     setModel,
     removeCache,
     transcribe,
+    cancel,
   }
 }

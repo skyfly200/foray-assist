@@ -16,7 +16,7 @@
         <span class="text-body-2" aria-live="off">{{ elapsedLabel }}</span>
         <div v-if="mode !== 'speech'" class="meter" aria-hidden="true"><div class="meter-fill" :style="{ width: Math.round(level * 100) + '%' }" /></div>
       </template>
-      <span v-else class="text-body-2 text-medium-emphasis">{{ saving ? 'Saving…' : 'Record note' }}</span>
+      <span v-else class="text-body-2 text-medium-emphasis">{{ saving ? (pendingChunks > 0 ? 'Finishing transcription…' : 'Saving…') : 'Record note' }}</span>
       <span v-if="!recording && engineHint" class="text-caption text-medium-emphasis">{{ engineHint }}</span>
     </div>
 
@@ -32,10 +32,15 @@
     </v-alert>
     <div v-if="status === 'downloading'" class="mt-3">
       <v-progress-linear :model-value="progress" height="8" rounded color="primary" />
-      <div class="text-caption mt-1">Downloading voice model {{ progress }}%</div>
+      <div class="d-flex align-center ga-2 mt-1">
+        <span class="text-caption">Downloading voice model {{ progress }}%</span>
+        <v-spacer />
+        <v-btn size="small" variant="text" prepend-icon="mdi-stop" data-testid="voice-download-stop" @click="cancelWhisper">Stop</v-btn>
+      </div>
     </div>
     <v-alert v-if="status === 'error'" type="warning" variant="tonal" density="compact" class="mt-3">
-      Voice model problem: {{ whisperError }}
+      <div>Voice model problem: {{ whisperError }}</div>
+      <v-btn class="mt-2" size="small" variant="tonal" prepend-icon="mdi-refresh" :disabled="recording || offline" data-testid="voice-model-retry" @click="download">Retry</v-btn>
     </v-alert>
     <v-alert v-if="micError" type="error" variant="tonal" density="compact" class="mt-3">{{ micError }}</v-alert>
     <v-alert v-if="notice" type="info" variant="tonal" density="compact" class="mt-3" closable @click:close="notice = ''">{{ notice }}</v-alert>
@@ -73,7 +78,10 @@
           <v-chip size="x-small">{{ n.model }}</v-chip>
         </div>
         <audio v-if="urls[n.id]" :src="urls[n.id]" controls preload="none" class="w-100 mb-1" />
-        <div v-if="busyIds.has(n.id)" class="text-body-2 text-medium-emphasis">Transcribing…</div>
+        <div v-if="busyIds.has(n.id)" class="d-flex align-center ga-2 text-body-2 text-medium-emphasis">
+          Transcribing…
+          <v-btn size="x-small" variant="text" prepend-icon="mdi-stop" data-testid="transcribe-stop" @click="stopTranscribing(n)">Stop</v-btn>
+        </div>
         <div v-else-if="n.transcript" class="text-body-2">{{ n.transcript }}</div>
         <div v-else class="text-body-2 text-medium-emphasis">No transcript yet.</div>
         <div v-if="rowErrors[n.id]" class="text-caption text-error">{{ rowErrors[n.id] }}</div>
@@ -81,11 +89,11 @@
           <v-btn
             size="small"
             variant="text"
-            prepend-icon="mdi-text-recognition"
+            :prepend-icon="rowErrors[n.id] ? 'mdi-refresh' : 'mdi-text-recognition'"
             :disabled="!n.audio || !isCached || busyIds.has(n.id) || recording"
             @click="retranscribe(n)"
           >
-            {{ isCached ? `Re-transcribe (${model})` : 'Transcribe (needs model)' }}
+            {{ !isCached ? 'Transcribe (needs model)' : rowErrors[n.id] ? 'Retry' : `Re-transcribe (${model})` }}
           </v-btn>
           <v-btn
             v-if="specimenRowId && n.transcript"
@@ -118,11 +126,16 @@ import { updateFieldNotes } from '~/composables/useFinds'
 import type { FieldNotes } from '~/utils/db'
 import { extractCustomFields, extractFieldNotes, voicePatch, type Extracted } from '~/utils/voiceExtract'
 import { formGroups, visibleKeys, type FieldKey } from '~/utils/fieldForm'
+import { friendlyError, withTimeout } from '~/utils/taskGuard'
+
+// Saving a note never waits longer than this for live transcription; the audio is kept for Re-transcribe.
+const SAVE_WAIT_MS = 20_000
+const DECODE_TIMEOUT_MS = 30_000
 
 const props = defineProps<{ forayId: string; specimenRowId?: string }>()
 
 const {
-  model, modelTag, models, status, progress, isCached, error: whisperError, download, transcribe,
+  model, modelTag, models, status, progress, isCached, error: whisperError, download, transcribe, cancel: cancelWhisper,
 } = useWhisper()
 
 const webSpeech = useWebSpeech()
@@ -386,7 +399,13 @@ async function stopRecording() {
       const res = await handle!.stop()
       handle = null
       for (const c of chunker!.flush()) handleChunk(c)
-      await Promise.all(chunkJobs)
+      // A stuck transcription must never hold the recording hostage: save the audio and move on.
+      try {
+        await withTimeout(Promise.all(chunkJobs), SAVE_WAIT_MS)
+      } catch {
+        cancelWhisper()
+        chunkFailed = true
+      }
       text = interim.value.trim()
       blob = res.blob.size ? res.blob : undefined
       tag = transcribeLive ? modelTag.value : 'none'
@@ -430,7 +449,7 @@ async function retranscribe(n: VoiceNote) {
   busyIds.value = new Set(busyIds.value).add(n.id)
   delete rowErrors.value[n.id]
   try {
-    const pcm = await decodeBlobTo16kMono(n.audio)
+    const pcm = await withTimeout(decodeBlobTo16kMono(n.audio), DECODE_TIMEOUT_MS, 'Reading the recording timed out')
     const v = await voiceVocabFor(n.forayId)
     const text = v.correct(cleanTranscript(await transcribe(pcm, v.prompt)))
     const db = useDb()
@@ -439,12 +458,18 @@ async function retranscribe(n: VoiceNote) {
       await enqueue('voiceNotes', n.id)
     })
   } catch (e: any) {
-    rowErrors.value[n.id] = `Transcription failed: ${e?.message ?? e}`
+    rowErrors.value[n.id] = stoppedIds.delete(n.id) ? 'Stopped. Press Retry to transcribe it again.' : `Transcription failed: ${friendlyError(e)}`
   } finally {
     const s = new Set(busyIds.value)
     s.delete(n.id)
     busyIds.value = s
   }
+}
+
+const stoppedIds = new Set<string>()
+function stopTranscribing(n: VoiceNote) {
+  stoppedIds.add(n.id)
+  cancelWhisper()
 }
 
 async function remove(n: VoiceNote) {
