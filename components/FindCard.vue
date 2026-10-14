@@ -90,6 +90,7 @@
 
     <v-card-actions class="px-4 pb-4 fc-actions">
       <PrintLabelButton :specimen-row-id="find.id" />
+      <FieldFormButton :specimen-row-id="find.id" />
       <v-btn variant="text" prepend-icon="mdi-share-variant" :loading="sharing" @click="onShare">Send</v-btn>
       <v-spacer />
       <v-btn color="error" variant="text" prepend-icon="mdi-delete" @click="confirmOpen = true">Delete</v-btn>

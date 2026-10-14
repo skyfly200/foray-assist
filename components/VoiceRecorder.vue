@@ -48,6 +48,24 @@
       <div v-if="pendingChunks > 0" class="text-caption text-medium-emphasis mt-1">Transcribing…</div>
     </v-sheet>
 
+    <v-sheet v-if="specimenRowId && (filled.length || (recording && fillsForm))" class="pa-3 mt-3 voice-filled" rounded border>
+      <div class="d-flex align-center ga-2">
+        <v-icon icon="mdi-form-select" size="18" color="primary" />
+        <span class="text-body-2 font-weight-medium">{{ filled.length ? 'Filled in from your voice' : 'Listening for details to fill in the form' }}</span>
+        <v-spacer />
+        <v-btn v-if="filled.length && !recording" size="small" variant="text" prepend-icon="mdi-undo" @click="undoFill">Undo</v-btn>
+        <v-btn v-if="filled.length && !recording" size="small" variant="text" icon="mdi-close" aria-label="Dismiss" @click="filled = []" />
+      </div>
+      <div v-if="!filled.length" class="text-caption text-medium-emphasis mt-1">
+        Try: "brown convex cap, 6 cm across, white gills, smells like anise, under oaks".
+      </div>
+      <div v-else class="d-flex flex-wrap ga-1 mt-2">
+        <v-chip v-for="f in filled" :key="f.key" size="small" color="primary" variant="tonal">
+          <span class="text-medium-emphasis mr-1">{{ f.label }}:</span> {{ f.value }}
+        </v-chip>
+      </div>
+    </v-sheet>
+
     <v-list v-if="notes.length" lines="three" density="compact" class="mt-3 pa-0">
       <v-list-item v-for="n in notes" :key="n.id" class="px-0">
         <div class="d-flex align-center ga-2 flex-wrap mb-1">
@@ -69,6 +87,16 @@
           >
             {{ isCached ? `Re-transcribe (${model})` : 'Transcribe (needs model)' }}
           </v-btn>
+          <v-btn
+            v-if="specimenRowId && n.transcript"
+            size="small"
+            variant="text"
+            prepend-icon="mdi-form-select"
+            :disabled="recording || busyIds.has(n.id)"
+            @click="fillFromNote(n)"
+          >
+            Fill form
+          </v-btn>
           <v-spacer />
           <v-btn size="small" variant="text" color="error" prepend-icon="mdi-delete" :disabled="busyIds.has(n.id)" @click="remove(n)">
             Delete
@@ -86,6 +114,10 @@ import type { VoiceNote } from '~/utils/db'
 import { Chunker, cleanTranscript, decodeBlobTo16kMono, describeMicError, joinTranscript, releaseActiveRecorder, startRecorder, type RecorderHandle } from '~/utils/audio'
 import { stopActiveSpeech, useWebSpeech, webSpeechSupported } from '~/composables/useWebSpeech'
 import { voiceVocabFor } from '~/composables/useVoiceVocab'
+import { updateFieldNotes } from '~/composables/useFinds'
+import type { FieldNotes } from '~/utils/db'
+import { extractCustomFields, extractFieldNotes, voicePatch, type Extracted } from '~/utils/voiceExtract'
+import { formGroups, visibleKeys, type FieldKey } from '~/utils/fieldForm'
 
 const props = defineProps<{ forayId: string; specimenRowId?: string }>()
 
@@ -153,6 +185,82 @@ let transcribeLive = false
 // Mycology prompt + correction pass for the current recording (see utils/mycoVocab.ts).
 let vocab: Awaited<ReturnType<typeof voiceVocabFor>> | null = null
 
+// ---------- filling the field form from speech (utils/voiceExtract.ts) ----------
+// While recording a note on a find, the transcript so far is parsed on the device and the
+// details it names go straight into the form. Voice only fills empty fields or ones it filled
+// itself this recording, never something typed; Undo puts back what was there before.
+const fillsForm = computed(() => !!props.specimenRowId)
+const { config: formConfig } = useFormConfig()
+const filled = ref<{ key: FieldKey; label: string; value: string }[]>([])
+let voiceOwned: Extracted = {}
+let voiceBefore: Partial<Record<FieldKey, string>> = {}
+let extractTimer: ReturnType<typeof setTimeout> | null = null
+let extractQueue: Promise<void> = Promise.resolve()
+
+function showFilled() {
+  filled.value = formGroups(formConfig.value).flatMap((g) => g.fields)
+    .filter((f) => voiceOwned[f.key]).map((f) => ({ key: f.key, label: f.label, value: voiceOwned[f.key]! }))
+}
+
+/** Parse `text` and write new values into the find's form. `onlyEmpty`: never replace a value. */
+function fillForm(text: string, onlyEmpty = false): Promise<number> {
+  const id = props.specimenRowId
+  if (!id || !text.trim()) return Promise.resolve(0)
+  let count = 0
+  const job = extractQueue.then(async () => {
+    const corrected = vocab ? vocab.correct(text) : text
+    // Only fields shown on the form (Settings → Field form), including the user's own.
+    const shown = visibleKeys(formConfig.value)
+    const all: Extracted = { ...extractFieldNotes(corrected, vocab?.names ?? []), ...extractCustomFields(corrected, formConfig.value.custom) }
+    const ext = Object.fromEntries(Object.entries(all).filter(([k]) => shown.has(k))) as Extracted
+    const cur: FieldNotes = (await useDb().specimens.get(id))?.fieldNotes ?? {}
+    const patch = voicePatch(cur, ext, onlyEmpty ? {} : voiceOwned)
+    const keys = Object.keys(patch) as FieldKey[]
+    if (!keys.length) return
+    for (const k of keys) {
+      if (!(k in voiceBefore)) voiceBefore[k] = cur[k] ?? ''
+      voiceOwned[k] = patch[k]
+    }
+    await updateFieldNotes(id, patch)
+    count = keys.length
+    showFilled()
+  })
+  extractQueue = job.catch(() => {})
+  return job.then(() => count, () => 0)
+}
+
+function scheduleFill() {
+  if (!fillsForm.value) return
+  if (extractTimer) clearTimeout(extractTimer)
+  extractTimer = setTimeout(() => { extractTimer = null; void fillForm(interim.value) }, 350)
+}
+
+function resetFill() {
+  voiceOwned = {}
+  voiceBefore = {}
+  filled.value = []
+}
+
+async function undoFill() {
+  const id = props.specimenRowId
+  if (!id) return
+  const cur: FieldNotes = (await useDb().specimens.get(id))?.fieldNotes ?? {}
+  const patch: FieldNotes = {}
+  // Only revert fields still holding what voice wrote; later hand edits stay.
+  for (const [k, v] of Object.entries(voiceOwned) as [FieldKey, string][]) {
+    if ((cur[k] ?? '') === v) patch[k] = voiceBefore[k] ?? ''
+  }
+  if (Object.keys(patch).length) await updateFieldNotes(id, patch)
+  resetFill()
+}
+
+async function fillFromNote(n: VoiceNote) {
+  resetFill()
+  vocab = await voiceVocabFor(n.forayId).catch(() => null)
+  const count = await fillForm(n.transcript, true)
+  notice.value = count ? '' : 'Nothing new to fill in: the form already has those details, or none were found.'
+}
+
 const updOnline = () => (offline.value = !navigator.onLine)
 const onHidden = () => {
   // Android stops the mic when the page is hidden; save what we have instead of leaving a dead recording.
@@ -174,7 +282,10 @@ function handleChunk(chunk: Float32Array) {
   const job = transcribe(chunk, vocab?.prompt)
     .then((t) => {
       const clean = cleanTranscript(t)
-      if (clean) interim.value = joinTranscript(interim.value, clean)
+      if (clean) {
+        interim.value = joinTranscript(interim.value, clean)
+        scheduleFill()
+      }
     })
     .catch(() => { chunkFailed = true })
     .finally(() => { pendingChunks.value-- })
@@ -206,6 +317,7 @@ async function startRecording() {
   transcribeLive = mode.value === 'whisper'
   chunker = new Chunker()
   vocab = null
+  resetFill()
   // Not awaited: keep the mic start inside the tap. Chunks arrive seconds later.
   voiceVocabFor(props.forayId).then((v) => { vocab = v }).catch(() => {})
 
@@ -215,7 +327,7 @@ async function startRecording() {
     await new Promise((r) => setTimeout(r, 150))
     try {
       speech = webSpeech.start({
-        onText: (t) => { speechText = t; interim.value = t },
+        onText: (t) => { speechText = t; interim.value = t; scheduleFill() },
         onError: (m) => {
           micError.value = m
           if (recording.value) stopRecording()
@@ -279,6 +391,8 @@ async function stopRecording() {
       blob = res.blob.size ? res.blob : undefined
       tag = transcribeLive ? modelTag.value : 'none'
     }
+    if (extractTimer) { clearTimeout(extractTimer); extractTimer = null }
+    if (text) await fillForm(text)
     if (text && vocab) text = vocab.correct(text)
     if (!blob && !text) {
       notice.value = notice.value || 'Nothing was recorded.'
@@ -346,6 +460,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('offline', updOnline)
   document.removeEventListener('visibilitychange', onHidden)
   if (timer) clearInterval(timer)
+  if (extractTimer) clearTimeout(extractTimer)
   // Abandon an in-progress recording on navigation: release the mic.
   handle?.stop().catch(() => {})
   speech?.stop().catch(() => {})

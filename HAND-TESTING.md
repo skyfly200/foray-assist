@@ -119,3 +119,15 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] Record a long note (over 30 seconds) and use Re-transcribe: no missing or doubled words at the 30-second mark
 - [ ] Try both Tiny and Base models; report which gets the Latin names right and how slow each feels
 - [ ] Without the model (Web Speech, online): "um bow" / "stype" / misspelled Latin names still get cleaned up in the saved note
+
+## 11. Voice notes fill the field form, and printing it
+
+- [ ] On a find, record: "Brown convex cap about 6 centimeters across, white gills, smells like anise, growing in moss under oaks." While you talk (or right after you stop), the matching fields fill in and a "Filled in from your voice" box lists them
+- [ ] Type a value into a field first (e.g. Odor: mild), then say a different odor: your typed value stays
+- [ ] Undo in the "Filled in from your voice" box puts the fields back the way they were
+- [ ] On an older voice note, "Fill form" fills only the empty fields
+- [ ] Say a few things it gets wrong and report the sentence and what landed where
+- [ ] Find card → Field form → Print. The page fits one sheet (A4 or Letter), and with "fit to page" off the cm ruler measures 15 cm with a real ruler
+- [ ] Print label: the label has a 0 to 3 cm scale bar at the bottom; check it measures 3 cm
+- [ ] Settings → Field form: hide a field (it disappears from finds and the printout), add a field with quick picks (e.g. Taste: mild, bitter, acrid), then say "taste is bitter" in a voice note: it fills in
+- [ ] Field form → Forms per page 2 and 4, This find and All finds: each layout fits the page, the cut lines are straight, and empty spots print as blank forms

@@ -42,3 +42,7 @@ test('state binds user, rejects tamper/expiry/wrong secret', async () => {
   assert.equal(await verifyState('sec', s.slice(0, -2) + '00'), null)
   assert.equal(await verifyState('sec', await signState('sec', 'u', -1)), null)
 })
+test('description includes voice-filled form fields', () => {
+  const d = composeDescription({ timestamp: 'x', fieldNotes: { capColor: 'brown', sporePrint: 'white', gillAttachment: 'free' } })
+  assert.match(d, /Cap color: brown[\s\S]*Gill attachment: free[\s\S]*Spore print: white/)
+})

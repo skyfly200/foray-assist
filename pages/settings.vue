@@ -173,6 +173,11 @@ const status = computed(() => {
         <VoiceModelSettings class="mb-4" />
       </section>
 
+      <section class="mb-4">
+        <h2 class="section-title"><v-icon size="20" color="primary">mdi-form-select</v-icon> Field form</h2>
+        <FieldFormSettings />
+      </section>
+
       <section>
         <h2 class="section-title"><v-icon size="20" color="primary">mdi-link-variant</v-icon> Connections</h2>
         <div class="conn-grid">

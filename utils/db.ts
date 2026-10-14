@@ -42,14 +42,29 @@ export interface Foray {
   joined?: boolean
 }
 
+/** Free-text field notes; stored as one jsonb column, so adding keys needs no migration. See utils/fieldForm.ts. */
 export interface FieldNotes {
   speciesGuess?: string
+  habitat?: string
   substrate?: string
   hostTree?: string
-  odor?: string
+  growth?: string
+  capShape?: string
+  capColor?: string
+  capSize?: string
   capTexture?: string
+  underside?: string
+  gillAttachment?: string
+  gillColor?: string
+  stemSize?: string
+  stemColor?: string
+  stemFeatures?: string
+  odor?: string
   staining?: string
+  sporePrint?: string
   notes?: string
+  /** Fields the user added in Settings → Field form (see FormConfig in utils/fieldForm.ts). */
+  [custom: `x_${string}`]: string | undefined
 }
 
 export interface Specimen {
@@ -155,7 +170,7 @@ export interface OutboxItem {
 // 'printer' (last used printer info), 'displayName' (name shown to
 // foray members), 'societies' (cached my_societies() rows), 'societySets' (voucher sets this device claimed),
 // 'deviceKey' ({ privateKey, publicKey } CryptoKeys for signing, Phase 13), 'deviceKeyPublished' (key id sent
-// to the server), 'nearbyEnabled' (opt-in for nearby alerts).
+// to the server), 'nearbyEnabled' (opt-in for nearby alerts), 'fieldForm' (FormConfig: hidden and added form fields, forms per printed page).
 export interface Setting {
   key: string
   value: unknown
