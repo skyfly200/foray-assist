@@ -3,6 +3,7 @@ const route = useRoute()
 const { mode, isForay, setMode } = useMode()
 
 const homeActive = computed(() => route.path === '/' || route.path.startsWith('/forays'))
+const dexActive = computed(() => route.path.startsWith('/dex'))
 const settingsActive = computed(() => route.path.startsWith('/settings'))
 function toggleMode() {
   setMode(isForay.value ? 'review' : 'foray')
@@ -20,6 +21,10 @@ function toggleMode() {
       <NuxtLink to="/" class="fa-side__item" :class="{ 'is-active': homeActive }" :aria-current="homeActive ? 'page' : undefined">
         <span class="fa-side__pill"><v-icon icon="mdi-pine-tree" size="24" /></span>
         <span class="fa-side__label">Forays</span>
+      </NuxtLink>
+      <NuxtLink to="/dex" class="fa-side__item" :class="{ 'is-active': dexActive }" :aria-current="dexActive ? 'page' : undefined">
+        <span class="fa-side__pill"><v-icon icon="mdi-book-open-variant" size="24" /></span>
+        <span class="fa-side__label">Dex</span>
       </NuxtLink>
       <NuxtLink to="/settings" class="fa-side__item" :class="{ 'is-active': settingsActive }" :aria-current="settingsActive ? 'page' : undefined">
         <span class="fa-side__pill"><v-icon icon="mdi-cog-outline" size="24" /></span>

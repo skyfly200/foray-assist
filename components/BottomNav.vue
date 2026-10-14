@@ -3,6 +3,7 @@ const route = useRoute()
 const { mode, isForay, setMode } = useMode()
 
 const homeActive = computed(() => route.path === '/' || route.path.startsWith('/forays'))
+const dexActive = computed(() => route.path.startsWith('/dex'))
 const settingsActive = computed(() => route.path.startsWith('/settings'))
 function toggleMode() {
   setMode(isForay.value ? 'review' : 'foray')
@@ -31,6 +32,11 @@ function toggleMode() {
         <span class="fa-nav__label">{{ isForay ? 'Foray' : 'Review' }}</span>
       </button>
 
+      <NuxtLink to="/dex" class="fa-nav__item" :class="{ 'is-active': dexActive }" :aria-current="dexActive ? 'page' : undefined">
+        <span class="fa-nav__pill"><v-icon icon="mdi-book-open-variant" size="24" /></span>
+        <span class="fa-nav__label">Dex</span>
+      </NuxtLink>
+
       <NuxtLink to="/settings" class="fa-nav__item" :class="{ 'is-active': settingsActive }" :aria-current="settingsActive ? 'page' : undefined">
         <span class="fa-nav__pill"><v-icon icon="mdi-cog-outline" size="24" /></span>
         <span class="fa-nav__label">Settings</span>
@@ -54,7 +60,7 @@ function toggleMode() {
 .fa-nav__bar {
   pointer-events: auto;
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(4, 1fr);
   align-items: end;
   width: 100%;
   max-width: 460px;
