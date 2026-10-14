@@ -230,6 +230,8 @@ async function onDelete() {
 .sections :deep(.v-expansion-panel) { background: rgba(var(--v-theme-primary), 0.06); border-radius: var(--fa-radius-sm) !important; }
 .sections :deep(.v-expansion-panel::after) { display: none; }
 .privacy { height: 48px; }
+/* Four actions don't fit on one row at phone widths; wrap instead of spilling past the card. */
+.fc-actions { flex-wrap: wrap; row-gap: 4px; }
 
 /* Desktop: shorter stacked cover so more finds fit on screen. */
 @media (min-width: 960px) {
