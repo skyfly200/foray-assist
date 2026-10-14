@@ -3,10 +3,25 @@
 // Type-only imports so the file runs under node --experimental-strip-types.
 import type { Specimen } from './db.ts'
 import { displayId, isPendingId, normalizeId } from './idCode.ts'
+import { LABEL_DOTS_PER_MM, rulerTicks } from './fieldForm.ts'
 
 export const LABEL_WIDTH_PX = 400 // 50 mm @ 203 dpi (multiple of 8)
 export const LABEL_HEIGHT_PX = 240 // 30 mm @ 203 dpi
 export const QR_BOX_PX = 120
+/** Scale bar along the bottom of the text column: 30 mm with mm ticks. */
+export const LABEL_SCALE_MM = 30
+export const LABEL_SCALE_H_PX = 26
+
+export interface ScaleTick { x: number; h: number; label?: string }
+
+/** Tick positions in printer dots from the bar's left end. 203 dpi prints ~8 dots per mm, so the bar is true size. */
+export function labelScaleTicks(mm = LABEL_SCALE_MM): ScaleTick[] {
+  return rulerTicks(mm / 10, 10).map((t) => ({
+    x: Math.round(t.at * 10 * LABEL_DOTS_PER_MM),
+    h: t.len === 'long' ? 10 : t.len === 'mid' ? 7 : 4,
+    ...(t.label ? { label: t.label } : {}),
+  }))
+}
 
 /** 1-bit bitmap, rows padded to whole bytes, MSB first, bit 1 = black. */
 export interface MonoBitmap {
@@ -212,11 +227,27 @@ export async function renderLabelBitmap(
     ctx.fillText(t, 6, y)
     y += px + 4
   }
+  const textBottom = H - LABEL_SCALE_H_PX - 2
   for (const l of model.species) line(l, 24, true)
   line(model.when, 18)
   if (model.location) line(model.location, 18)
   for (const l of model.substrate) line(l, 18)
-  for (const l of model.notes) line(l, 16)
+  // Notes get whatever room is left above the scale bar.
+  const noteLines = Math.min(3, Math.floor((textBottom - y) / 20))
+  if (noteLines > 0 && model.notes.length) {
+    ctx.font = font(16)
+    const fit = model.notes.length > noteLines ? wrapText(s.fieldNotes?.notes ?? '', textW, noteLines, measure) : model.notes
+    for (const l of fit) line(l, 16)
+  }
+
+  // Scale bar, bottom left: true-size mm ruler for photographing the specimen with its tag.
+  const sx = 6, base = H - 3
+  ctx.fillRect(sx, base, Math.round(LABEL_SCALE_MM * LABEL_DOTS_PER_MM) + 1, 2)
+  ctx.font = font(12)
+  for (const t of labelScaleTicks()) {
+    ctx.fillRect(sx + t.x, base - t.h, t.h >= 10 ? 2 : 1, t.h)
+    if (t.label) ctx.fillText(t.label === '3' ? '3cm' : t.label, sx + t.x + 3, base - 22)
+  }
 
   // QR (right column, below header)
   const QR = (await import('qrcode')).default ?? (await import('qrcode'))

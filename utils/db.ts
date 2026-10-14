@@ -42,13 +42,26 @@ export interface Foray {
   joined?: boolean
 }
 
+/** Free-text field notes; stored as one jsonb column, so adding keys needs no migration. See utils/fieldForm.ts. */
 export interface FieldNotes {
   speciesGuess?: string
+  habitat?: string
   substrate?: string
   hostTree?: string
-  odor?: string
+  growth?: string
+  capShape?: string
+  capColor?: string
+  capSize?: string
   capTexture?: string
+  underside?: string
+  gillAttachment?: string
+  gillColor?: string
+  stemSize?: string
+  stemColor?: string
+  stemFeatures?: string
+  odor?: string
   staining?: string
+  sporePrint?: string
   notes?: string
 }
 

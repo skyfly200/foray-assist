@@ -18,13 +18,19 @@ export interface FindInput {
   longitude?: number
   geoprivacy?: string
   positionalAccuracy?: number
-  fieldNotes?: {
-    speciesGuess?: string; substrate?: string; hostTree?: string; odor?: string
-    capTexture?: string; staining?: string; notes?: string
-  }
+  fieldNotes?: Partial<Record<string, string>>
 }
 
 const GEO = ['open', 'obscured', 'private']
+
+// Field-form keys written into the observation description, in order (see utils/fieldForm.ts).
+const DESCRIPTION_FIELDS: [string, string][] = [
+  ['habitat', 'Habitat'], ['substrate', 'Substrate'], ['hostTree', 'Host tree'], ['growth', 'Growth'],
+  ['capShape', 'Cap shape'], ['capColor', 'Cap color'], ['capSize', 'Cap size'], ['capTexture', 'Cap texture'],
+  ['underside', 'Underside'], ['gillAttachment', 'Gill attachment'], ['gillColor', 'Gill or pore color'],
+  ['stemSize', 'Stem size'], ['stemColor', 'Stem color'], ['stemFeatures', 'Stem features'],
+  ['odor', 'Odor'], ['staining', 'Staining'], ['sporePrint', 'Spore print'],
+]
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
 
 /** Human-readable description composed from field notes (+ our specimen id). */
@@ -32,10 +38,7 @@ export function composeDescription(f: FindInput): string {
   const n = f.fieldNotes ?? {}
   const lines: string[] = []
   if (n.notes?.trim()) lines.push(n.notes.trim())
-  const facts: [string, string | undefined][] = [
-    ['Substrate', n.substrate], ['Host tree', n.hostTree], ['Odor', n.odor],
-    ['Cap texture', n.capTexture], ['Staining', n.staining],
-  ]
+  const facts: [string, string | undefined][] = DESCRIPTION_FIELDS.map(([k, label]) => [label, n[k]])
   const fl = facts.filter(([, v]) => v?.trim()).map(([k, v]) => `${k}: ${v!.trim()}`)
   if (fl.length) lines.push(fl.join('\n'))
   if (f.specimenId) lines.push(`Specimen ID: ${displayId(f.specimenId)}`)

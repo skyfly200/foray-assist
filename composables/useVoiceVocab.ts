@@ -22,6 +22,7 @@ export async function loadVoiceVocab(forayId?: string): Promise<string[]> {
 export async function voiceVocabFor(forayId?: string) {
   const extra = await loadVoiceVocab(forayId)
   return {
+    names: extra,
     prompt: buildWhisperPrompt(extra),
     correct: (text: string) => correctTranscript(text, extra),
   }

@@ -12,11 +12,14 @@
           <v-text-field
             v-model="local[f.key]"
             :label="f.label"
+            :placeholder="f.placeholder"
+            :class="{ 'fa-voice-filled': flashed.has(f.key) }"
             density="comfortable"
             hide-details
             clearable
             @update:model-value="queue(f.key)"
-            @blur="flush"
+            @focus="editing = f.key"
+            @blur="editing = null; flush()"
           />
           <v-chip-group v-if="f.options" column class="mt-1">
             <v-chip
@@ -40,7 +43,8 @@
           auto-grow
           hide-details
           @update:model-value="queue('notes')"
-          @blur="flush"
+          @focus="editing = 'notes'"
+          @blur="editing = null; flush()"
         />
       </v-expansion-panel-text>
     </v-expansion-panel>
@@ -48,39 +52,53 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { updateFieldNotes } from '~/composables/useFinds'
 import type { FieldNotes } from '~/utils/db'
+import { FIELD_DEFS, FIELD_GROUPS, groupOf, type FieldDef } from '~/utils/fieldForm'
 
 const props = defineProps<{ specimenRowId: string; modelValue: FieldNotes }>()
 
 type Key = keyof FieldNotes
-const fields: { key: Key; label: string; options?: string[] }[] = [
-  { key: 'speciesGuess', label: 'Species guess' },
-  { key: 'substrate', label: 'Substrate', options: ['decaying conifer', 'soil', 'hardwood log', 'leaf litter', 'moss', 'living tree', 'dung/wood chips'] },
-  { key: 'hostTree', label: 'Host tree', options: ['oak', 'pine', 'spruce', 'fir', 'birch', 'beech', 'maple', 'aspen', 'hemlock'] },
-  { key: 'odor', label: 'Odor', options: ['none', 'mild', 'farinaceous', 'anise', 'garlic', 'fishy', 'sweet', 'foul'] },
-  { key: 'capTexture', label: 'Cap texture', options: ['smooth', 'slimy', 'sticky', 'scaly', 'fibrous', 'velvety', 'wrinkled'] },
-  { key: 'staining', label: 'Staining', options: ['none', 'bruises blue', 'bruises red', 'bruises yellow', 'bruises brown'] },
-]
-
-type Field = (typeof fields)[number]
-const byKey = (...keys: Key[]): Field[] => keys.map((k) => fields.find((f) => f.key === k)!)
 const groups = [
-  { id: 'id', title: 'What is it?', emoji: '🍄', icon: 'mdi-magnify', fields: byKey('speciesGuess') },
-  { id: 'habitat', title: 'Where it grows', emoji: '🌲', icon: 'mdi-tree', fields: byKey('substrate', 'hostTree') },
-  { id: 'feel', title: 'Look and feel', emoji: '✋', icon: 'mdi-hand-back-right', fields: byKey('capTexture', 'staining') },
-  { id: 'smell', title: 'Smell', emoji: '👃', icon: 'mdi-flower', fields: byKey('odor') },
-  { id: 'notes', title: 'Notes', emoji: '📝', icon: 'mdi-note-text', fields: [] as Field[] },
+  ...FIELD_GROUPS.map((g) => ({ ...g, fields: g.keys.map((k) => FIELD_DEFS.find((f) => f.key === k)!) })),
+  { id: 'notes', title: 'Notes', emoji: '📝', icon: 'mdi-note-text', fields: [] as FieldDef[] },
 ]
 const open = ref<string[]>(['id'])
-const filled = (g: { id: string; fields: Field[] }) =>
+const filled = (g: { id: string; fields: FieldDef[] }) =>
   g.id === 'notes' ? (local.notes ? 1 : 0) : g.fields.filter((f) => local[f.key]).length
 
 // Initialized once from props; the form owns the text while editing (avoids cursor jumps).
 const local = reactive<FieldNotes>({ ...props.modelValue })
 const pending: FieldNotes = {}
 let timer: ReturnType<typeof setTimeout> | null = null
+const editing = ref<Key | null>(null)
+// Fields just filled from a voice note, briefly highlighted.
+const flashed = ref(new Set<Key>())
+
+// Take outside changes (voice notes filling the form, sync) for fields the user is not editing.
+watch(
+  () => props.modelValue,
+  (v) => {
+    const changed: Key[] = []
+    for (const k of [...FIELD_DEFS.map((f) => f.key), 'notes'] as Key[]) {
+      if (k === editing.value || k in pending) continue
+      const next = v?.[k] ?? ''
+      if ((local[k] ?? '') !== next) {
+        local[k] = next
+        changed.push(k)
+      }
+    }
+    if (!changed.length) return
+    for (const k of changed) {
+      const g = k === 'notes' ? 'notes' : groupOf(k)
+      if (g && !open.value.includes(g)) open.value = [...open.value, g]
+    }
+    flashed.value = new Set(changed)
+    setTimeout(() => { flashed.value = new Set() }, 1600)
+  },
+  { deep: true },
+)
 
 function queue(key: Key) {
   pending[key] = (local[key] ?? '') as string
@@ -120,6 +138,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .attr-sections { display: flex; flex-direction: column; gap: 8px; }
+.fa-voice-filled :deep(.v-field) { animation: fa-voice-flash 1.6s var(--fa-ease, ease); }
+@keyframes fa-voice-flash { 0%, 40% { background: rgba(var(--v-theme-primary), 0.18); } 100% { background: transparent; } }
 .attr-sections :deep(.v-expansion-panel) { background: rgba(var(--v-theme-primary), 0.06); border-radius: var(--fa-radius-sm) !important; }
 .attr-sections :deep(.v-expansion-panel::after) { display: none; }
 @media (min-width: 960px) {

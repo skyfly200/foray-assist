@@ -1,6 +1,6 @@
 <template>
   <div class="d-inline-block">
-    <v-btn prepend-icon="mdi-printer" variant="tonal" color="primary" :disabled="!specimen" @click="open = true">Print label</v-btn>
+    <v-btn prepend-icon="mdi-printer" variant="tonal" color="primary" :disabled="!specimenRowId" @click="open = true">Print label</v-btn>
 
     <v-dialog v-model="open" :max-width="mdAndUp ? 720 : 460">
       <v-card class="fa-card">
