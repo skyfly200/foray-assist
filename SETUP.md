@@ -78,7 +78,7 @@ You already created the project. Verify it deploys.
 Each person signs in **once**, at first launch, with a verified email address. That sign-in is what lets the server issue them their own specimen ID range (the `claim_id_sets` function refuses accounts whose email is not verified). After that the app works offline and only needs a connection to top up its ID stock.
 1. Go to **Authentication → URL Configuration**.
 2. Set **Site URL** to your production URL (e.g. `https://foray-assist.vercel.app`).
-3. Under **Redirect URLs** add `https://foray-assist.vercel.app/settings` (your URL + `/settings`). For local development also add `http://localhost:3000/settings`.
+3. Under **Redirect URLs** add `https://foray-assist.vercel.app/auth/callback` (your URL + `/auth/callback`). For local development also add `http://localhost:3000/auth/callback`. The old `/settings` entry can be removed.
 4. Save.
 
 ### 2.5 Sign-in emails
@@ -187,7 +187,7 @@ For the full list of things to test by hand on a real phone, printer and account
 | :--- | :--- |
 | Site shows an error page | Check the Vercel deployment log; confirm the latest deployment is Ready; redeploy |
 | "Cloud sync is not configured" in Settings | `SUPABASE_URL`/`SUPABASE_KEY` missing; add and **redeploy** |
-| Magic link opens but you're not signed in | The redirect URL isn't allowed. Redo section 2.4 exactly (including `/settings`) |
+| Magic link opens but you're not signed in | The redirect URL isn't allowed. Redo section 2.4 exactly (including `/auth/callback`) |
 | Google "redirect_uri_mismatch" | The redirect URI in Google Cloud must exactly match `APP_ORIGIN` + `/api/google/callback` |
 | Google asks you to sign in again after a week | Normal while the app is in Testing mode (section 3) |
 | iNaturalist connect fails | Redirect URI must exactly match `APP_ORIGIN` + `/api/inat/callback`; check `INAT_APP_ID` and `INAT_APP_SECRET` |
