@@ -144,3 +144,11 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] Foray mode on a find: Take photo, voice note, the form, Print label, Send, Delete. No privacy, voucher, comments or Field form
 - [ ] Review mode on a foray: "Identify & edit" shows each find with the form, privacy, voucher and comments, saved voice notes (no record button), Field form, Print label. "Sort photos" is the old photo grouping screen
 - [ ] The mode you pick is remembered after closing and reopening the app
+
+## 13. Browser speech option and Whisper retranscribe
+
+- [ ] Settings → Voice → Speech recognition → Browser speech recognition. Record a note on a find: words appear as you speak and the field form still fills in
+- [ ] The saved note has an audio player and a "Retranscribe with Whisper" button (needs the Whisper model downloaded). Tap it: the transcript is replaced and any new details fill empty fields
+- [ ] If the Settings text says this browser can't keep the audio, recording still works, just with no audio on the note. Report phone and Chrome version
+- [ ] Airplane mode with Browser speech chosen: the recorder uses Whisper (if downloaded)
+- [ ] Switch back to On-device Whisper: notes use Whisper again

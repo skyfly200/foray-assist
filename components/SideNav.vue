@@ -24,7 +24,7 @@ function toggleMode() {
       </NuxtLink>
       <NuxtLink to="/dex" class="fa-side__item" :class="{ 'is-active': dexActive }" :aria-current="dexActive ? 'page' : undefined">
         <span class="fa-side__pill"><v-icon icon="mdi-book-open-variant" size="24" /></span>
-        <span class="fa-side__label">Dex</span>
+        <span class="fa-side__label">MycoDex</span>
       </NuxtLink>
       <NuxtLink to="/settings" class="fa-side__item" :class="{ 'is-active': settingsActive }" :aria-current="settingsActive ? 'page' : undefined">
         <span class="fa-side__pill"><v-icon icon="mdi-cog-outline" size="24" /></span>

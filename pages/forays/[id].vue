@@ -108,7 +108,8 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.foray-hero { margin-left: -16px; margin-right: -16px; }
+.foray-hero { margin-left: -12px; margin-right: -12px; } /* matches the page container's pa-3 on phones */
+@media (min-width: 600px) { .foray-hero { margin-left: -16px; margin-right: -16px; } }
 .hero-kicker { opacity: 0.9; }
 .hero-title { line-height: 1.2; word-break: break-word; }
 .hero-sub { opacity: 0.9; font-size: 0.85rem; }
