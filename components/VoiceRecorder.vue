@@ -1,5 +1,7 @@
 <template>
   <div class="voice-recorder">
+    <!-- listOnly (Review mode): just the saved notes, to replay, re-transcribe or fill the form from. -->
+    <template v-if="!listOnly">
     <div class="d-flex align-center ga-3 flex-wrap">
       <v-btn
         class="fa-fab"
@@ -48,6 +50,8 @@
       <div v-if="pendingChunks > 0" class="text-caption text-medium-emphasis mt-1">Transcribing…</div>
     </v-sheet>
 
+    </template>
+
     <v-sheet v-if="specimenRowId && (filled.length || (recording && fillsForm))" class="pa-3 mt-3 voice-filled" rounded border>
       <div class="d-flex align-center ga-2">
         <v-icon icon="mdi-form-select" size="18" color="primary" />
@@ -66,7 +70,7 @@
       </div>
     </v-sheet>
 
-    <v-list v-if="notes.length" lines="three" density="compact" class="mt-3 pa-0">
+    <v-list v-if="notes.length" lines="three" density="compact" class="pa-0" :class="{ 'mt-3': !listOnly }">
       <v-list-item v-for="n in notes" :key="n.id" class="px-0">
         <div class="d-flex align-center ga-2 flex-wrap mb-1">
           <span class="text-caption text-medium-emphasis">{{ when(n.at) }}</span>
@@ -120,7 +124,7 @@ import type { FieldNotes } from '~/utils/db'
 import { extractCustomFields, extractFieldNotes, voicePatch, type Extracted } from '~/utils/voiceExtract'
 import { formGroups, visibleKeys, type FieldKey } from '~/utils/fieldForm'
 
-const props = defineProps<{ forayId: string; specimenRowId?: string }>()
+const props = defineProps<{ forayId: string; specimenRowId?: string; listOnly?: boolean }>()
 
 const {
   model, modelTag, models, status, progress, isCached, error: whisperError, download, transcribe,

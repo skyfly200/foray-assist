@@ -135,7 +135,17 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] Settings → Field form: hide a field (it disappears from finds and the printout), add a field with quick picks (e.g. Taste: mild, bitter, acrid), then say "taste is bitter" in a voice note: it fills in
 - [ ] Field form → Forms per page 2 and 4, This find and All finds: each layout fits the page, the cut lines are straight, and empty spots print as blank forms
 
-## 12. Browser speech option and Whisper retranscribe
+## 12. Foray and Review modes, and the New find button
+
+- [ ] The Foray / Review switch sits in the top bar on the phone; the bottom bar has New find in the middle
+- [ ] From the home screen with no foray in progress, tap New find and take a photo: a foray for today starts and the find is in it
+- [ ] With a foray in progress, tap New find from Settings or the Dex: the find lands in that foray and the app opens it
+- [ ] On a foray, tap New find: the find lands in the foray you're looking at, even an ended one
+- [ ] Foray mode on a find: Take photo, voice note, the form, Print label, Send, Delete. No privacy, voucher, comments or Field form
+- [ ] Review mode on a foray: "Identify & edit" shows each find with the form, privacy, voucher and comments, saved voice notes (no record button), Field form, Print label. "Sort photos" is the old photo grouping screen
+- [ ] The mode you pick is remembered after closing and reopening the app
+
+## 13. Browser speech option and Whisper retranscribe
 
 - [ ] Settings → Voice → Speech recognition → Browser speech recognition. Record a note on a find: words appear as you speak and the field form still fills in
 - [ ] The saved note has an audio player and a "Retranscribe with Whisper" button (needs the Whisper model downloaded). Tap it: the transcript is replaced and any new details fill empty fields

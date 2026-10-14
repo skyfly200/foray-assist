@@ -1,12 +1,35 @@
 <script setup lang="ts">
 const route = useRoute()
-const { mode, isForay, setMode } = useMode()
+const router = useRouter()
 
 const homeActive = computed(() => route.path === '/' || route.path.startsWith('/forays'))
 const dexActive = computed(() => route.path.startsWith('/dex'))
 const settingsActive = computed(() => route.path.startsWith('/settings'))
-function toggleMode() {
-  setMode(isForay.value ? 'review' : 'foray')
+// New find: opens the camera straight from the tap (browsers only allow that synchronously),
+// then files the photo under the foray on screen, else the newest open foray, else a new one.
+const cameraInput = ref<HTMLInputElement | null>(null)
+const creating = ref(false)
+const failed = ref('')
+const failedOpen = ref(false)
+const currentForayId = computed(() => (route.path.startsWith('/forays/') ? String(route.params.id ?? '') : null))
+function onNewFind() {
+  if (!creating.value) cameraInput.value?.click()
+}
+async function onCaptured(e: Event) {
+  const input = e.target as HTMLInputElement
+  const files = Array.from(input.files ?? [])
+  input.value = ''
+  if (!files.length || creating.value) return
+  creating.value = true
+  try {
+    const { forayId } = await newFindFromPhotos(files, currentForayId.value)
+    if (forayId !== currentForayId.value) await router.push(`/forays/${forayId}`)
+  } catch (err: any) {
+    failedOpen.value = true
+    failed.value = err?.message ?? String(err)
+  } finally {
+    creating.value = false
+  }
 }
 </script>
 
@@ -20,17 +43,18 @@ function toggleMode() {
 
       <button
         type="button"
-        class="fa-nav__item fa-nav__mode"
-        :aria-label="isForay ? 'Foray mode. Switch to Review mode' : 'Review mode. Switch to Foray mode'"
-        @click="toggleMode"
+        class="fa-nav__item fa-nav__new"
+        aria-label="New find: take photo"
+        :aria-busy="creating"
+        @click="onNewFind"
       >
-        <span class="fa-nav__orb">
-          <Transition name="fa-nav-swap" mode="out-in">
-            <v-icon :key="mode" :icon="isForay ? 'mdi-mushroom' : 'mdi-magnify'" size="28" />
-          </Transition>
+        <span class="fa-nav__orb" :class="{ 'is-busy': creating }">
+          <v-progress-circular v-if="creating" indeterminate size="26" width="3" />
+          <v-icon v-else icon="mdi-camera-plus" size="28" />
         </span>
-        <span class="fa-nav__label">{{ isForay ? 'Foray' : 'Review' }}</span>
+        <span class="fa-nav__label">New find</span>
       </button>
+      <input ref="cameraInput" type="file" accept="image/*" capture="environment" hidden @change="onCaptured" />
 
       <NuxtLink to="/dex" class="fa-nav__item" :class="{ 'is-active': dexActive }" :aria-current="dexActive ? 'page' : undefined">
         <span class="fa-nav__pill"><v-icon icon="mdi-book-open-variant" size="24" /></span>
@@ -42,6 +66,7 @@ function toggleMode() {
         <span class="fa-nav__label">Settings</span>
       </NuxtLink>
     </div>
+    <v-snackbar v-model="failedOpen" :timeout="5000">Couldn't save that find: {{ failed }}</v-snackbar>
   </nav>
 </template>
 
@@ -100,7 +125,7 @@ function toggleMode() {
 .fa-nav__item.is-active { color: rgb(var(--v-theme-primary)); }
 .fa-nav__item.is-active .fa-nav__pill { background: rgba(var(--v-theme-primary), 0.16); animation: fa-nav-bounce 0.45s var(--fa-ease); }
 .fa-nav__label { font-size: 0.72rem; font-weight: 700; line-height: 1; }
-.fa-nav__mode { color: rgb(var(--v-theme-primary)); }
+.fa-nav__new { color: rgb(var(--v-theme-primary)); }
 .fa-nav__orb {
   display: grid;
   place-items: center;
@@ -114,9 +139,6 @@ function toggleMode() {
   border: 4px solid rgb(var(--v-theme-surface));
   transition: transform 0.25s var(--fa-ease);
 }
-.fa-nav__mode:active .fa-nav__orb { transform: scale(0.9); }
-.fa-nav-swap-enter-active, .fa-nav-swap-leave-active { transition: transform 0.18s var(--fa-ease), opacity 0.18s; }
-.fa-nav-swap-enter-from { transform: scale(0.4) rotate(-40deg); opacity: 0; }
-.fa-nav-swap-leave-to { transform: scale(0.4) rotate(40deg); opacity: 0; }
+.fa-nav__new:active .fa-nav__orb { transform: scale(0.9); }
 @keyframes fa-nav-bounce { 0% { transform: scale(0.8); } 60% { transform: scale(1.1); } 100% { transform: none; } }
 </style>

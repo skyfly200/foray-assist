@@ -1,11 +1,13 @@
 <script setup lang="ts">
 // Foray detail. Foray Mode: log finds in the field (photos, voice, notes, labels).
-// Review Mode: import/group photos, curate, and publish to iNaturalist.
+// Review Mode: identify and edit finds, sort photos, print forms, and publish to iNaturalist.
 import { liveQuery } from 'dexie'
 
 const route = useRoute()
 const id = route.params.id as string
 const { isForay } = useMode()
+// Review mode: work on the finds themselves, or sort loose photos into finds.
+const reviewTab = ref<'finds' | 'photos'>('finds')
 
 const foray = ref<Foray | null | undefined>(undefined)
 let sub: { unsubscribe(): void } | null = null
@@ -84,7 +86,12 @@ onMounted(() => {
         </div>
         <div v-else key="review" class="fa-split">
           <div class="fa-split-main">
-            <ReviewPanel :foray-id="id">
+            <v-tabs v-model="reviewTab" color="primary" density="comfortable" class="review-tabs mb-4" grow>
+              <v-tab value="finds" prepend-icon="mdi-magnify">Identify &amp; edit</v-tab>
+              <v-tab value="photos" prepend-icon="mdi-image-multiple">Sort photos</v-tab>
+            </v-tabs>
+            <FindList v-if="reviewTab === 'finds'" :foray-id="id" variant="review" />
+            <ReviewPanel v-else :foray-id="id">
               <template #sources>
                 <GooglePhotosImport :foray-id="id" />
               </template>
@@ -110,6 +117,7 @@ onMounted(() => {
 .hero-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); font-weight: 600; font-size: 0.85rem; }
 
 .desk-summary { display: none; }
+.review-tabs { border-radius: var(--fa-radius-sm); background: rgb(var(--v-theme-surface)); box-shadow: var(--fa-shadow); }
 .desk-actions:empty { display: none; }
 
 @media (min-width: 960px) {
