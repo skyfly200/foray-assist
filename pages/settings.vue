@@ -2,6 +2,7 @@
 import { liveQuery } from 'dexie'
 
 const { online, pending, signedIn, syncing, syncNow } = useSync()
+const route = useRoute()
 
 let sb: any = null
 const configured = (() => {
@@ -46,10 +47,8 @@ async function signIn() {
   if (!configured || !email.value) return
   sending.value = true
   try {
-    const { error } = await sb.auth.signInWithOtp({
-      email: email.value,
-      options: { shouldCreateUser: true, emailRedirectTo: window.location.origin + '/settings' },
-    })
+    // Arriving with ?next=/join/ABCD (e.g. from a join link) brings them back there after signing in.
+    const { error } = await sendSignInEmail(sb, email.value, String(route.query.next ?? ''))
     if (error) authError.value = error.message
     else message.value = 'Check your email: tap the link, or enter the 6-digit code below.'
   } catch (e: any) {
@@ -65,7 +64,7 @@ async function verifyCode() {
   try {
     const { error } = await sb.auth.verifyOtp({ email: email.value, token: code.value.trim(), type: 'email' })
     if (error) codeError.value = error.message
-    else { code.value = ''; message.value = '' }
+    else { code.value = ''; message.value = ''; await afterSignIn(sb, { stay: true }) }
   } catch (e: any) {
     codeError.value = e?.message ?? 'Verification failed'
   } finally { verifying.value = false }

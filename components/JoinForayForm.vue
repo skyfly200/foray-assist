@@ -19,7 +19,7 @@
       />
       <v-text-field v-model="name" label="Your name, as members see it" variant="outlined" density="comfortable" maxlength="60" />
       <v-alert v-if="!signedIn" type="info" variant="tonal" density="compact" class="mb-2">
-        <NuxtLink to="/settings">Sign in on the Settings page</NuxtLink> first.
+        <NuxtLink :to="{ path: '/settings', query: { next: route.fullPath } }">Sign in</NuxtLink> first.
       </v-alert>
       <v-alert v-if="error" type="error" variant="tonal" density="compact">{{ error }}</v-alert>
     </v-card-text>
@@ -38,6 +38,7 @@ import { getDisplayName, joinForay } from '~/composables/useSharedForay'
 const props = defineProps<{ initialCode?: string }>()
 const emit = defineEmits<{ joined: [id: string]; cancel: [] }>()
 const { signedIn } = useSync()
+const route = useRoute()
 const code = ref(props.initialCode ?? '')
 const name = ref('')
 const busy = ref(false)

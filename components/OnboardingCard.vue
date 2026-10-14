@@ -83,10 +83,7 @@ async function sendCode() {
   if (!configured || !email.value.trim()) return
   busy.value = true
   try {
-    const { error: e } = await sb.auth.signInWithOtp({
-      email: email.value.trim(),
-      options: { shouldCreateUser: true, emailRedirectTo: window.location.origin + '/settings' },
-    })
+    const { error: e } = await sendSignInEmail(sb, email.value)
     if (e) err.value = e.message
     else codeSent.value = true
   } catch (e: any) {
@@ -101,7 +98,7 @@ async function verify() {
   try {
     const { error: e } = await sb.auth.verifyOtp({ email: email.value.trim(), token: code.value.trim(), type: 'email' })
     if (e) err.value = e.message
-    else { code.value = ''; codeSent.value = false }
+    else { code.value = ''; codeSent.value = false; await afterSignIn(sb, { stay: true }) }
   } catch (e: any) {
     err.value = e?.message ?? 'Verification failed'
   } finally { busy.value = false }

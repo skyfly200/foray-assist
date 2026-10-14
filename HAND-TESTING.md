@@ -11,13 +11,16 @@ Steps refer to sections of `SETUP.md`. Last updated 2026-10-13.
 - [ ] Add `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_KEY`, `APP_ORIGIN` in Vercel and redeploy
 - [ ] Decide on draft PR #2 (network-number fix) before applying migrations, so `0005` goes on with the fix
 - [ ] Apply migrations `0001` to `0006` in order; check the 13 tables, RLS on `integration_tokens`, and the private `foray-media` bucket (SETUP 2.3)
-- [ ] Set Site URL and the `/settings` redirect URL (SETUP 2.4)
+- [ ] Set Site URL and the `/auth/callback` redirect URL (SETUP 2.4)
 
 ## 1. Sign-in and ID v2 (real Supabase)
 
 - [ ] Add `{{ .Token }}` to **both** the Magic Link and Confirm signup email templates (SETUP 2.5)
-- [ ] Sign in with the **link** on the same phone: you land on Settings, signed in
-- [ ] Sign in with the **6-digit code** typed into the installed app (the case where the link opens in another browser)
+- [ ] First sign-in with a **new** email, using the link: you land on the Welcome screen; "Let's go" takes you home (or into your open foray)
+- [ ] Sign in again (new device or after signing out) with the link: no welcome, you go straight to your open foray, or home if none
+- [ ] Open a join link while signed out, tap "Sign in", use the emailed link: you come back to the join page
+- [ ] An expired or already-used link shows "Couldn't sign you in" with a way to try again
+- [ ] Sign in with the **6-digit code** typed into the installed app (the case where the link opens in another browser): a new account sees the welcome, an existing one stays where it is
 - [ ] Onboarding card appears on first launch and the ID stock fills (about 4,096 IDs) after sign-in
 - [ ] A new find gets an ID like `B7QM-4T9R-X`; the check character catches a one-letter typo in the verify box
 - [ ] Log finds while signed out or offline: they show **ID pending**, then get numbered once you sign in and reconnect
