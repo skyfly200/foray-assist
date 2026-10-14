@@ -457,3 +457,39 @@ export function voicePatch(current: FieldNotes, extracted: Extracted, ownedByVoi
   }
   return patch
 }
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Values for the user's own fields (Settings → Field form): one of the field's quick picks
+ * ("taste mild" when mild is a pick), or whatever follows the field's name up to the end of
+ * the phrase ("collector is Sam" -> "Sam"). The last mention wins.
+ */
+export function extractCustomFields(text: string, fields: { key: string; label: string; options?: string[] }[]): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (!text?.trim()) return out
+  const lower = text.toLowerCase()
+  for (const f of fields) {
+    const label = f.label.toLowerCase().trim()
+    if (!label) continue
+    const re = new RegExp(`\\b${escapeRe(label)}\\b\\s*(?:is|was|are|were|of|:|-)?\\s*([^.,;!?]*)`, 'gi')
+    let best: { at: number; value: string } | null = null
+    for (const m of lower.matchAll(re)) {
+      const after = m[1].trim()
+      if (!after) continue
+      const opt = f.options?.find((o) => new RegExp(`^(?:a |an |very |quite |slightly )?${escapeRe(o.toLowerCase())}\\b`).test(after))
+      const value = opt ?? text.slice(m.index! + m[0].length - m[1].length, m.index! + m[0].length).trim().split(/\s+/).slice(0, 4).join(' ')
+      if (value) best = { at: m.index!, value }
+    }
+    // A quick pick said without the field name ("it tastes acrid"), only when the pick is distinctive.
+    if (!best && f.options?.length) {
+      for (const o of f.options) {
+        if (o.length < 4) continue
+        const at = lower.search(new RegExp(`\\b${escapeRe(o.toLowerCase())}\\b`))
+        if (at >= 0 && (!best || at > best.at)) best = { at, value: o }
+      }
+    }
+    if (best) out[f.key] = best.value
+  }
+  return out
+}

@@ -63,6 +63,8 @@ export interface FieldNotes {
   staining?: string
   sporePrint?: string
   notes?: string
+  /** Fields the user added in Settings → Field form (see FormConfig in utils/fieldForm.ts). */
+  [custom: `x_${string}`]: string | undefined
 }
 
 export interface Specimen {
@@ -168,7 +170,7 @@ export interface OutboxItem {
 // 'printer' (last used printer info), 'displayName' (name shown to
 // foray members), 'societies' (cached my_societies() rows), 'societySets' (voucher sets this device claimed),
 // 'deviceKey' ({ privateKey, publicKey } CryptoKeys for signing, Phase 13), 'deviceKeyPublished' (key id sent
-// to the server), 'nearbyEnabled' (opt-in for nearby alerts).
+// to the server), 'nearbyEnabled' (opt-in for nearby alerts), 'fieldForm' (FormConfig: hidden and added form fields, forms per printed page).
 export interface Setting {
   key: string
   value: unknown

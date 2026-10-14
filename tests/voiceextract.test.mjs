@@ -128,3 +128,16 @@ test('common names fill the species guess when no Latin name is said', () => {
   assert.equal(x('chanterelle, I mean Cantharellus formosus').speciesGuess, 'Cantharellus formosus')
   assert.equal(x('a false morel').speciesGuess, 'Gyromitra')
 })
+
+test('custom fields: quick picks and free text after the field name', async () => {
+  const { extractCustomFields } = await import('../utils/voiceExtract.ts')
+  const fields = [
+    { key: 'x_taste', label: 'Taste', options: ['mild', 'bitter', 'acrid'] },
+    { key: 'x_collector', label: 'Collector' },
+    { key: 'x_latex', label: 'Latex color' },
+  ]
+  assert.deepEqual(extractCustomFields('Taste is slightly bitter. Collector is Sam Jones, latex color orange.', fields),
+    { x_taste: 'bitter', x_collector: 'Sam Jones', x_latex: 'orange' })
+  assert.deepEqual(extractCustomFields('it was very acrid on the tongue', fields), { x_taste: 'acrid' })
+  assert.deepEqual(extractCustomFields('nothing here', fields), {})
+})

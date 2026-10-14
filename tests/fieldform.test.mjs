@@ -33,3 +33,20 @@ test('label scale bar is true size at 203 dpi', () => {
   assert.equal(t[30].x, 240)
   assert.deepEqual(t.filter((x) => x.label).map((x) => x.label), ['0', '1', '2', '3'])
 })
+
+test('form config: hide, add, sanitise', async () => {
+  const { normalizeFormConfig, formGroups, visibleKeys, customFieldKey, paginate } = await import('../utils/fieldForm.ts')
+  const cfg = normalizeFormConfig({ hidden: ['capSize', 'bogus', 'staining', 'odor', 'sporePrint'], custom: [{ key: 'x_taste', label: ' Taste ', options: ['mild', ''] }, { key: 'bad key', label: 'x' }], perPage: 3 })
+  assert.deepEqual(cfg.hidden, ['capSize', 'staining', 'odor', 'sporePrint'])
+  assert.deepEqual(cfg.custom, [{ key: 'x_taste', label: 'Taste', options: ['mild'] }])
+  assert.equal(cfg.perPage, 1)
+  const ids = formGroups(cfg).map((g) => g.id)
+  assert.ok(!ids.includes('tests')) // all of its fields hidden
+  assert.equal(ids.at(-1), 'mine')
+  const keys = visibleKeys(cfg)
+  assert.ok(keys.has('x_taste') && keys.has('capColor') && !keys.has('capSize'))
+  assert.equal(customFieldKey('Latex color!'), 'x_latex_color')
+  assert.equal(customFieldKey('Taste', ['x_taste']), 'x_taste_2')
+  assert.deepEqual(paginate([1, 2, 3], 2, true), [[1, 2], [3, null]])
+  assert.deepEqual(paginate([], 4, true), [[null, null, null, null]])
+})

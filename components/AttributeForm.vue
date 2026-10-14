@@ -52,20 +52,22 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { updateFieldNotes } from '~/composables/useFinds'
 import type { FieldNotes } from '~/utils/db'
-import { FIELD_DEFS, FIELD_GROUPS, groupOf, type FieldDef } from '~/utils/fieldForm'
+import { formGroups, groupOf, type ResolvedGroup } from '~/utils/fieldForm'
 
 const props = defineProps<{ specimenRowId: string; modelValue: FieldNotes }>()
 
 type Key = keyof FieldNotes
-const groups = [
-  ...FIELD_GROUPS.map((g) => ({ ...g, fields: g.keys.map((k) => FIELD_DEFS.find((f) => f.key === k)!) })),
-  { id: 'notes', title: 'Notes', emoji: '📝', icon: 'mdi-note-text', fields: [] as FieldDef[] },
-]
+// Which fields show is set in Settings → Field form.
+const { config } = useFormConfig()
+const groups = computed<ResolvedGroup[]>(() => [
+  ...formGroups(config.value),
+  { id: 'notes', title: 'Notes', emoji: '📝', icon: 'mdi-note-text', fields: [] },
+])
 const open = ref<string[]>(['id'])
-const filled = (g: { id: string; fields: FieldDef[] }) =>
+const filled = (g: ResolvedGroup) =>
   g.id === 'notes' ? (local.notes ? 1 : 0) : g.fields.filter((f) => local[f.key]).length
 
 // Initialized once from props; the form owns the text while editing (avoids cursor jumps).
@@ -81,7 +83,7 @@ watch(
   () => props.modelValue,
   (v) => {
     const changed: Key[] = []
-    for (const k of [...FIELD_DEFS.map((f) => f.key), 'notes'] as Key[]) {
+    for (const k of new Set([...Object.keys(v ?? {}), ...Object.keys(local)]) as Set<Key>) {
       if (k === editing.value || k in pending) continue
       const next = v?.[k] ?? ''
       if ((local[k] ?? '') !== next) {

@@ -47,7 +47,79 @@ export const FIELD_GROUPS: FieldGroup[] = [
   { id: 'tests', title: 'Smell, staining, spores', emoji: '👃', icon: 'mdi-flask-outline', keys: ['odor', 'staining', 'sporePrint'] },
 ]
 
-export const groupOf = (key: FieldKey) => FIELD_GROUPS.find((g) => g.keys.includes(key))?.id
+export const groupOf = (key: FieldKey) => FIELD_GROUPS.find((g) => g.keys.includes(key))?.id ?? (key.startsWith('x_') ? 'mine' : undefined)
+
+// ---------- customising the form (Settings → Field form) ----------
+
+export const FORM_CONFIG_KEY = 'fieldForm'
+export type PerPage = 1 | 2 | 4
+
+export interface CustomField { key: `x_${string}`; label: string; options?: string[]; placeholder?: string }
+
+export interface FormConfig {
+  /** Built-in fields turned off. Their values are kept, just not shown or printed. */
+  hidden: FieldKey[]
+  /** Fields the user added, stored in fieldNotes under their `x_` key. */
+  custom: CustomField[]
+  perPage: PerPage
+}
+
+export const DEFAULT_FORM_CONFIG: FormConfig = { hidden: [], custom: [], perPage: 1 }
+
+/** Accept whatever is stored (older or hand-edited values) and return a valid config. */
+export function normalizeFormConfig(v: unknown): FormConfig {
+  const o = (v && typeof v === 'object' ? v : {}) as Partial<FormConfig>
+  const known = new Set(FIELD_DEFS.map((f) => f.key as string))
+  const hidden = Array.isArray(o.hidden) ? o.hidden.filter((k): k is FieldKey => typeof k === 'string' && known.has(k)) : []
+  const seen = new Set<string>()
+  const custom = (Array.isArray(o.custom) ? o.custom : []).flatMap((c: any) => {
+    if (!c || typeof c.key !== 'string' || !/^x_[a-z0-9_]+$/.test(c.key) || seen.has(c.key)) return []
+    const label = typeof c.label === 'string' ? c.label.trim().slice(0, 40) : ''
+    if (!label) return []
+    seen.add(c.key)
+    const options = Array.isArray(c.options) ? c.options.filter((x: unknown) => typeof x === 'string' && x.trim()).map((x: string) => x.trim()) : []
+    return [{ key: c.key as CustomField['key'], label, ...(options.length ? { options } : {}) }]
+  })
+  const perPage = o.perPage === 2 || o.perPage === 4 ? o.perPage : 1
+  return { hidden, custom, perPage }
+}
+
+/** Storage key for a new custom field named `label`, unique among `existing`. */
+export function customFieldKey(label: string, existing: string[] = []): CustomField['key'] {
+  const base = `x_${label.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 30) || 'field'}`
+  let key = base
+  for (let n = 2; existing.includes(key); n++) key = `${base}_${n}`
+  return key as CustomField['key']
+}
+
+/** "spores, smell; texture" -> ['spores', 'smell', 'texture'] */
+export const parseOptions = (text: string) => text.split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean)
+
+export interface ResolvedGroup { id: string; title: string; emoji: string; icon: string; fields: (FieldDef | CustomField)[] }
+
+/** The groups and fields to show and print, after hiding and adding. Empty groups are dropped. */
+export function formGroups(cfg: FormConfig = DEFAULT_FORM_CONFIG): ResolvedGroup[] {
+  const hidden = new Set<string>(cfg.hidden)
+  const groups: ResolvedGroup[] = FIELD_GROUPS.map((g) => ({
+    id: g.id, title: g.title, emoji: g.emoji, icon: g.icon,
+    fields: g.keys.filter((k) => !hidden.has(k)).map((k) => FIELD_DEFS.find((f) => f.key === k)!),
+  }))
+  if (cfg.custom.length) groups.push({ id: 'mine', title: 'Your fields', emoji: '✏️', icon: 'mdi-pencil-outline', fields: cfg.custom })
+  return groups.filter((g) => g.fields.length)
+}
+
+/** Keys shown on the form (voice only fills these). */
+export const visibleKeys = (cfg: FormConfig = DEFAULT_FORM_CONFIG) => new Set<string>(formGroups(cfg).flatMap((g) => g.fields.map((f) => f.key)))
+
+/** Split `items` into pages of `perPage`; `fill` pads the last page with nulls (blank forms). */
+export function paginate<T>(items: T[], perPage: number, fill = false): (T | null)[][] {
+  const pages: (T | null)[][] = []
+  for (let i = 0; i < items.length; i += perPage) pages.push(items.slice(i, i + perPage))
+  if (!pages.length) pages.push([])
+  const last = pages[pages.length - 1]
+  if (fill) while (last.length < perPage) last.push(null)
+  return pages
+}
 
 // ---------- printed ruler ----------
 

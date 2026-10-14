@@ -116,8 +116,8 @@ import { stopActiveSpeech, useWebSpeech, webSpeechSupported } from '~/composable
 import { voiceVocabFor } from '~/composables/useVoiceVocab'
 import { updateFieldNotes } from '~/composables/useFinds'
 import type { FieldNotes } from '~/utils/db'
-import { extractFieldNotes, voicePatch, type Extracted } from '~/utils/voiceExtract'
-import { FIELD_DEFS, FIELD_LABELS, type FieldKey } from '~/utils/fieldForm'
+import { extractCustomFields, extractFieldNotes, voicePatch, type Extracted } from '~/utils/voiceExtract'
+import { formGroups, visibleKeys, type FieldKey } from '~/utils/fieldForm'
 
 const props = defineProps<{ forayId: string; specimenRowId?: string }>()
 
@@ -190,6 +190,7 @@ let vocab: Awaited<ReturnType<typeof voiceVocabFor>> | null = null
 // details it names go straight into the form. Voice only fills empty fields or ones it filled
 // itself this recording, never something typed; Undo puts back what was there before.
 const fillsForm = computed(() => !!props.specimenRowId)
+const { config: formConfig } = useFormConfig()
 const filled = ref<{ key: FieldKey; label: string; value: string }[]>([])
 let voiceOwned: Extracted = {}
 let voiceBefore: Partial<Record<FieldKey, string>> = {}
@@ -197,7 +198,8 @@ let extractTimer: ReturnType<typeof setTimeout> | null = null
 let extractQueue: Promise<void> = Promise.resolve()
 
 function showFilled() {
-  filled.value = FIELD_DEFS.filter((f) => voiceOwned[f.key]).map((f) => ({ key: f.key, label: FIELD_LABELS[f.key], value: voiceOwned[f.key]! }))
+  filled.value = formGroups(formConfig.value).flatMap((g) => g.fields)
+    .filter((f) => voiceOwned[f.key]).map((f) => ({ key: f.key, label: f.label, value: voiceOwned[f.key]! }))
 }
 
 /** Parse `text` and write new values into the find's form. `onlyEmpty`: never replace a value. */
@@ -207,7 +209,10 @@ function fillForm(text: string, onlyEmpty = false): Promise<number> {
   let count = 0
   const job = extractQueue.then(async () => {
     const corrected = vocab ? vocab.correct(text) : text
-    const ext = extractFieldNotes(corrected, vocab?.names ?? [])
+    // Only fields shown on the form (Settings → Field form), including the user's own.
+    const shown = visibleKeys(formConfig.value)
+    const all: Extracted = { ...extractFieldNotes(corrected, vocab?.names ?? []), ...extractCustomFields(corrected, formConfig.value.custom) }
+    const ext = Object.fromEntries(Object.entries(all).filter(([k]) => shown.has(k))) as Extracted
     const cur: FieldNotes = (await useDb().specimens.get(id))?.fieldNotes ?? {}
     const patch = voicePatch(cur, ext, onlyEmpty ? {} : voiceOwned)
     const keys = Object.keys(patch) as FieldKey[]
