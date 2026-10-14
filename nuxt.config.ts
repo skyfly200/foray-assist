@@ -15,7 +15,18 @@ export default defineNuxtConfig({
     },
   ],
   css: ['@mdi/font/css/materialdesignicons.css', '~/assets/css/theme.css', '~/assets/css/foray.css', '~/assets/css/desktop.css'],
-  app: { pageTransition: { name: 'page', mode: 'out-in' } },
+  app: {
+    pageTransition: { name: 'page', mode: 'out-in' },
+    // @vite-pwa/nuxt emits manifest.webmanifest but does not link it from the page;
+    // without this <link> Chrome reports the app as not installable.
+    head: {
+      link: [
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'apple-touch-icon', href: '/pwa-192.png' },
+      ],
+      meta: [{ name: 'theme-color', content: '#2e7d32' }],
+    },
+  },
   build: { transpile: ['vuetify'] },
   vite: {
     vue: { template: { transformAssetUrls } },
@@ -44,7 +55,8 @@ export default defineNuxtConfig({
       start_url: '/',
       icons: [
         { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
-        { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+        { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: 'pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
       ],
     },
     workbox: {
