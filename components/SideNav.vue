@@ -4,7 +4,7 @@ const { mode, isForay, setMode } = useMode()
 
 const homeActive = computed(() => route.path === '/' || route.path.startsWith('/forays'))
 const dexActive = computed(() => route.path.startsWith('/dex'))
-const settingsActive = computed(() => route.path.startsWith('/settings'))
+const settingsActive = computed(() => route.path.startsWith('/settings') || route.path.startsWith('/models'))
 function toggleMode() {
   setMode(isForay.value ? 'review' : 'foray')
 }

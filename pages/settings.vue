@@ -170,6 +170,16 @@ const status = computed(() => {
       <section class="mb-4">
         <h2 class="section-title"><v-icon size="20" color="primary">mdi-microphone-outline</v-icon> Voice</h2>
         <VoiceModelSettings class="mb-4" />
+        <v-card class="fa-card" to="/models" data-testid="model-routing-link">
+          <v-card-text class="d-flex align-center ga-3">
+            <v-avatar color="primary" variant="tonal" size="40"><v-icon>mdi-graph-outline</v-icon></v-avatar>
+            <div class="flex-grow-1">
+              <div class="text-subtitle-1 font-weight-bold">Model routing</div>
+              <div class="text-body-2 text-medium-emphasis">Choose which model handles each task, and what to try when one fails</div>
+            </div>
+            <v-icon>mdi-chevron-right</v-icon>
+          </v-card-text>
+        </v-card>
       </section>
 
       <section class="mb-4">

@@ -6,8 +6,8 @@
 export interface WebSpeechCallbacks {
   /** Full transcript so far (finals + current interim). */
   onText: (text: string) => void
-  /** Fatal, user-presentable error; recognition has stopped. */
-  onError: (message: string) => void
+  /** Fatal, user-presentable error; recognition has stopped. `code` is the SpeechRecognition error, when there is one. */
+  onError: (message: string, code?: string) => void
   /** Another recorder/recognizer took over the microphone; the owner should finish and save. */
   onPreempted?: () => void
 }
@@ -95,7 +95,7 @@ export function useWebSpeech() {
         const code = String(ev?.error ?? 'unknown')
         if (code === 'no-speech' || code === 'aborted') return // benign; onend restarts
         wanted = false
-        cb.onError(describeSpeechError(code))
+        cb.onError(describeSpeechError(code), code)
       }
       rec.onend = () => {
         // Keep any interim words that never became final.
