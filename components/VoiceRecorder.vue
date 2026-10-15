@@ -18,14 +18,14 @@
         <span class="text-body-2" aria-live="off">{{ elapsedLabel }}</span>
         <div v-if="mode !== 'speech' || keepsAudio" class="meter" aria-hidden="true"><div class="meter-fill" :style="{ width: Math.round(level * 100) + '%' }" /></div>
       </template>
-      <span v-else class="text-body-2 text-medium-emphasis">{{ saving ? 'Saving…' : 'Record note' }}</span>
-      <span v-if="!recording && engineHint" class="text-caption text-medium-emphasis">{{ engineHint }}</span>
+      <span v-else-if="!compact" class="text-body-2 text-medium-emphasis">{{ saving ? 'Saving…' : 'Record note' }}</span>
+      <span v-if="!recording && engineHint && !compact" class="text-caption text-medium-emphasis">{{ engineHint }}</span>
     </div>
 
-    <v-alert v-if="showSpeechNotice" type="info" variant="tonal" density="compact" class="mt-3" icon="mdi-cloud-outline">
+    <v-alert v-if="showSpeechNotice && !compact" type="info" variant="tonal" density="compact" class="mt-3" icon="mdi-cloud-outline">
       Using online speech recognition. Download the voice model for offline use
     </v-alert>
-    <v-alert v-if="!isCached && status !== 'downloading' && !recording" type="info" variant="tonal" density="compact" class="mt-3">
+    <v-alert v-if="!isCached && status !== 'downloading' && !recording && !compact" type="info" variant="tonal" density="compact" class="mt-3">
       <div>{{ speechAvailable ? 'Offline voice transcription needs the on-device model.' : 'Voice transcription needs the on-device model. You can still record now and transcribe later.' }}</div>
       <v-btn class="mt-2" size="small" color="primary" prepend-icon="mdi-download" :disabled="recording || offline" @click="download">
         Download voice model (~{{ models[model].approxMB }} MB)
@@ -42,7 +42,7 @@
     <v-alert v-if="micError" type="error" variant="tonal" density="compact" class="mt-3">{{ micError }}</v-alert>
     <v-alert v-if="notice" type="info" variant="tonal" density="compact" class="mt-3" closable @click:close="notice = ''">{{ notice }}</v-alert>
 
-    <v-sheet v-if="recording" class="interim pa-3 mt-3" rounded border>
+    <v-sheet v-if="recording && !compact" class="interim pa-3 mt-3" rounded border>
       <div v-if="interim" class="text-body-2">{{ interim }}</div>
       <div v-else class="text-body-2 text-medium-emphasis">
         {{ mode === 'speech' ? 'Listening… words appear as you speak.' : mode === 'whisper' ? 'Listening… text appears after a short pause.' : 'Recording audio (no transcript until the model is downloaded).' }}
@@ -52,7 +52,7 @@
 
     </template>
 
-    <v-sheet v-if="specimenRowId && (filled.length || (recording && fillsForm))" class="pa-3 mt-3 voice-filled" rounded border>
+    <v-sheet v-if="!compact && specimenRowId && (filled.length || (recording && fillsForm))" class="pa-3 mt-3 voice-filled" rounded border>
       <div class="d-flex align-center ga-2">
         <v-icon icon="mdi-form-select" size="18" color="primary" />
         <span class="text-body-2 font-weight-medium">{{ filled.length ? 'Filled in from your voice' : 'Listening for details to fill in the form' }}</span>
@@ -70,7 +70,7 @@
       </div>
     </v-sheet>
 
-    <v-list v-if="notes.length" lines="three" density="compact" class="pa-0" :class="{ 'mt-3': !listOnly }">
+    <v-list v-if="notes.length && !compact" lines="three" density="compact" class="pa-0" :class="{ 'mt-3': !listOnly }">
       <v-list-item v-for="n in notes" :key="n.id" class="px-0">
         <div class="d-flex align-center ga-2 flex-wrap mb-1">
           <span class="text-caption text-medium-emphasis">{{ when(n.at) }}</span>
@@ -136,7 +136,14 @@ import type { FieldNotes } from '~/utils/db'
 import { extractCustomFields, extractFieldNotes, voicePatch, type Extracted } from '~/utils/voiceExtract'
 import { formGroups, visibleKeys, type FieldKey } from '~/utils/fieldForm'
 
-const props = defineProps<{ forayId: string; specimenRowId?: string; listOnly?: boolean }>()
+// compact (AR guide): just the button and alerts; the parent shows captions and filled fields from the events.
+const props = defineProps<{ forayId: string; specimenRowId?: string; listOnly?: boolean; compact?: boolean }>()
+const emit = defineEmits<{
+  interim: [text: string]
+  recording: [on: boolean]
+  filled: [fields: { key: string; label: string; value: string }[]]
+  saved: [note: { id: string; transcript: string }]
+}>()
 
 const {
   model, modelTag, models, status, progress, isCached, error: whisperError, download, transcribe,
@@ -149,8 +156,10 @@ type Mode = 'whisper' | 'speech' | 'raw'
 const mode = ref<Mode>('raw')
 const notice = ref('')
 const recording = ref(false)
+watch(recording, (on) => emit('recording', on))
 const saving = ref(false)
 const interim = ref('')
+watch(interim, (t) => emit('interim', t))
 const pendingChunks = ref(0)
 const micError = ref('')
 const level = ref(0)
@@ -226,6 +235,7 @@ let vocab: Awaited<ReturnType<typeof voiceVocabFor>> | null = null
 const fillsForm = computed(() => !!props.specimenRowId)
 const { config: formConfig } = useFormConfig()
 const filled = ref<{ key: FieldKey; label: string; value: string }[]>([])
+watch(filled, (f) => emit('filled', f))
 let voiceOwned: Extracted = {}
 let voiceBefore: Partial<Record<FieldKey, string>> = {}
 let extractTimer: ReturnType<typeof setTimeout> | null = null
@@ -479,6 +489,7 @@ async function stopRecording() {
         })
         await enqueue('voiceNotes', id)
       })
+      emit('saved', { id, transcript: text })
       if (chunkFailed) rowErrors.value[id] = 'Some audio could not be transcribed. Use Re-transcribe to retry.'
     }
     interim.value = ''

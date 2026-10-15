@@ -38,7 +38,8 @@ onMounted(() => {
     <v-alert type="warning" variant="tonal" class="mb-4">Foray not found.</v-alert>
     <v-btn to="/" prepend-icon="mdi-arrow-left">Back to forays</v-btn>
   </div>
-  <template v-else>
+  <!-- One root element: the page transition (mode out-in) never finishes leaving a page with several. -->
+  <div v-else>
     <header class="fa-hero foray-hero mb-4" :class="{ 'hero-in-desk': isForay }">
       <div class="text-overline hero-kicker">{{ isForay ? '🍄 Foray mode' : '🔍 Review mode' }}</div>
       <h1 class="text-h5 font-weight-bold hero-title">{{ foray?.name }}</h1>
@@ -104,7 +105,7 @@ onMounted(() => {
         </div>
       </Transition>
     </div>
-  </template>
+  </div>
 </template>
 
 <style scoped>

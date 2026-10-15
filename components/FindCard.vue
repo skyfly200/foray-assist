@@ -29,6 +29,9 @@
       </TransitionGroup>
 
       <PhotoCapture v-if="capture" :specimen-row-id="find.id" :foray-id="find.forayId" class="mb-3" />
+      <v-btn v-if="capture" block variant="tonal" color="primary" prepend-icon="mdi-cube-scan" :to="`/guide/${find.id}`" class="mb-3">
+        Guided capture
+      </v-btn>
 
       <VoiceRecorder :foray-id="find.forayId" :specimen-row-id="find.id" :list-only="!capture" class="mb-3" />
 

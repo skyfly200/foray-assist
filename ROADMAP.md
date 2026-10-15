@@ -176,7 +176,7 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 ---
 
 ## Phase 14: AR Field Guide (WebXR, Gamified Documenting)
-*Status: idea. Nothing built yet. Depends on Phase 2 (a vision model) and reuses Phase 3's guided flow, the live voice-to-form parser and the finds dex.*
+*Status: first version built: Guided capture on each find (camera mode everywhere, WebXR AR on Chrome for Android), live captions, pinned notes, and the Finds and Thoroughness scores on the MycoDex. Still to do: the vision model (needs Phase 2), syncing which shot each photo is (migration `20261015000002_photo_angle` must be applied first), and keeping pinned notes after the screen closes.*
 
 *Goal: Point the phone at a find and have an AR guide walk the user through documenting it like a quest, with live captions from voice notes, a species suggestion from an on-device vision model, and notes pinned to the specimen in 3D.*
 

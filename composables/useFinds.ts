@@ -95,6 +95,7 @@ export async function addPhoto(
   forayId: string,
   blob: Blob,
   source: Photo['source'] = 'capture',
+  angle?: Photo['angle'],
 ): Promise<Photo> {
   const db = useDb()
   const pos = await getPositionBestEffort(2500)
@@ -108,6 +109,7 @@ export async function addPhoto(
     mimeType: blob.type || 'image/jpeg',
     capturedAt: now,
     ...(pos ?? {}),
+    ...(angle ? { angle } : {}),
     isSelected: false,
     updatedAt: now,
   }

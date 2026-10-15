@@ -3,6 +3,7 @@
 import { liveQuery } from 'dexie'
 import type { DexEntry, DexStats } from '~/utils/dex'
 import { ensurePhotoBlob } from '~/composables/useMedia'
+import { computeScores, pct, type Scores } from '~/utils/score'
 
 type SortKey = 'number' | 'count' | 'recent' | 'name'
 
@@ -52,8 +53,17 @@ function syncCovers(rows: { key: string; photoId: string; blob: Blob }[]) {
 }
 
 let sub: { unsubscribe(): void } | null = null
+let scoreSub: { unsubscribe(): void } | null = null
+const scores = ref<Scores | null>(null)
 onMounted(() => {
   const db = useDb()
+  // Finds and Thoroughness (utils/score.ts), over every find on this device.
+  scoreSub = liveQuery(async () => {
+    const [specimens, photos, notes] = await Promise.all([db.specimens.toArray(), db.photos.toArray(), db.voiceNotes.toArray()])
+    const voice: Record<string, number> = {}
+    for (const n of notes) if (n.specimenRowId) voice[n.specimenRowId] = (voice[n.specimenRowId] ?? 0) + 1
+    return computeScores(specimens, photos.map((p) => ({ specimenRowId: p.specimenRowId, angle: p.angle })), voice)
+  }).subscribe({ next: (s) => (scores.value = s), error: (e) => console.error('score query failed', e) })
   sub = liveQuery(async () => {
     const [specimens, forays] = await Promise.all([db.specimens.toArray(), db.forays.toArray()])
     const names = Object.fromEntries(forays.map((f) => [f.id, f.name]))
@@ -98,12 +108,13 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   sub?.unsubscribe()
+  scoreSub?.unsubscribe()
   coverCache.forEach((h) => URL.revokeObjectURL(h.url))
   coverCache.clear()
 })
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 || w.endsWith('species') ? '' : 's'}`
 const idRate = computed(() => (stats.value?.finds ? Math.round((stats.value.identified / stats.value.finds) * 100) : 0))
 const mapsUrl = (lat: number, lon: number) => `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`
 </script>
@@ -136,6 +147,46 @@ const mapsUrl = (lat: number, lon: number) => `https://www.google.com/maps/searc
           <v-icon icon="mdi-help-circle-outline" size="16" />{{ plural(stats.unidentified, 'find') }} still unnamed
         </span>
       </div>
+    </section>
+
+    <section v-if="scores?.total" class="fa-card fa-dex__scores" aria-label="Your scores">
+      <div class="fa-dex__score">
+        <v-icon icon="mdi-mushroom-outline" size="22" color="primary" />
+        <div>
+          <div class="fa-dex__score-num">{{ scores.finds }}</div>
+          <div class="fa-dex__score-label">Finds score</div>
+          <div class="fa-dex__score-sub">{{ plural(scores.species, 'species') }} · {{ scores.total - scores.finds }} not counted yet</div>
+        </div>
+      </div>
+      <div class="fa-dex__score">
+        <v-progress-circular :model-value="Math.round(scores.thoroughness * 100)" :size="44" :width="5" color="primary">
+          <span class="text-caption font-weight-bold">{{ pct(scores.thoroughness) }}</span>
+        </v-progress-circular>
+        <div>
+          <div class="fa-dex__score-label">Thoroughness</div>
+          <div class="fa-dex__score-sub">{{ plural(scores.complete, 'complete record') }}</div>
+        </div>
+      </div>
+      <div v-if="scores.streak.best" class="fa-dex__score">
+        <v-icon icon="mdi-fire" size="22" color="warning" />
+        <div>
+          <div class="fa-dex__score-num">{{ scores.streak.current }}</div>
+          <div class="fa-dex__score-label">Day streak</div>
+          <div class="fa-dex__score-sub">Best {{ scores.streak.best }}</div>
+        </div>
+      </div>
+      <div class="fa-dex__badges">
+        <span
+          v-for="b in scores.badges"
+          :key="b.id"
+          class="fa-badge fa-dex__badge"
+          :class="{ 'fa-dex__badge--off': !b.earned }"
+          :title="b.detail"
+        >
+          <v-icon :icon="b.icon" size="16" />{{ b.label }}
+        </span>
+      </div>
+      <p class="fa-dex__score-help">A find counts toward your Finds score once its record is half complete. Use Guided capture on a find to fill it in.</p>
     </section>
 
     <div v-if="entries.length" class="fa-dex__tools">
@@ -246,6 +297,15 @@ const mapsUrl = (lat: number, lon: number) => `https://www.google.com/maps/searc
 .fa-dex__hero { border-radius: var(--fa-radius); padding: 20px 18px 22px; box-shadow: var(--fa-shadow); }
 .fa-dex__kicker { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-weight: 700; opacity: 0.92; }
 .fa-dex__title { margin: 4px 0 14px; font-size: 1.5rem; line-height: 1.2; font-weight: 800; }
+.fa-dex__scores { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; padding: 14px 16px; margin-top: 14px; }
+.fa-dex__score { display: flex; align-items: center; gap: 10px; }
+.fa-dex__score-num { font-size: 1.5rem; font-weight: 800; line-height: 1; }
+.fa-dex__score-label { font-weight: 700; font-size: 0.9rem; }
+.fa-dex__score-sub { font-size: 0.75rem; opacity: 0.7; }
+.fa-dex__badges { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.fa-dex__badge { gap: 4px; }
+.fa-dex__badge--off { opacity: 0.4; filter: grayscale(1); }
+.fa-dex__score-help { width: 100%; margin: 0; font-size: 0.78rem; opacity: 0.7; }
 .fa-dex__stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
 .fa-dex__stat {
   display: flex; flex-direction: column; align-items: center; padding: 8px 2px; border-radius: 14px;

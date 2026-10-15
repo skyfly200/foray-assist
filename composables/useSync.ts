@@ -72,7 +72,8 @@ function toRow(obj: Record<string, any>, drop: string[] = []): Record<string, an
 const TABLE_MAP = {
   forays: { remote: 'forays', drop: ['syncedAt', 'shared', 'joined'] },
   specimens: { remote: 'specimens', drop: ['syncedAt'] },
-  photos: { remote: 'photos', drop: ['syncedAt', 'blob'] },
+  // 'angle' stays on this device until migration 20261015000002_photo_angle is applied to the server.
+  photos: { remote: 'photos', drop: ['syncedAt', 'blob', 'angle'] },
   voiceNotes: { remote: 'voice_notes', drop: ['syncedAt', 'audio'] },
   comments: { remote: 'find_comments', drop: ['syncedAt', 'authorName', 'userId', 'mine'] },
 } as const
