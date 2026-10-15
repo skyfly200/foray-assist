@@ -2,6 +2,7 @@
 import { liveQuery } from 'dexie'
 import type { Geoprivacy } from '~/utils/db'
 import { displayId, isPendingId } from '~/utils/idCode'
+import { emptyFindIds } from '~/composables/useFinds'
 const props = defineProps<{ forayId: string }>()
 const { connected, signedIn, online, queue, retry, setGeoprivacy, observationUrl } = usePublish()
 
@@ -15,7 +16,9 @@ onMounted(() => {
     const db = useDb()
     const specs = await db.specimens.where('forayId').equals(props.forayId).sortBy('timestamp')
     const photos = await db.photos.where('forayId').equals(props.forayId).toArray()
-    return specs.map((s): Row => ({
+    // Empty finds (nothing recorded) have nothing to publish; Review hides them too.
+    const empty = new Set(await emptyFindIds(props.forayId))
+    return specs.filter((s) => !empty.has(s.id)).map((s): Row => ({
       id: s.id, label: isPendingId(s.specimenId) ? 'ID pending' : displayId(s.specimenId), pending: isPendingId(s.specimenId), guess: s.fieldNotes?.speciesGuess ?? '', geoprivacy: s.geoprivacy,
       photos: photos.filter((p) => p.specimenRowId === s.id && p.isSelected).length,
       status: s.inatStatus ?? 'draft', error: s.inatError, obsId: s.iNatObservationId,
