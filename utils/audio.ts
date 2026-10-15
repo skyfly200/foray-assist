@@ -233,6 +233,8 @@ export interface RecorderHandle {
   stop(): Promise<{ blob: Blob; mimeType: string; durationMs: number }>
   /** 0..1 recent input level for a meter. */
   level(): number
+  /** The live mic track, e.g. to feed SpeechRecognition from the same capture. */
+  track(): MediaStreamTrack | null
 }
 
 export type InterruptReason = 'replaced' | 'hidden' | 'ended'
@@ -396,7 +398,7 @@ export async function startRecorder(opts: StartRecorderOptions): Promise<Recorde
     s.getAudioTracks().forEach((t) => t.addEventListener('ended', () => interrupt('ended')))
     activeCapture = me
 
-    return { level: () => lvl, stop: () => finalize() }
+    return { level: () => lvl, stop: () => finalize(), track: () => s.getAudioTracks()[0] ?? null }
   } catch (e) {
     try { cleanup() } catch { /* ignore */ }
     stream?.getTracks().forEach((t) => t.stop())

@@ -15,7 +15,9 @@ const { mdAndUp } = useDisplay()
         <span class="fa-brand__name">Foray Assist</span>
       </NuxtLink>
       <v-spacer />
-      <ConnectivityChip class="mr-3" />
+      <ModeToggle class="fa-topbar__mode" compact />
+      <v-spacer />
+      <ConnectivityChip class="fa-topbar__conn mr-3" />
     </v-app-bar>
 
     <v-main>
@@ -42,4 +44,11 @@ const { mdAndUp } = useDisplay()
 }
 .fa-brand:hover .fa-brand__mark, .fa-brand:active .fa-brand__mark { transform: rotate(-12deg) scale(1.08); }
 .fa-brand__name { font-weight: 800; font-size: 1.1rem; letter-spacing: -0.01em; }
+.fa-topbar__mode { flex: none; }
+/* Narrow phones: the mode switch needs the room, so the brand and sync chip drop to icons. */
+@media (max-width: 499.98px) {
+  .fa-brand__name { display: none; }
+  .fa-topbar__conn .fa-conn__label { display: none; }
+  .fa-topbar .fa-topbar__conn.fa-conn { padding: 6px; }
+}
 </style>

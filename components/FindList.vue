@@ -1,8 +1,14 @@
 <template>
   <div class="find-list">
     <!-- On desktop the camera zone is teleported into the page's sticky "Field desk" column. -->
-    <Teleport to="#fa-desk-actions" defer :disabled="!mdAndUp">
-    <div class="cam-zone">
+    <Teleport v-if="capture" to="#fa-desk-actions" defer :disabled="!mdAndUp">
+    <!-- Phones snap new finds from the bottom bar's New find button, so only the no-photo option shows here. -->
+    <div v-if="!mdAndUp" class="cam-zone cam-zone--slim">
+      <v-btn variant="tonal" color="primary" prepend-icon="mdi-plus" :disabled="creating" :loading="creating" @click="onNew">
+        New find without photo
+      </v-btn>
+    </div>
+    <div v-else class="cam-zone">
       <div class="cam-wrap">
         <v-btn
           icon
@@ -30,22 +36,23 @@
 
     <div v-if="!finds.length" class="empty text-center mt-6">
       <div class="empty-emoji" aria-hidden="true">🌿</div>
-      <p class="text-medium-emphasis">No finds yet. Tap the camera when you spot something.</p>
+      <p class="text-medium-emphasis">{{ !capture ? 'No finds in this foray yet.' : mdAndUp ? 'No finds yet. Tap the camera when you spot something.' : 'No finds yet. Tap New find below when you spot something.' }}</p>
     </div>
 
     <TransitionGroup name="fa-list" tag="div" class="finds-grid">
-      <FindCard v-for="f in finds" :key="f.id" :find="f" :class="{ 'fa-pop-enter-active': freshIds.has(f.id) }" />
+      <FindCard v-for="f in finds" :key="f.id" :find="f" :variant="variant" :class="{ 'fa-pop-enter-active': freshIds.has(f.id) }" />
     </TransitionGroup>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useDisplay } from 'vuetify'
 import { addPhoto, createFind, useLiveQuery } from '~/composables/useFinds'
 import type { Specimen } from '~/utils/db'
 
-const props = defineProps<{ forayId: string }>()
+const props = withDefaults(defineProps<{ forayId: string; variant?: 'capture' | 'review' }>(), { variant: 'capture' })
+const capture = computed(() => props.variant === 'capture')
 const { mdAndUp } = useDisplay()
 const creating = ref(false)
 const burst = ref(0)
@@ -69,6 +76,15 @@ function celebrate(id: string) {
     freshIds.value = n
   }, 700)
 }
+
+// Finds made from the bottom bar's New find button get the same pop as ones made here.
+const lastNewFind = useLastNewFind()
+watch([lastNewFind, finds], ([id, list]) => {
+  if (id && list.some((f) => f.id === id)) {
+    lastNewFind.value = null
+    celebrate(id)
+  }
+})
 
 function onCamera() {
   if (creating.value) return
@@ -104,6 +120,7 @@ async function onNew() {
 
 <style scoped>
 .cam-zone { display: flex; flex-direction: column; align-items: center; padding: 8px 0 4px; }
+.cam-zone--slim { padding: 0; }
 .cam-wrap { position: relative; }
 .cam-fab { width: 128px !important; height: 128px !important; }
 .empty-emoji { font-size: 3rem; }

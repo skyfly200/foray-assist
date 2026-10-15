@@ -62,6 +62,10 @@ export default defineNuxtConfig({
     workbox: {
       // SPA: any navigation (e.g. /forays/<id>) falls back to the cached shell.
       navigateFallback: '/',
+      // OAuth providers redirect the browser to /api/*/callback. That is a navigation, so
+      // without this the service worker answers it with the SPA shell and the router 404s
+      // instead of letting the request reach the server route.
+      navigateFallbackDenylist: [/^\/api\//],
       globPatterns: ['**/*.{js,css,html,woff,woff2,ttf,png,svg,ico}'],
       cleanupOutdatedCaches: true,
       // The self-hosted ONNX/WASM speech runtime (~40 MB) is too big to precache; cache it on first use.

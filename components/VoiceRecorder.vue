@@ -1,5 +1,7 @@
 <template>
   <div class="voice-recorder">
+    <!-- listOnly (Review mode): just the saved notes, to replay, re-transcribe or fill the form from. -->
+    <template v-if="!listOnly">
     <div class="d-flex align-center ga-3 flex-wrap">
       <v-btn
         class="fa-fab"
@@ -14,14 +16,14 @@
       />
       <template v-if="recording">
         <span class="text-body-2" aria-live="off">{{ elapsedLabel }}</span>
-        <div v-if="mode !== 'speech'" class="meter" aria-hidden="true"><div class="meter-fill" :style="{ width: Math.round(level * 100) + '%' }" /></div>
+        <div v-if="mode !== 'speech' || keepsAudio" class="meter" aria-hidden="true"><div class="meter-fill" :style="{ width: Math.round(level * 100) + '%' }" /></div>
       </template>
       <span v-else class="text-body-2 text-medium-emphasis">{{ saving ? (pendingChunks > 0 ? 'Finishing transcription…' : 'Saving…') : 'Record note' }}</span>
       <span v-if="!recording && engineHint" class="text-caption text-medium-emphasis">{{ engineHint }}</span>
     </div>
 
     <v-alert v-if="showSpeechNotice" type="info" variant="tonal" density="compact" class="mt-3" icon="mdi-cloud-outline">
-      Using online speech recognition — download the voice model for offline use
+      Using online speech recognition. Download the voice model for offline use
     </v-alert>
     <v-alert v-if="!isCached && status !== 'downloading' && !recording" type="info" variant="tonal" density="compact" class="mt-3">
       <div>{{ speechAvailable ? 'Offline voice transcription needs the on-device model.' : 'Voice transcription needs the on-device model. You can still record now and transcribe later.' }}</div>
@@ -53,6 +55,8 @@
       <div v-if="pendingChunks > 0" class="text-caption text-medium-emphasis mt-1">Transcribing…</div>
     </v-sheet>
 
+    </template>
+
     <v-sheet v-if="specimenRowId && (filled.length || (recording && fillsForm))" class="pa-3 mt-3 voice-filled" rounded border>
       <div class="d-flex align-center ga-2">
         <v-icon icon="mdi-form-select" size="18" color="primary" />
@@ -71,7 +75,7 @@
       </div>
     </v-sheet>
 
-    <v-list v-if="notes.length" lines="three" density="compact" class="mt-3 pa-0">
+    <v-list v-if="notes.length" lines="three" density="compact" class="pa-0" :class="{ 'mt-3': !listOnly }">
       <v-list-item v-for="n in notes" :key="n.id" class="px-0">
         <div class="d-flex align-center ga-2 flex-wrap mb-1">
           <span class="text-caption text-medium-emphasis">{{ when(n.at) }}</span>
@@ -93,7 +97,7 @@
             :disabled="!n.audio || !isCached || busyIds.has(n.id) || recording"
             @click="retranscribe(n)"
           >
-            {{ !isCached ? 'Transcribe (needs model)' : rowErrors[n.id] ? 'Retry' : `Re-transcribe (${model})` }}
+            {{ !isCached ? 'Transcribe (needs model)' : rowErrors[n.id] ? 'Retry' : n.model === 'web-speech' ? 'Retranscribe with Whisper' : `Re-transcribe (${model})` }}
           </v-btn>
           <v-btn
             v-if="specimenRowId && n.transcript"
@@ -120,7 +124,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useLiveQuery } from '~/composables/useFinds'
 import type { VoiceNote } from '~/utils/db'
 import { Chunker, cleanTranscript, decodeBlobTo16kMono, describeMicError, joinTranscript, releaseActiveRecorder, startRecorder, type RecorderHandle } from '~/utils/audio'
-import { stopActiveSpeech, useWebSpeech, webSpeechSupported } from '~/composables/useWebSpeech'
+import { stopActiveSpeech, useWebSpeech, webSpeechSupported, webSpeechTakesTrack } from '~/composables/useWebSpeech'
+import { useSpeechEngine } from '~/composables/useSpeechEngine'
 import { voiceVocabFor } from '~/composables/useVoiceVocab'
 import { updateFieldNotes } from '~/composables/useFinds'
 import type { FieldNotes } from '~/utils/db'
@@ -132,13 +137,14 @@ import { friendlyError, withTimeout } from '~/utils/taskGuard'
 const SAVE_WAIT_MS = 20_000
 const DECODE_TIMEOUT_MS = 30_000
 
-const props = defineProps<{ forayId: string; specimenRowId?: string }>()
+const props = defineProps<{ forayId: string; specimenRowId?: string; listOnly?: boolean }>()
 
 const {
   model, modelTag, models, status, progress, isCached, error: whisperError, download, transcribe, cancel: cancelWhisper,
 } = useWhisper()
 
 const webSpeech = useWebSpeech()
+const { engine, ready: engineReady } = useSpeechEngine()
 
 type Mode = 'whisper' | 'speech' | 'raw'
 const mode = ref<Mode>('raw')
@@ -153,12 +159,16 @@ const elapsed = ref(0)
 const offline = ref(false)
 const busyIds = ref(new Set<string>())
 const rowErrors = ref<Record<string, string>>({})
+// Browser speech is listening to our own mic capture, so the audio is kept for Whisper later.
+const keepsAudio = ref(false)
 
 const elapsedLabel = computed(() => `${Math.floor(elapsed.value / 60)}:${String(elapsed.value % 60).padStart(2, '0')}`)
 const whisperUsable = computed(() => isCached.value && status.value !== 'error')
 const speechAvailable = computed(() => webSpeechSupported() && !offline.value)
-const showSpeechNotice = computed(() => (recording.value ? mode.value === 'speech' : !whisperUsable.value && speechAvailable.value))
-const engineHint = computed(() => (whisperUsable.value ? `On-device Whisper (${model.value})` : ''))
+const prefersBrowser = computed(() => engine.value === 'browser' && speechAvailable.value)
+// Only nag about online speech when it is the fallback, not the user's own choice.
+const showSpeechNotice = computed(() => !prefersBrowser.value && (recording.value ? mode.value === 'speech' : !whisperUsable.value && speechAvailable.value))
+const engineHint = computed(() => (prefersBrowser.value ? 'Browser speech recognition' : whisperUsable.value ? `On-device Whisper (${model.value})` : ''))
 const when = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
 
 const notes = useLiveQuery<VoiceNote[]>(async () => {
@@ -325,8 +335,11 @@ async function startRecording() {
   chunkJobs = []
   chunkFailed = false
   updOnline()
-  // Pick exactly one mic consumer: Web Speech and getUserMedia must never overlap.
-  mode.value = whisperUsable.value ? 'whisper' : speechAvailable.value ? 'speech' : 'raw'
+  keepsAudio.value = false
+  await engineReady()
+  // Pick exactly one mic consumer: Web Speech and getUserMedia must never overlap, unless
+  // Web Speech can listen to our own capture (webSpeechTakesTrack), which also keeps the audio.
+  mode.value = prefersBrowser.value ? 'speech' : whisperUsable.value ? 'whisper' : speechAvailable.value ? 'speech' : 'raw'
   transcribeLive = mode.value === 'whisper'
   chunker = new Chunker()
   vocab = null
@@ -335,21 +348,45 @@ async function startRecording() {
   voiceVocabFor(props.forayId).then((v) => { vocab = v }).catch(() => {})
 
   if (mode.value === 'speech') {
-    releaseActiveRecorder('replaced') // another component's getUserMedia capture
+    const callbacks = {
+      onText: (t: string) => { speechText = t; interim.value = t; scheduleFill() },
+      onError: (m: string) => {
+        micError.value = m
+        if (recording.value) stopRecording()
+      },
+      onPreempted: () => {
+        notice.value = 'Another recording started, so this one was stopped and saved.'
+        if (recording.value) stopRecording()
+      },
+    }
     await stopActiveSpeech()
+    if (webSpeechTakesTrack()) {
+      // One capture: we record the audio and recognition listens to the same track.
+      try {
+        handle = await startRecorder({
+          onSamples: () => {},
+          onInterrupted: (reason) => {
+            notice.value = reason === 'replaced'
+              ? 'Another recording started, so this one was stopped and saved.'
+              : 'Recording stopped because the app went to the background or the microphone was taken. What was captured has been saved.'
+            if (recording.value) stopRecording()
+          },
+        })
+        speech = webSpeech.start(callbacks, handle.track())
+        keepsAudio.value = true
+        beginTimer()
+        return
+      } catch {
+        // Fall back to recognition on its own (no audio kept).
+        speech = null
+        await handle?.stop().catch(() => {})
+        handle = null
+      }
+    }
+    releaseActiveRecorder('replaced') // another component's getUserMedia capture
     await new Promise((r) => setTimeout(r, 150))
     try {
-      speech = webSpeech.start({
-        onText: (t) => { speechText = t; interim.value = t; scheduleFill() },
-        onError: (m) => {
-          micError.value = m
-          if (recording.value) stopRecording()
-        },
-        onPreempted: () => {
-          notice.value = 'Another recording started, so this one was stopped and saved.'
-          if (recording.value) stopRecording()
-        },
-      })
+      speech = webSpeech.start(callbacks)
     } catch (e: any) {
       micError.value = e?.message ?? String(e)
       return
@@ -395,6 +432,11 @@ async function stopRecording() {
       speech = null
       text = ((await s.stop()) || speechText).trim()
       tag = 'web-speech'
+      if (handle) {
+        const res = await handle.stop()
+        handle = null
+        blob = res.blob.size ? res.blob : undefined
+      }
     } else {
       const res = await handle!.stop()
       handle = null
@@ -457,6 +499,12 @@ async function retranscribe(n: VoiceNote) {
       await db.voiceNotes.update(n.id, { transcript: text, model: modelTag.value, updatedAt: nowIso() })
       await enqueue('voiceNotes', n.id)
     })
+    // Whisper may hear details the first pass missed; add them to empty fields.
+    if (props.specimenRowId) {
+      resetFill()
+      vocab = v
+      await fillForm(text, true)
+    }
   } catch (e: any) {
     rowErrors.value[n.id] = stoppedIds.delete(n.id) ? 'Stopped. Press Retry to transcribe it again.' : `Transcription failed: ${friendlyError(e)}`
   } finally {

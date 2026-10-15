@@ -1,4 +1,5 @@
 <script setup lang="ts">
+defineProps<{ compact?: boolean }>()
 const { mode, setMode } = useMode()
 const options = [
   { value: 'foray', label: 'Foray', icon: 'mdi-mushroom' },
@@ -11,7 +12,7 @@ function onKey(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="fa-seg" role="radiogroup" aria-label="Mode" @keydown="onKey">
+  <div class="fa-seg" :class="{ 'fa-seg--compact': compact }" role="radiogroup" aria-label="Mode" @keydown="onKey">
     <span class="fa-seg__thumb" :class="{ 'is-review': mode === 'review' }" aria-hidden="true" />
     <button
       v-for="o in options"
@@ -72,6 +73,9 @@ function onKey(e: KeyboardEvent) {
   border-radius: 999px;
   transition: color 0.25s;
 }
+.fa-seg--compact { padding: 3px; box-shadow: none; background: rgba(var(--v-theme-on-surface), 0.07); }
+.fa-seg--compact .fa-seg__thumb { top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); }
+.fa-seg--compact .fa-seg__btn { min-height: 36px; padding: 0 12px; font-size: 0.85rem; gap: 4px; }
 .fa-seg__btn.is-active { color: rgb(var(--v-theme-on-primary)); }
 .fa-seg__btn.is-active .fa-seg__icon { animation: fa-seg-wiggle 0.5s var(--fa-ease); }
 .fa-seg__btn:focus-visible { outline: 2px solid rgb(var(--v-theme-accent)); outline-offset: 2px; }
