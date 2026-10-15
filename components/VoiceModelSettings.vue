@@ -52,7 +52,7 @@
         v-model="vocabText"
         class="mt-4"
         label="Species and words to recognise"
-        hint="One per line, e.g. your society's species list. Species already entered on this foray's finds are used automatically."
+        hint="One per line, e.g. your group's species list. Species already entered on this foray's finds are used automatically."
         persistent-hint
         rows="3"
         auto-grow

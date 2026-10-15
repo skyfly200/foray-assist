@@ -23,7 +23,7 @@ const loaded = ref(false)
 async function session() {
   if (typeof navigator !== 'undefined' && !navigator.onLine) throw new Error("You're offline. This needs a connection.")
   const cfg: any = useRuntimeConfig().public
-  if (!cfg?.syncConfigured) throw new Error('Societies need the app to be connected to Supabase (see SETUP.md).')
+  if (!cfg?.syncConfigured) throw new Error('Groups need the app to be connected to Supabase (see SETUP.md).')
   const sb = useSupabaseClient()
   const { data } = await sb.auth.getSession()
   if (!data.session) throw new Error('Sign in first.')
@@ -31,9 +31,15 @@ async function session() {
 }
 
 function friendly(msg: string) {
-  if (/society code not found/i.test(msg)) return "That code didn't match a society. Ask an officer for the current code."
+  if (/society code not found/i.test(msg)) return "That code didn't match a group. Ask an officer for the current code."
+  if (/only society officers and leaders/i.test(msg)) return 'Only group officers and foray leaders can do that.'
+  if (/not a member of this society/i.test(msg)) return "You're not a member of this group."
+  if (/not issued to a society you belong to/i.test(msg)) return "That voucher number belongs to a group you haven't joined."
+  if (/not a valid society number/i.test(msg)) return "That isn't a valid group voucher number."
+  if (/society network is full/i.test(msg)) return 'This group has used all its voucher numbers.'
+  if (/only officers can change the society code/i.test(msg)) return 'Only group officers can change the group code.'
   if (/verified email required/i.test(msg)) return 'Confirm your email (sign in above) first.'
-  if (/function .* does not exist|schema cache/i.test(msg)) return 'The server is missing the societies update (migration 0006, see SETUP.md).'
+  if (/function .* does not exist|schema cache/i.test(msg)) return 'The server is missing the groups update (migration 0006, see SETUP.md).'
   return msg
 }
 
@@ -54,7 +60,7 @@ async function refresh(): Promise<void> {
 
 async function join(code: string, displayName: string): Promise<Society> {
   const c = normalizeJoinCode(code)
-  if (!c) throw new Error('A society code is 8 letters and numbers, like ABCD-EFGH.')
+  if (!c) throw new Error('A group code is 8 letters and numbers, like ABCD-EFGH.')
   const sb = await session()
   const { data, error } = await sb.rpc('join_society', { p_code: c, p_display_name: displayName })
   if (error) throw new Error(friendly(error.message))
@@ -107,10 +113,10 @@ function setRange(s: { network: string; set: number }) {
 function voucherProblem(input: string): string {
   const id = normalizeId(input)
   if (!id) return 'Use letters and numbers only.'
-  if (!/^[U-Z]/.test(id)) return 'Society voucher numbers start with U to Z.'
+  if (!/^[U-Z]/.test(id)) return 'Group voucher numbers start with U to Z.'
   if (!isValidId(id)) return 'That number has a typo (the last character does not match).'
   const p = parseId(id)!
-  if (!societies.value.some((s) => s.network === p.network)) return "That number belongs to a society you haven't joined on this device."
+  if (!societies.value.some((s) => s.network === p.network)) return "That number belongs to a group you haven't joined on this device."
   return ''
 }
 

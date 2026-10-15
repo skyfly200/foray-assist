@@ -24,8 +24,8 @@
           <v-select
             v-if="leadSocieties.length"
             v-model="societyId"
-            :items="[{ title: 'Just me (not a society foray)', value: '' }, ...leadSocieties.map((s) => ({ title: s.name, value: s.society_id }))]"
-            label="Run it for a society?"
+            :items="[{ title: 'Just me (not a group foray)', value: '' }, ...leadSocieties.map((s) => ({ title: s.name, value: s.society_id }))]"
+            label="Run it for a group?"
             variant="outlined"
             density="comfortable"
           />
