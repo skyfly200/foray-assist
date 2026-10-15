@@ -172,3 +172,25 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
   * Advertised records are signed by the author's device key so strangers can't spoof finds.
 * **Share a single find**: send one observation (photos, notes, voice notes, ID) to a nearby device, previewed and approved by the receiver, deduplicated by ID, never overwriting local records. Until the native wrapper exists this can travel through the Web Share API (Android Nearby Share) or a file.
 * **Costs to manage**: continuous scanning and advertising drain the battery, so scanning is duty-cycled and only active during a foray.
+
+---
+
+## Phase 14: AR Field Guide (WebXR, Gamified Documenting)
+*Status: idea. Nothing built yet. Depends on Phase 2 (a vision model) and reuses Phase 3's guided flow, the live voice-to-form parser and the finds dex.*
+
+*Goal: Point the phone at a find and have an AR guide walk the user through documenting it like a quest, with live captions from voice notes, a species suggestion from an on-device vision model, and notes pinned to the specimen in 3D.*
+
+* **Guided capture as a game**:
+  * The find gets an AR marker (WebXR hit-test + Anchors). A ring of checkpoints around it shows the diagnostic shots still needed (cap top, gills/pores, stipe and base, habitat), and each one lights up when a photo for it is taken.
+  * Points, streaks and badges for complete records (all angles, substrate, odor, spore print, specimen ID), feeding the finds dex. Completeness drives the score, not the number of finds, so the game rewards good documentation rather than over-collecting.
+* **Live captions and anchored notes**:
+  * Voice notes run during the session and show as on-screen captions (WebXR DOM Overlay). The existing voice parser fills form fields live, and each filled field appears as a small label pinned next to the specimen.
+  * The user can drop a spoken note on a spot (for example "bruising blue here") and it stays anchored there for the rest of the session. Anchors don't survive the session, so each note is saved with its photo and a screenshot.
+* **Vision model in AR**:
+  * An on-device model suggests species and checks which diagnostic angle is in view, shown as a floating card. It runs a few times a second at most, not every frame, and only when the user holds still.
+  * Seek's own model is not openly licensed for other apps, so options are an open model (for example a fungi-trained classifier exported to ONNX, or BioCLIP) via ONNX Runtime Web or Transformers.js on WebGPU, or the iNaturalist vision API when online (needs the same app approval as iNat publishing).
+* **Platform limits**:
+  * WebXR AR (`immersive-ar`) works in Chrome on Android with ARCore. iOS Safari does not support it, so iPhone users get a plain camera mode with screen-space overlays (no anchors) until the native wrapper from Phase 11 can use ARKit.
+  * Feeding AR camera frames to the model needs WebXR Raw Camera Access, which only Chrome on Android offers. Without it the model runs on photos the user takes.
+* **Costs to manage**:
+  * AR tracking, speech recognition and a vision model together heat the phone and drain the battery. Default to browser speech or Whisper tiny in AR, keep the model at a low rate, and drop the vision model first when the device gets hot or slow.
