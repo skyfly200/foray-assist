@@ -182,7 +182,10 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 * **Guided capture as a game**:
   * The find gets an AR marker (WebXR hit-test + Anchors). A ring of checkpoints around it shows the diagnostic shots still needed (cap top, gills/pores, stipe and base, habitat), and each one lights up when a photo for it is taken.
-  * Points, streaks and badges for complete records (all angles, substrate, odor, spore print, specimen ID), feeding the finds dex. Completeness drives the score, not the number of finds, so the game rewards good documentation rather than over-collecting.
+  * Two separate scores, both feeding the finds dex:
+    * **Finds**: how many finds and how many different species the user has documented, per foray and overall.
+    * **Thoroughness**: how complete each record is (all diagnostic angles, substrate, host, odor, spore print, specimen ID), shown as a percentage per find and averaged per foray.
+  * Streaks and badges for each score. A find only counts toward the Finds score once it reaches a minimum thoroughness, so the game doesn't reward collecting more than is needed to document a species.
 * **Live captions and anchored notes**:
   * Voice notes run during the session and show as on-screen captions (WebXR DOM Overlay). The existing voice parser fills form fields live, and each filled field appears as a small label pinned next to the specimen.
   * The user can drop a spoken note on a spot (for example "bruising blue here") and it stays anchored there for the rest of the session. Anchors don't survive the session, so each note is saved with its photo and a screenshot.
