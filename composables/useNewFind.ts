@@ -17,6 +17,19 @@ export async function startForay(name?: string, when?: { startedAt: string; ende
   return row
 }
 
+/** True when this device may change the foray's row: not one we joined from someone else. */
+export function canEditForay(f: Foray) {
+  return !f.joined && (!f.shared || f.shared.role === 'owner')
+}
+
+/** Sets a foray's title; blank titles are ignored. */
+export async function renameForay(id: string, name: string) {
+  const title = name.trim()
+  if (!title) return
+  await useDb().forays.update(id, { name: title, updatedAt: nowIso() })
+  await enqueue('forays', id)
+}
+
 /** Id of the find created last from the bottom bar, so the find list can celebrate it. */
 export const useLastNewFind = () => useState<string | null>('fa-last-new-find', () => null)
 
