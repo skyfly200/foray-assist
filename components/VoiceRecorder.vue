@@ -77,6 +77,17 @@
           <v-chip size="x-small">{{ n.model }}</v-chip>
         </div>
         <audio v-if="urls[n.id]" :src="urls[n.id]" controls preload="none" class="w-100 mb-1" />
+        <v-btn
+          v-else-if="n.storagePath"
+          size="small"
+          variant="tonal"
+          prepend-icon="mdi-download"
+          class="mb-1"
+          :loading="loadingIds.has(n.id)"
+          @click="loadAudio(n)"
+        >
+          Load recording
+        </v-btn>
         <div v-if="busyIds.has(n.id)" class="text-body-2 text-medium-emphasis">Transcribing…</div>
         <div v-else-if="n.transcript" class="text-body-2">{{ n.transcript }}</div>
         <div v-else class="text-body-2 text-medium-emphasis">No transcript yet.</div>
@@ -86,7 +97,7 @@
             size="small"
             variant="text"
             prepend-icon="mdi-text-recognition"
-            :disabled="!n.audio || !isCached || busyIds.has(n.id) || recording"
+            :disabled="!(n.audio || n.storagePath) || !isCached || busyIds.has(n.id) || recording"
             @click="retranscribe(n)"
           >
             {{ !isCached ? 'Transcribe (needs model)' : n.model === 'web-speech' ? 'Retranscribe with Whisper' : `Re-transcribe (${model})` }}
@@ -115,6 +126,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useLiveQuery } from '~/composables/useFinds'
 import type { VoiceNote } from '~/utils/db'
+import { ensureVoiceAudio } from '~/composables/useMedia'
 import { Chunker, cleanTranscript, decodeBlobTo16kMono, describeMicError, joinTranscript, releaseActiveRecorder, startRecorder, type RecorderHandle } from '~/utils/audio'
 import { stopActiveSpeech, useWebSpeech, webSpeechSupported, webSpeechTakesTrack } from '~/composables/useWebSpeech'
 import { useSpeechEngine } from '~/composables/useSpeechEngine'
@@ -146,6 +158,18 @@ const elapsed = ref(0)
 const offline = ref(false)
 const busyIds = ref(new Set<string>())
 const rowErrors = ref<Record<string, string>>({})
+const loadingIds = ref(new Set<string>())
+const NOT_LOADED = "Couldn't download this recording. Check your connection and try again."
+
+/** Recordings made on another device download when first played; the note then shows the player. */
+async function loadAudio(n: VoiceNote) {
+  loadingIds.value = new Set(loadingIds.value).add(n.id)
+  delete rowErrors.value[n.id]
+  if (!(await ensureVoiceAudio(n))) rowErrors.value[n.id] = NOT_LOADED
+  const s = new Set(loadingIds.value)
+  s.delete(n.id)
+  loadingIds.value = s
+}
 // Browser speech is listening to our own mic capture, so the audio is kept for Whisper later.
 const keepsAudio = ref(false)
 
@@ -468,11 +492,13 @@ async function stopRecording() {
 }
 
 async function retranscribe(n: VoiceNote) {
-  if (!n.audio) return
+  if (!n.audio && !n.storagePath) return
   busyIds.value = new Set(busyIds.value).add(n.id)
   delete rowErrors.value[n.id]
   try {
-    const pcm = await decodeBlobTo16kMono(n.audio)
+    const audio = await ensureVoiceAudio(n)
+    if (!audio) { rowErrors.value[n.id] = NOT_LOADED; return }
+    const pcm = await decodeBlobTo16kMono(audio)
     const v = await voiceVocabFor(n.forayId)
     const text = v.correct(cleanTranscript(await transcribe(pcm, v.prompt)))
     const db = useDb()

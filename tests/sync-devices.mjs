@@ -71,6 +71,7 @@ const now = new Date().toISOString()
 const foray = { id: crypto.randomUUID(), name: 'Sync test foray', startedAt: now, updatedAt: now }
 const find = { id: crypto.randomUUID(), specimenId: '', forayId: foray.id, timestamp: now, geoprivacy: 'obscured', fieldNotes: { speciesGuess: 'Amanita muscaria' }, updatedAt: now }
 const photoId = crypto.randomUUID()
+const photoId2 = crypto.randomUUID()
 
 await idb(a, `
   const t = db.transaction(['forays', 'specimens', 'photos', 'outbox'], 'readwrite')
@@ -78,25 +79,34 @@ await idb(a, `
   t.objectStore('forays').put(a.foray)
   t.objectStore('specimens').put(a.find)
   t.objectStore('photos').put({ id: a.photoId, specimenRowId: a.find.id, forayId: a.foray.id, source: 'capture', blob, mimeType: 'image/jpeg', capturedAt: a.now, isSelected: true, updatedAt: a.now })
-  for (const [table, rowId] of [['forays', a.foray.id], ['specimens', a.find.id], ['photos', a.photoId]])
+  t.objectStore('photos').put({ id: a.photoId2, specimenRowId: a.find.id, forayId: a.foray.id, source: 'capture', blob, mimeType: 'image/jpeg', capturedAt: a.later, isSelected: false, updatedAt: a.now })
+  for (const [table, rowId] of [['forays', a.foray.id], ['specimens', a.find.id], ['photos', a.photoId], ['photos', a.photoId2]])
     t.objectStore('outbox').add({ table, rowId, op: 'upsert', createdAt: a.now, attempts: 0 })
   await new Promise((res) => (t.oncomplete = res))
-`, { foray, find, photoId, now })
+`, { foray, find, photoId, photoId2, now, later: new Date(Date.now() + 500).toISOString() })
 await a.reload()
-await waitFor('device A to upload', async () => (await serverRows('photos')).length === 1 && (await serverRows('specimens')).length === 1)
-ok('device A uploaded its foray, find and photo')
+await waitFor('device A to upload', async () => (await serverRows('photos')).length === 2 && (await serverRows('specimens')).length === 1)
+ok('device A uploaded its foray, find and two photos')
 
 // Device B has never seen this find.
 const b = await device()
 await dbReady(b)
 const pulled = await waitFor('device B to download', () => idb(b, `
   const s = await req(db.transaction('specimens').objectStore('specimens').get(a.find))
-  const p = await req(db.transaction('photos').objectStore('photos').get(a.photo))
+  const p = await req(db.transaction('photos').objectStore('photos').get(a.photo2))
   const f = await req(db.transaction('forays').objectStore('forays').get(a.foray))
-  return s && p && f ? { species: s.fieldNotes.speciesGuess, synced: !!s.syncedAt, blob: p.blob instanceof Blob ? p.blob.size : -1, foray: f.name } : null
-`, { find: find.id, photo: photoId, foray: foray.id }))
-if (pulled.species !== 'Amanita muscaria' || !(pulled.blob > 0) || pulled.foray !== 'Sync test foray' || !pulled.synced) fail('device B got ' + JSON.stringify(pulled))
-ok('device B downloaded the foray, the find and the photo image')
+  return s && p && f ? { species: s.fieldNotes.speciesGuess, synced: !!s.syncedAt, blob: p.blob instanceof Blob, path: p.storagePath, foray: f.name } : null
+`, { find: find.id, photo2: photoId2, foray: foray.id }))
+if (pulled.species !== 'Amanita muscaria' || pulled.foray !== 'Sync test foray' || !pulled.synced) fail('device B got ' + JSON.stringify(pulled))
+ok('device B downloaded the foray and the find')
+// The home page shows the foray's first photo as its cover, so that one image loads; the second waits.
+if (pulled.blob || pulled.path !== `${userId}/photos/${photoId2}`) fail('photo image should wait until it is shown: ' + JSON.stringify(pulled))
+ok('device B did not download a photo image nobody has looked at')
+await waitFor('the cover photo to load', () => idb(b, `return (await req(db.transaction('photos').objectStore('photos').get(a))).blob instanceof Blob`, photoId))
+ok('the foray cover image loaded on the home page')
+await b.goto(`${APP}/forays/${foray.id}`)
+await waitFor('the second photo to load once the find is open', () => idb(b, `const p = await req(db.transaction('photos').objectStore('photos').get(a)); return p.blob instanceof Blob && p.blob.size > 0`, photoId2))
+ok('opening the find downloads its photos')
 const queued = await idb(b, `return await req(db.transaction('outbox').objectStore('outbox').count())`)
 if (queued !== 0) fail(`device B queued ${queued} uploads for rows it only downloaded`)
 ok('downloaded rows are not uploaded back')

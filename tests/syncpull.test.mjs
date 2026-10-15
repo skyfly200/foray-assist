@@ -13,7 +13,9 @@ test('remoteToLocal maps columns and drops server-only ones', () => {
     id: 'a', specimenId: 'B7QM4T9RX', forayId: 'f', fieldNotes: { habitat: 'oak' },
     iNatObservationId: 42, updatedAt: '2026-10-15T02:00:00+00:00',
   })
-  assert.equal(remoteToLocal('photos', { id: 'p', specimen_row_id: null, storage_path: 'u/photos/p' }).specimenRowId, '')
+  const p = remoteToLocal('photos', { id: 'p', specimen_row_id: null, storage_path: 'u/photos/p' })
+  assert.equal(p.specimenRowId, '')
+  assert.equal(p.storagePath, 'u/photos/p') // the image downloads later from here
   const f = remoteToLocal('forays', { id: 'f', name: 'N', join_code: 'ABCD', mesh_key: 'k', society_id: null })
   assert.deepEqual(f, { id: 'f', name: 'N' })
 })

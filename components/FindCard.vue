@@ -114,6 +114,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { deleteFind, removePhoto, setGeoprivacy, useLiveQuery } from '~/composables/useFinds'
+import { ensurePhotoBlob } from '~/composables/useMedia'
 import type { Geoprivacy, Photo, Specimen } from '~/utils/db'
 import { displayId, isPendingId } from '~/utils/idCode'
 import { shareFind } from '~/composables/useFindShare'
@@ -198,8 +199,12 @@ watch(
         urls.delete(id)
       }
     }
-    for (const p of list) if (!urls.has(p.id)) urls.set(p.id, URL.createObjectURL(p.blob))
-    thumbs.value = list.map((p) => ({ id: p.id, url: urls.get(p.id)! }))
+    for (const p of list) {
+      if (urls.has(p.id)) continue
+      if (p.blob) urls.set(p.id, URL.createObjectURL(p.blob))
+      else void ensurePhotoBlob(p) // from another device: the list refreshes once it is here
+    }
+    thumbs.value = list.filter((p) => urls.has(p.id)).map((p) => ({ id: p.id, url: urls.get(p.id)! }))
     if (seen >= 0 && list.length > seen) burst.value++
     seen = list.length
   },

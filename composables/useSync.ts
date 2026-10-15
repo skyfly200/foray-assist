@@ -100,9 +100,12 @@ async function processItem(sb: any, item: OutboxItem) {
 
   let blob: Blob | undefined
   let path: string | undefined
+  // Media is uploaded once; after that (or for media that came from another device) only the row changes.
   // Uploaded photos lose their EXIF (GPS) so a find's location setting holds once it is shared.
-  if (item.table === 'photos' && row.blob instanceof Blob) { blob = await stripPhotoBlob(row.blob); path = mediaPath('photos') }
-  if (item.table === 'voiceNotes' && row.audio instanceof Blob) { blob = row.audio; path = mediaPath('voice') }
+  if (!row.storagePath) {
+    if (item.table === 'photos' && row.blob instanceof Blob) { blob = await stripPhotoBlob(row.blob); path = mediaPath('photos') }
+    if (item.table === 'voiceNotes' && row.audio instanceof Blob) { blob = row.audio; path = mediaPath('voice') }
+  }
 
   const payload = toRow(row, [...map.drop])
   if (path) payload.storage_path = path
@@ -117,22 +120,18 @@ async function processItem(sb: any, item: OutboxItem) {
     if (upErr) throw upErr
   }
   // Mark synced without touching updatedAt (not a user edit).
-  await (db as any)[item.table].update(item.rowId, { syncedAt: nowIso() })
+  await (db as any)[item.table].update(item.rowId, { syncedAt: nowIso(), ...(path ? { storagePath: path } : {}) })
 }
 
 const PAGE = 500
 type PullCursors = Partial<Record<PullTable, string>>
 let pulledFullThisSession = false
 
-async function download(sb: any, path: string): Promise<Blob | null> {
-  const { data, error } = await sb.storage.from(MEDIA_BUCKET).download(path)
-  return error || !(data instanceof Blob) ? null : data
-}
-
 /**
  * Download this account's rows that other devices uploaded (SPEC 4.3). Incremental
  * by synced_at; a full pull (first sync of a session, or Sync now) also removes
- * rows another device deleted. Photos are only stored once their image is here.
+ * rows another device deleted. Photo images and voice audio are not downloaded
+ * here; they load the first time they are shown (composables/useMedia.ts).
  */
 async function pullRemote(sb: any, full: boolean) {
   const db: any = useDb()
@@ -158,28 +157,16 @@ async function pullRemote(sb: any, full: boolean) {
       if (!data || data.length < PAGE) break
     }
     const pending = new Set<string>(outbox.filter((o: any) => o.table === table).map((o: any) => o.rowId))
-    let mediaMissing = false
 
     for (const r of rows) {
       const local = await db[table].get(r.id)
       if (!shouldApply(local, r.updated_at, pending.has(r.id))) continue
-      const incoming = remoteToLocal(table, r)
-      if (table === 'photos' && !(local?.blob instanceof Blob)) {
-        // The row can land before its image finishes uploading: try again next round.
-        const blob = r.storage_path ? await download(sb, r.storage_path) : null
-        if (!blob) { mediaMissing = true; continue }
-        incoming.blob = blob
-      }
-      if (table === 'voiceNotes' && !(local?.audio instanceof Blob) && r.storage_path) {
-        const audio = await download(sb, r.storage_path)
-        if (audio) incoming.audio = audio
-      }
-      // Keep local-only fields (a foray's sharing state, downloaded media).
-      await db[table].put({ ...local, ...incoming, syncedAt: r.synced_at })
+      // Keep local-only fields (a foray's sharing state, media already on this device).
+      await db[table].put({ ...local, ...remoteToLocal(table, r), syncedAt: r.synced_at })
     }
 
     if (mayDelete) seen.push({ table, ids: new Set(rows.map((r) => r.id)), pending })
-    if (!mediaMissing) next[table] = advanceCursor(cursors[table], rows)
+    next[table] = advanceCursor(cursors[table], rows)
   }
   const accountHasRows = seen.some((t) => t.ids.size > 0)
   for (const { table, ids, pending } of seen) {

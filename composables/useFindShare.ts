@@ -9,6 +9,7 @@ import { stripPhotoBlob } from '~/utils/jpeg'
 import type { Foray, PeerFindRow, Specimen } from '~/utils/db'
 import { getDeviceKey, keyLookupFor, memberNameFor } from './useDeviceKey'
 import { getDisplayName } from './useSharedForay'
+import { ensurePhotoBlob, ensureVoiceAudio } from './useMedia'
 
 async function blobB64(b: Blob): Promise<string> {
   return toB64(new Uint8Array(await b.arrayBuffer()))
@@ -22,13 +23,18 @@ export async function buildFindFile(find: Specimen): Promise<File> {
   // Photos travel without EXIF, so a private find's photos don't reveal where it was.
   const photos = await db.photos.where('specimenRowId').equals(find.id).toArray()
   const voice = await db.voiceNotes.where('specimenRowId').equals(find.id).toArray()
+  // Media from another device is fetched if we can; offline, the file goes without it.
+  const withBlobs = (await Promise.all(photos.map(async (p) => ({ p, blob: await ensurePhotoBlob(p) })))).filter((x) => x.blob)
   const pkg = buildPackage(
     record,
-    await Promise.all(photos.map(async (p) => ({ id: p.id, mimeType: p.mimeType, capturedAt: p.capturedAt, data: await blobB64(await stripPhotoBlob(p.blob)) }))),
-    await Promise.all(voice.map(async (v) => ({
-      id: v.id, transcript: v.transcript, model: v.model, at: v.at,
-      ...(v.audio ? { mimeType: v.audio.type || 'audio/webm', data: await blobB64(v.audio) } : {}),
-    }))),
+    await Promise.all(withBlobs.map(async ({ p, blob }) => ({ id: p.id, mimeType: p.mimeType, capturedAt: p.capturedAt, data: await blobB64(await stripPhotoBlob(blob!)) }))),
+    await Promise.all(voice.map(async (v) => {
+      const audio = await ensureVoiceAudio(v)
+      return {
+        id: v.id, transcript: v.transcript, model: v.model, at: v.at,
+        ...(audio ? { mimeType: audio.type || 'audio/webm', data: await blobB64(audio) } : {}),
+      }
+    })),
   )
   return new File([JSON.stringify(pkg)], packageFileName(pkg), { type: 'application/json' })
 }

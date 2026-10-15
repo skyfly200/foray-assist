@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { liveQuery } from 'dexie'
+import { ensurePhotoBlob } from '~/composables/useMedia'
+import type { Photo } from '~/utils/db'
 
 const { isForay } = useMode()
 const router = useRouter()
@@ -80,14 +82,18 @@ onMounted(() => {
       const [fc, sc, pc, fs] = await Promise.all([db.forays.count(), db.specimens.count(), db.photos.count(), db.forays.toArray()])
       const counts: Record<string, number> = {}
       const cov: { forayId: string; photoId: string; blob: Blob }[] = []
+      const fetch: Photo[] = []
       await Promise.all(
         fs.map(async (f) => {
           counts[f.id] = await db.specimens.where('forayId').equals(f.id).count()
-          const p = await db.photos.where('forayId').equals(f.id).sortBy('capturedAt').then((a) => a.find((x) => x.blob instanceof Blob))
-          if (p) cov.push({ forayId: f.id, photoId: p.id, blob: p.blob })
+          const all = await db.photos.where('forayId').equals(f.id).sortBy('capturedAt')
+          // The cover is the foray's first photo; if it came from another device, fetch it and show one we have meanwhile.
+          if (all[0] && !all[0].blob) fetch.push(all[0])
+          const p = all.find((x) => x.blob instanceof Blob)
+          if (p) cov.push({ forayId: f.id, photoId: p.id, blob: p.blob! })
         }),
       )
-      return { fc, sc, pc, counts, cov, ids: fs.map((f) => f.id) }
+      return { fc, sc, pc, counts, cov, fetch, ids: fs.map((f) => f.id) }
     }).subscribe({
       next: (r) => {
         stats.forays = r.fc
@@ -95,6 +101,7 @@ onMounted(() => {
         stats.photos = r.pc
         findCounts.value = r.counts
         syncCovers(r.cov, new Set(r.ids))
+        r.fetch.forEach((p) => void ensurePhotoBlob(p))
       },
       error: (e) => console.error('stats query failed', e),
     }),

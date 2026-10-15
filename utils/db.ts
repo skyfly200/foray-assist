@@ -96,7 +96,10 @@ export interface Photo {
   width?: number
   height?: number
   source: 'capture' | 'picker' | 'google-photos'
-  blob: Blob
+  /** The image. Absent for a photo taken on another device until it is first shown (composables/useMedia.ts). */
+  blob?: Blob
+  /** Where the image is stored on the server, once uploaded. */
+  storagePath?: string
   mimeType: string
   capturedAt: string
   latitude?: number
@@ -111,7 +114,10 @@ export interface VoiceNote {
   id: string
   specimenRowId?: string // optional: a note may belong to the foray as a whole
   forayId: string
+  /** Absent for a note recorded on another device until it is first played (composables/useMedia.ts). */
   audio?: Blob
+  /** Where the audio is stored on the server, once uploaded. */
+  storagePath?: string
   transcript: string
   model: string // e.g. 'web-speech', 'whisper-tiny.en'
   at: string

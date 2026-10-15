@@ -12,8 +12,8 @@ export const PULL_TABLES: ReadonlyArray<{ table: PullTable; remote: string }> = 
   { table: 'voiceNotes', remote: 'voice_notes' },
 ]
 
-/** Server-only columns that have no local field. storage_path is read separately for media. */
-const REMOTE_ONLY = new Set(['user_id', 'synced_at', 'storage_path', 'join_code', 'society_id', 'mesh_key'])
+/** Server-only columns that have no local field. */
+const REMOTE_ONLY = new Set(['user_id', 'synced_at', 'join_code', 'society_id', 'mesh_key'])
 const CAMEL_OVERRIDES: Record<string, string> = { inat_observation_id: 'iNatObservationId' }
 const camel = (s: string) => CAMEL_OVERRIDES[s] ?? s.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase())
 
