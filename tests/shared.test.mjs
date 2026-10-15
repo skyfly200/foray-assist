@@ -1,4 +1,4 @@
-// Runs supabase/migrations 0001-0006 for real in PGlite (in-process Postgres) against minimal
+// Runs supabase/migrations 0001-0007 for real in PGlite (in-process Postgres) against minimal
 // Supabase stubs, then checks shared forays, comments, societies and vouchers. Queries run
 // as the `authenticated` role, so row-level security and grants are enforced like on Supabase.
 // Not covered: PostgREST, Supabase Storage itself, Realtime.
@@ -50,7 +50,7 @@ before(async () => {
     insert into auth.users values
       ('${OWNER}','owner@x', now()), ('${AMY}','amy@x', now()), ('${EVE}','eve@x', now()), ('${UNV}','unv@x', null);
   `)
-  for (const f of ['20261001000001_init.sql', '20261001000002_sync_schema.sql', '20261001000003_integrations.sql', '20261001000004_unique_specimen_id.sql', '20261001000005_id_sets.sql', '20261001000006_shared_forays.sql']) {
+  for (const f of ['20261001000001_init.sql', '20261001000002_sync_schema.sql', '20261001000003_integrations.sql', '20261001000004_unique_specimen_id.sql', '20261001000005_id_sets.sql', '20261001000006_shared_forays.sql', '20261015000001_group_admins.sql']) {
     await db.exec(mig(f))
   }
   // Supabase's default grants on public tables.
@@ -266,4 +266,28 @@ test('societies: admin creates, members join, officers and leaders claim voucher
   const listed = await as(AMY, 'select * from society_forays($1)', [frms])
   assert.equal(listed[0].join_code, shared.join_code)
   await rejects(as(AMY, 'select * from society_forays($1)', [cms]), /not a member of this society/)
+})
+
+test('groups: only app admins create them from the app', async () => {
+  assert.equal((await as(EVE, 'select am_i_admin() a'))[0].a, false)
+  await rejects(as(EVE, `select * from admin_create_group('Boulder Mushroom Club')`), /only app admins/)
+  await rejects(as(EVE, 'insert into public.app_admins (user_id) values ($1)', [EVE]), /permission denied/)
+  await db.query('insert into public.app_admins (user_id) values ($1)', [EVE])
+  assert.equal((await as(EVE, 'select am_i_admin() a'))[0].a, true)
+  // Blank officer email: the admin is the officer and sees the code.
+  const [g] = await as(EVE, `select * from admin_create_group('Boulder Mushroom Club!')`)
+  assert.equal(g.slug, 'boulder-mushroom-club')
+  assert.match(g.network, /^[U-Z]/)
+  assert.equal(g.join_code.length, 8)
+  const mine = (await as(EVE, 'select * from my_societies()')).find((s) => s.society_id === g.society_id)
+  assert.equal(mine.role, 'officer')
+  assert.equal(mine.join_code, g.join_code)
+  // Named officer, custom short name; the admin is not a member.
+  const [h] = await as(EVE, `select * from admin_create_group('Pueblo Fungi', 'pf', 'Amy@X')`)
+  assert.equal(h.slug, 'pf')
+  assert.equal((await as(AMY, 'select * from my_societies()')).find((s) => s.society_id === h.society_id).role, 'officer')
+  assert.ok(!(await as(EVE, 'select * from my_societies()')).some((s) => s.society_id === h.society_id))
+  await rejects(as(EVE, `select * from admin_create_group('Pueblo Fungi Two', 'pf')`), /already taken/)
+  await rejects(as(EVE, `select * from admin_create_group('X')`), /2 to 120/)
+  await rejects(as(EVE, `select * from admin_create_group('Some Club', null, 'nobody@x')`), /no account/)
 })

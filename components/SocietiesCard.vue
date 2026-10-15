@@ -42,6 +42,23 @@
         <v-btn color="primary" :loading="busy" :disabled="!code.trim()" class="mt-1" @click="onJoin">Join</v-btn>
       </div>
       <div v-else class="text-caption text-medium-emphasis">Sign in to join a group.</div>
+
+      <div v-if="signedIn && isAdmin" class="mt-4">
+        <v-btn v-if="!creating" size="small" variant="tonal" prepend-icon="mdi-plus" @click="creating = true">Create a group</v-btn>
+        <div v-else class="society">
+          <div class="text-subtitle-2 mb-2">New group (app admin)</div>
+          <v-text-field v-model="newName" label="Group name" placeholder="Front Range Mycological Society" density="comfortable" variant="outlined" maxlength="120" />
+          <v-text-field v-model="newSlug" label="Short name (optional)" placeholder="frms" hint="Letters, numbers and dashes. Made from the name if blank." persistent-hint density="comfortable" variant="outlined" maxlength="32" class="mb-2" />
+          <v-text-field v-model="newOfficer" label="Officer's email (optional)" type="email" hint="Leave blank to be the officer yourself. They must have signed in to the app once." persistent-hint density="comfortable" variant="outlined" class="mb-2" />
+          <div class="d-flex ga-2">
+            <v-btn color="primary" :loading="busy" :disabled="newName.trim().length < 2" @click="onCreate">Create</v-btn>
+            <v-btn variant="text" @click="creating = false">Cancel</v-btn>
+          </div>
+        </div>
+        <v-alert v-if="created" type="success" variant="tonal" density="compact" class="mt-3">
+          Created {{ created.name }}. Code for new members: <b class="mono">{{ formatJoinCode(created.join_code) }}</b>
+        </v-alert>
+      </div>
       <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
     </v-card-text>
   </v-card>
@@ -51,10 +68,10 @@
 import { displayId } from '~/utils/idCode'
 import { formatJoinCode } from '~/utils/sharing'
 import { getDisplayName, joinForay } from '~/composables/useSharedForay'
-import type { SocietySet } from '~/composables/useSocieties'
+import type { NewGroup, SocietySet } from '~/composables/useSocieties'
 
 const { signedIn } = useSync()
-const { societies, refresh, join, forays, claimVoucherSets, claimedSets, setRange } = useSocieties()
+const { societies, isAdmin, refresh, join, createGroup, forays, claimVoucherSets, claimedSets, setRange } = useSocieties()
 const router = useRouter()
 const code = ref('')
 const busy = ref(false)
@@ -62,6 +79,11 @@ const error = ref('')
 const openForays = ref('')
 const sforays = ref<Awaited<ReturnType<typeof forays>>>([])
 const sets = ref<SocietySet[]>([])
+const creating = ref(false)
+const newName = ref('')
+const newSlug = ref('')
+const newOfficer = ref('')
+const created = ref<NewGroup | null>(null)
 
 const roleLabel = (r: string) => ({ officer: 'Officer', leader: 'Foray leader', member: 'Member' } as Record<string, string>)[r] ?? r
 const setsFor = (id: string) => sets.value.filter((s) => s.societyId === id).map(setRange)
@@ -81,6 +103,12 @@ watch(signedIn, (v) => { if (v) void run(refresh) })
 const onJoin = () => run(async () => {
   await join(code.value, await getDisplayName())
   code.value = ''
+})
+const onCreate = () => run(async () => {
+  created.value = null
+  created.value = await createGroup(newName.value, newSlug.value, newOfficer.value)
+  newName.value = ''; newSlug.value = ''; newOfficer.value = ''
+  creating.value = false
 })
 const toggleForays = (id: string) => run(async () => {
   if (openForays.value === id) { openForays.value = ''; return }
