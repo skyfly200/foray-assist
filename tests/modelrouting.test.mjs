@@ -121,3 +121,13 @@ test('phone layout runs top to bottom and keeps the wide layout when saved', () 
   assert.deepEqual(saved.layout, base.layout)
   assert.deepEqual(saved.layoutTall[taskNodeId('extract')], pos(taskNodeId('extract')))
 })
+
+test('preferInRoute moves a model ahead of another, adding it if missing', async () => {
+  const { preferInRoute } = await import('../utils/modelRouting.ts')
+  const ids = (steps) => steps.map((s) => s.model)
+  const def = defaultRouting().routes.speech
+  assert.deepEqual(ids(preferInRoute(def, 'web-speech', 'whisper')), ['web-speech', 'whisper', 'record-only'])
+  assert.deepEqual(ids(preferInRoute(def, 'whisper', 'web-speech')), ['whisper', 'web-speech', 'record-only'])
+  assert.deepEqual(ids(preferInRoute([{ model: 'record-only' }], 'web-speech', 'whisper')), ['web-speech', 'record-only'])
+  assert.deepEqual(preferInRoute([{ model: 'whisper' }, { model: 'web-speech', cooldownMin: 5 }], 'web-speech', 'whisper')[0], { model: 'web-speech', cooldownMin: 5 })
+})

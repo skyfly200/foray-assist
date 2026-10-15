@@ -124,6 +124,17 @@ export function normalizeRouting(raw: unknown): Routing {
   return { version: 1, routes, layout: cleanLayout(r.layout), layoutTall: cleanLayout(r.layoutTall) }
 }
 
+/**
+ * Put `first` ahead of `other` in a route (adding it if missing), leaving the rest in order.
+ * With `other` absent, `first` goes to the front.
+ */
+export function preferInRoute(steps: RouteStep[], first: ModelId, other: ModelId): RouteStep[] {
+  const mine = steps.find((s) => s.model === first) ?? { model: first }
+  const rest = steps.filter((s) => s.model !== first)
+  const i = rest.findIndex((s) => s.model === other)
+  return i < 0 ? [mine, ...rest] : [...rest.slice(0, i), mine, ...rest.slice(i)]
+}
+
 // ---------- graph <-> routes ----------
 // One task node per task and one model node per (task, model) pair that the model supports.
 // Models not in a route are still drawn, unlinked ("parked"), so they can be wired in.

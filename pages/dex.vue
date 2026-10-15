@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Finds dex: one card per species you've found, numbered in the order you first found them.
+// MycoDex: one card per species you've found, numbered in the order you first found them.
 import { liveQuery } from 'dexie'
 import type { DexEntry, DexStats } from '~/utils/dex'
 
@@ -14,7 +14,7 @@ const sort = ref<SortKey>('number')
 const open = ref<DexEntry | null>(null)
 
 const sorts: { value: SortKey; label: string; icon: string }[] = [
-  { value: 'number', label: 'Dex #', icon: 'mdi-pound' },
+  { value: 'number', label: 'MycoDex #', icon: 'mdi-pound' },
   { value: 'count', label: 'Most found', icon: 'mdi-trophy-outline' },
   { value: 'recent', label: 'Recent', icon: 'mdi-clock-outline' },
   { value: 'name', label: 'A–Z', icon: 'mdi-sort-alphabetical-ascending' },
@@ -105,13 +105,13 @@ const mapsUrl = (lat: number, lon: number) => `https://www.google.com/maps/searc
 <template>
   <div class="fa-dex">
     <section class="fa-hero fa-dex__hero fa-pop-enter-active">
-      <p class="fa-dex__kicker"><v-icon icon="mdi-book-open-variant" size="18" /> Finds dex</p>
+      <p class="fa-dex__kicker"><v-icon icon="mdi-book-open-variant" size="18" /> MycoDex</p>
       <h1 class="fa-dex__title">
         <template v-if="stats?.species">{{ stats.species }} species found</template>
         <template v-else>Your field guide fills in as you go</template>
       </h1>
 
-      <div v-if="stats" class="fa-dex__stats" aria-label="Dex stats">
+      <div v-if="stats" class="fa-dex__stats" aria-label="MycoDex stats">
         <div class="fa-dex__stat"><strong>{{ stats.species }}</strong><span>species</span></div>
         <div class="fa-dex__stat"><strong>{{ stats.genera }}</strong><span>{{ stats.genera === 1 ? 'genus' : 'genera' }}</span></div>
         <div class="fa-dex__stat"><strong>{{ stats.finds }}</strong><span>finds</span></div>

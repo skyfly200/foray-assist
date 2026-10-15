@@ -2,6 +2,26 @@
   <v-card class="fa-card">
     <v-card-title class="text-subtitle-1 font-weight-bold">Voice notes model</v-card-title>
     <v-card-text>
+      <div class="text-body-2 font-weight-medium mb-1">Speech recognition</div>
+      <v-radio-group class="model-group mb-4" :model-value="engine" hide-details data-testid="speech-engine" @update:model-value="(v: any) => setEngine(v)">
+        <v-radio value="whisper">
+          <template #label>
+            <div>
+              <div>On-device Whisper <v-chip size="x-small" class="ml-1">default</v-chip></div>
+              <div class="text-caption text-medium-emphasis">Works offline. Uses the browser's speech recognition until the model is downloaded.</div>
+            </div>
+          </template>
+        </v-radio>
+        <v-radio value="browser" :disabled="!browserSpeech">
+          <template #label>
+            <div>
+              <div>Browser speech recognition</div>
+              <div class="text-caption text-medium-emphasis">{{ browserNote }}</div>
+            </div>
+          </template>
+        </v-radio>
+      </v-radio-group>
+
       <p class="text-body-2 text-medium-emphasis mb-3">
         Speech-to-text runs on this device with Whisper and works offline once the model is downloaded.
         Download sizes are approximate. Download over Wi-Fi when you can.
@@ -77,8 +97,22 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { VOICE_VOCAB_KEY } from '~/composables/useVoiceVocab'
+import { useSpeechEngine } from '~/composables/useSpeechEngine'
+import { webSpeechSupported, webSpeechTakesTrack } from '~/composables/useWebSpeech'
 
 const { model, models, status, progress, error, device, cachedModels, isCached, setModel, download, removeCache } = useWhisper()
+
+const { engine, setEngine } = useSpeechEngine()
+const browserSpeech = ref(true)
+const keepsAudio = ref(false)
+onMounted(() => { browserSpeech.value = webSpeechSupported(); keepsAudio.value = webSpeechTakesTrack() })
+const browserNote = computed(() => {
+  if (!browserSpeech.value) return 'Not available in this browser.'
+  const base = 'Faster, with words as you speak. Needs internet; offline it uses Whisper if downloaded.'
+  return keepsAudio.value
+    ? `${base} The audio is kept, so a note can be retranscribed with Whisper.`
+    : `${base} This browser can't keep the audio at the same time, so notes can't be retranscribed.`
+})
 
 const online = ref<boolean | null>(null)
 const upd = () => (online.value = navigator.onLine)

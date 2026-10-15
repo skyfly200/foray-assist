@@ -1,7 +1,9 @@
-// Online fallback transcription via the browser Web Speech API (SpeechRecognition).
-// Used only when the on-device Whisper model is not available. SpeechRecognition owns the
-// microphone while it runs, so it must NEVER run together with getUserMedia/MediaRecorder
-// (utils/audio.ts). This module therefore never touches getUserMedia.
+// Transcription via the browser Web Speech API (SpeechRecognition). Used when the user picks
+// browser speech in Settings, or when the on-device Whisper model is not available.
+// Started on its own, SpeechRecognition owns the microphone, so it must NEVER run together
+// with getUserMedia/MediaRecorder (utils/audio.ts). Newer Chrome can instead listen to a
+// MediaStreamTrack we already opened (start(track)); then one capture feeds both and the
+// audio is kept. This module never calls getUserMedia itself.
 
 export interface WebSpeechCallbacks {
   /** Full transcript so far (finals + current interim). */
@@ -34,6 +36,23 @@ export function describeSpeechError(code: string): string {
   }
 }
 
+/**
+ * True when SpeechRecognition.start() accepts a MediaStreamTrack. There is no direct feature
+ * test (older engines ignore the argument and open the mic themselves, which Android refuses
+ * while we hold it), so this keys off the on-device API (`available`/`availableOnDevice`),
+ * which Chrome shipped after track input. Pure; pass the constructor.
+ */
+export function speechTakesTrack(Ctor: any): boolean {
+  return !!Ctor && (typeof Ctor.available === 'function' || typeof Ctor.availableOnDevice === 'function')
+}
+
+/** speechTakesTrack() for this browser. */
+export function webSpeechTakesTrack(): boolean {
+  if (typeof window === 'undefined') return false
+  const w = window as any
+  return speechTakesTrack(w.SpeechRecognition || w.webkitSpeechRecognition)
+}
+
 let current: { stop: () => Promise<string>; preempt: () => void } | null = null
 
 /** Stop any running recognizer (so the mic is free for MediaRecorder). Resolves once it has ended. */
@@ -47,8 +66,11 @@ export async function stopActiveSpeech(): Promise<void> {
 export function useWebSpeech() {
   const supported = webSpeechSupported()
 
-  /** Start live recognition. Returns a controller; stop() resolves with the final text. */
-  function start(cb: WebSpeechCallbacks): { stop: () => Promise<string> } {
+  /**
+   * Start live recognition. Returns a controller; stop() resolves with the final text.
+   * `track`: listen to this mic track instead of opening the mic (only if webSpeechTakesTrack()).
+   */
+  function start(cb: WebSpeechCallbacks, track?: MediaStreamTrack | null): { stop: () => Promise<string> } {
     if (!supported) throw new Error('Speech recognition is not available in this browser.')
     // Only one recognizer at a time.
     const prev = current
@@ -110,7 +132,8 @@ export function useWebSpeech() {
         } else ended?.()
       }
       lastStart = Date.now()
-      rec.start()
+      if (track) rec.start(track)
+      else rec.start()
     }
     begin()
 

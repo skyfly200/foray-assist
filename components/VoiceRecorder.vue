@@ -1,5 +1,7 @@
 <template>
   <div class="voice-recorder">
+    <!-- listOnly (Review mode): just the saved notes, to replay, re-transcribe or fill the form from. -->
+    <template v-if="!listOnly">
     <div class="d-flex align-center ga-3 flex-wrap">
       <v-btn
         class="fa-fab"
@@ -14,14 +16,14 @@
       />
       <template v-if="recording">
         <span class="text-body-2" aria-live="off">{{ elapsedLabel }}</span>
-        <div v-if="mode !== 'speech'" class="meter" aria-hidden="true"><div class="meter-fill" :style="{ width: Math.round(level * 100) + '%' }" /></div>
+        <div v-if="mode !== 'speech' || keepsAudio" class="meter" aria-hidden="true"><div class="meter-fill" :style="{ width: Math.round(level * 100) + '%' }" /></div>
       </template>
       <span v-else class="text-body-2 text-medium-emphasis">{{ saving ? 'Saving…' : 'Record note' }}</span>
       <span v-if="!recording && engineHint" class="text-caption text-medium-emphasis">{{ engineHint }}</span>
     </div>
 
     <v-alert v-if="showSpeechNotice" type="info" variant="tonal" density="compact" class="mt-3" icon="mdi-cloud-outline">
-      Using online speech recognition — download the voice model for offline use
+      Using online speech recognition. Download the voice model for offline use
     </v-alert>
     <v-alert v-if="whisperRouted && !isCached && status !== 'downloading' && !recording" type="info" variant="tonal" density="compact" class="mt-3">
       <div>{{ speechAvailable ? 'Offline voice transcription needs the on-device model.' : 'Voice transcription needs the on-device model. You can still record now and transcribe later.' }}</div>
@@ -48,6 +50,8 @@
       <div v-if="pendingChunks > 0" class="text-caption text-medium-emphasis mt-1">Transcribing…</div>
     </v-sheet>
 
+    </template>
+
     <v-sheet v-if="specimenRowId && (filled.length || (recording && fillsForm))" class="pa-3 mt-3 voice-filled" rounded border>
       <div class="d-flex align-center ga-2">
         <v-icon icon="mdi-form-select" size="18" color="primary" />
@@ -66,7 +70,7 @@
       </div>
     </v-sheet>
 
-    <v-list v-if="notes.length" lines="three" density="compact" class="mt-3 pa-0">
+    <v-list v-if="notes.length" lines="three" density="compact" class="pa-0" :class="{ 'mt-3': !listOnly }">
       <v-list-item v-for="n in notes" :key="n.id" class="px-0">
         <div class="d-flex align-center ga-2 flex-wrap mb-1">
           <span class="text-caption text-medium-emphasis">{{ when(n.at) }}</span>
@@ -85,7 +89,7 @@
             :disabled="!n.audio || !isCached || busyIds.has(n.id) || recording"
             @click="retranscribe(n)"
           >
-            {{ isCached ? `Re-transcribe (${model})` : 'Transcribe (needs model)' }}
+            {{ !isCached ? 'Transcribe (needs model)' : n.model === 'web-speech' ? 'Retranscribe with Whisper' : `Re-transcribe (${model})` }}
           </v-btn>
           <v-btn
             v-if="specimenRowId && n.transcript"
@@ -112,7 +116,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useLiveQuery } from '~/composables/useFinds'
 import type { VoiceNote } from '~/utils/db'
 import { Chunker, cleanTranscript, decodeBlobTo16kMono, describeMicError, joinTranscript, releaseActiveRecorder, startRecorder, type RecorderHandle } from '~/utils/audio'
-import { stopActiveSpeech, useWebSpeech, webSpeechSupported } from '~/composables/useWebSpeech'
+import { stopActiveSpeech, useWebSpeech, webSpeechSupported, webSpeechTakesTrack } from '~/composables/useWebSpeech'
 import { voiceVocabFor } from '~/composables/useVoiceVocab'
 import { updateFieldNotes } from '~/composables/useFinds'
 import type { FieldNotes } from '~/utils/db'
@@ -120,15 +124,16 @@ import { extractCustomFields, extractFieldNotes, voicePatch, type Extracted } fr
 import { FAIL_TEXT, MODELS, failReason, pickStep, runRoute, type ModelId, type RouteStep } from '~/utils/modelRouting'
 import { formGroups, visibleKeys, type FieldKey } from '~/utils/fieldForm'
 
-const props = defineProps<{ forayId: string; specimenRowId?: string }>()
+const props = defineProps<{ forayId: string; specimenRowId?: string; listOnly?: boolean }>()
 
 const {
   model, modelTag, models, status, progress, isCached, error: whisperError, download, transcribe,
 } = useWhisper()
 
 const webSpeech = useWebSpeech()
-// Which model runs, and what to try when it fails, comes from Settings, Model routing.
-const { routing, cooldowns, failed: routeFailed } = useModelRouting()
+// Which model runs, and what to try when it fails, comes from Settings, Model routing
+// (the Voice setting for browser speech reorders that route).
+const { routing, cooldowns, load: loadRouting, failed: routeFailed } = useModelRouting()
 
 type Mode = 'whisper' | 'speech' | 'raw'
 const mode = ref<Mode>('raw')
@@ -143,6 +148,8 @@ const elapsed = ref(0)
 const offline = ref(false)
 const busyIds = ref(new Set<string>())
 const rowErrors = ref<Record<string, string>>({})
+// Browser speech is listening to our own mic capture, so the audio is kept for Whisper later.
+const keepsAudio = ref(false)
 
 const elapsedLabel = computed(() => `${Math.floor(elapsed.value / 60)}:${String(elapsed.value % 60).padStart(2, '0')}`)
 const whisperUsable = computed(() => isCached.value && status.value !== 'error')
@@ -152,8 +159,17 @@ const MODE: Record<string, Mode> = { whisper: 'whisper', 'web-speech': 'speech',
 const speechSteps = computed(() => routing.value.routes.speech)
 const plannedStep = computed(() => pickStep(speechSteps.value, { isAvailable: modelUsable, cooldowns }).step)
 const whisperRouted = computed(() => speechSteps.value.some((s) => s.model === 'whisper'))
-const showSpeechNotice = computed(() => (recording.value ? mode.value === 'speech' : plannedStep.value?.model === 'web-speech'))
-const engineHint = computed(() => (plannedStep.value?.model === 'whisper' ? `On-device Whisper (${model.value})` : plannedStep.value?.model === 'record-only' ? 'Recording only, transcribe later' : ''))
+// Browser speech first in the route is the user's own choice; only nag when it is a fallback.
+const prefersBrowser = computed(() => speechSteps.value[0]?.model === 'web-speech')
+const showSpeechNotice = computed(() => !prefersBrowser.value && (recording.value ? mode.value === 'speech' : plannedStep.value?.model === 'web-speech'))
+const engineHint = computed(() => {
+  switch (plannedStep.value?.model) {
+    case 'web-speech': return prefersBrowser.value ? 'Browser speech recognition' : ''
+    case 'whisper': return `On-device Whisper (${model.value})`
+    case 'record-only': return 'Recording only, transcribe later'
+    default: return ''
+  }
+})
 const when = (iso: string) => new Date(iso).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })
 
 const notes = useLiveQuery<VoiceNote[]>(async () => {
@@ -330,8 +346,11 @@ async function startRecording() {
   chunkJobs = []
   chunkFailed = false
   updOnline()
+  keepsAudio.value = false
   carried = ''
-  // Pick exactly one mic consumer: Web Speech and getUserMedia must never overlap.
+  await loadRouting()
+  // Pick exactly one mic consumer: Web Speech and getUserMedia must never overlap, unless
+  // Web Speech can listen to our own capture (webSpeechTakesTrack), which also keeps the audio.
   // The first model in the speech route that can run now (Settings, Model routing).
   const picked = pickStep(speechSteps.value, { isAvailable: modelUsable, cooldowns })
   if (!picked.step) {
@@ -350,27 +369,52 @@ async function startRecording() {
   voiceVocabFor(props.forayId).then((v) => { vocab = v }).catch(() => {})
 
   if (mode.value === 'speech') {
-    releaseActiveRecorder('replaced') // another component's getUserMedia capture
+    const callbacks = {
+      onText: (t: string) => { speechText = t; interim.value = t; scheduleFill() },
+      onError: (m: string, code?: string) => {
+        const reason = failReason({ message: m, code }, navigator.onLine)
+        if (speechStep) routeFailed(speechStep, reason)
+        // Mic problems would stop the next model too, so only other failures fall back.
+        if (recording.value && code !== 'not-allowed' && code !== 'audio-capture') void fallBackFromSpeech(m, reason)
+        else {
+          micError.value = m
+          if (recording.value) stopRecording()
+        }
+      },
+      onPreempted: () => {
+        notice.value = 'Another recording started, so this one was stopped and saved.'
+        if (recording.value) stopRecording()
+      },
+    }
     await stopActiveSpeech()
+    if (webSpeechTakesTrack()) {
+      // One capture: we record the audio and recognition listens to the same track.
+      try {
+        handle = await startRecorder({
+          // Chunks only reach Whisper if browser speech fails and the route falls back to it.
+          onSamples: (s) => { if (transcribeLive) for (const c of chunker!.push(s)) handleChunk(c) },
+          onInterrupted: (reason) => {
+            notice.value = reason === 'replaced'
+              ? 'Another recording started, so this one was stopped and saved.'
+              : 'Recording stopped because the app went to the background or the microphone was taken. What was captured has been saved.'
+            if (recording.value) stopRecording()
+          },
+        })
+        speech = webSpeech.start(callbacks, handle.track())
+        keepsAudio.value = true
+        beginTimer()
+        return
+      } catch {
+        // Fall back to recognition on its own (no audio kept).
+        speech = null
+        await handle?.stop().catch(() => {})
+        handle = null
+      }
+    }
+    releaseActiveRecorder('replaced') // another component's getUserMedia capture
     await new Promise((r) => setTimeout(r, 150))
     try {
-      speech = webSpeech.start({
-        onText: (t) => { speechText = t; interim.value = t; scheduleFill() },
-        onError: (m, code) => {
-          const reason = failReason({ message: m, code }, navigator.onLine)
-          if (speechStep) routeFailed(speechStep, reason)
-          // Mic problems would stop the next model too, so only other failures fall back.
-          if (recording.value && code !== 'not-allowed' && code !== 'audio-capture') void fallBackFromSpeech(m, reason)
-          else {
-            micError.value = m
-            if (recording.value) stopRecording()
-          }
-        },
-        onPreempted: () => {
-          notice.value = 'Another recording started, so this one was stopped and saved.'
-          if (recording.value) stopRecording()
-        },
-      })
+      speech = webSpeech.start(callbacks)
     } catch (e: any) {
       micError.value = e?.message ?? String(e)
       return
@@ -421,20 +465,24 @@ async function fallBackFromSpeech(message: string, reason: ReturnType<typeof fai
   }
   const s = speech
   speech = null
+  carried = speechText.trim()
   carried = ((await s.stop()) || speechText).trim()
   interim.value = carried
-  await new Promise((r) => setTimeout(r, 150)) // let the recognizer release the mic
+  const shared = !!handle // recognition was listening to our own capture, which keeps running
+  if (!shared) await new Promise((r) => setTimeout(r, 150)) // let the recognizer release the mic
   if (!recording.value) return // stopped meanwhile; stopRecording saved the carried text
   speechStep = next
   mode.value = MODE[next.model]
   transcribeLive = mode.value === 'whisper'
-  chunker = new Chunker()
   notice.value = `Browser speech ${FAIL_TEXT[reason]}, so this recording carries on with ${MODELS[next.model].label}.`
-  if (!(await startCapture())) {
-    stopRecording()
-    return
+  if (!shared) {
+    chunker = new Chunker()
+    if (!(await startCapture())) {
+      stopRecording()
+      return
+    }
+    if (!recording.value) { await handle?.stop().catch(() => {}); handle = null; return }
   }
-  if (!recording.value) { await handle?.stop().catch(() => {}); handle = null; return }
   if (transcribeLive) download().catch(() => {})
 }
 
@@ -454,6 +502,11 @@ async function stopRecording() {
       speech = null
       text = ((await s.stop()) || speechText).trim()
       tag = 'web-speech'
+      if (handle) {
+        const res = await handle.stop()
+        handle = null
+        blob = res.blob.size ? res.blob : undefined
+      }
     } else if (handle) {
       const res = await handle.stop()
       handle = null
@@ -509,7 +562,8 @@ async function retranscribe(n: VoiceNote) {
   try {
     const pcm = await decodeBlobTo16kMono(n.audio)
     const v = await voiceVocabFor(n.forayId)
-    // Models in the speech route that can transcribe a saved recording, in route order.
+    // Models in the speech route that can transcribe a saved recording, in route order. Whisper
+    // can retranscribe browser-speech notes even when browser speech comes first.
     const steps = routing.value.routes.speech.filter((s) => MODELS[s.model].fromAudio)
     const { value } = await runRoute(steps, (s) => {
       switch (s.model) {
@@ -523,6 +577,12 @@ async function retranscribe(n: VoiceNote) {
       await db.voiceNotes.update(n.id, { transcript: text, model: modelTag.value, updatedAt: nowIso() })
       await enqueue('voiceNotes', n.id)
     })
+    // Whisper may hear details the first pass missed; add them to empty fields.
+    if (props.specimenRowId) {
+      resetFill()
+      vocab = v
+      await fillForm(text, true)
+    }
   } catch (e: any) {
     rowErrors.value[n.id] = `Transcription failed: ${e?.message ?? e}`
   } finally {

@@ -134,3 +134,31 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] Print label: the label has a 0 to 3 cm scale bar at the bottom; check it measures 3 cm
 - [ ] Settings → Field form: hide a field (it disappears from finds and the printout), add a field with quick picks (e.g. Taste: mild, bitter, acrid), then say "taste is bitter" in a voice note: it fills in
 - [ ] Field form → Forms per page 2 and 4, This find and All finds: each layout fits the page, the cut lines are straight, and empty spots print as blank forms
+
+## 12. Foray and Review modes, and the New find button
+
+- [ ] The Foray / Review switch sits in the top bar on the phone; the bottom bar has New find in the middle
+- [ ] From the home screen with no foray in progress, tap New find and take a photo: a foray for today starts and the find is in it
+- [ ] With a foray in progress, tap New find from Settings or the Dex: the find lands in that foray and the app opens it
+- [ ] On a foray, tap New find: the find lands in the foray you're looking at, even an ended one
+- [ ] Foray mode on a find: Take photo, voice note, the form, Print label, Send, Delete. No privacy, voucher, comments or Field form
+- [ ] Review mode on a foray: "Identify & edit" shows each find with the form, privacy, voucher and comments, saved voice notes (no record button), Field form, Print label. "Sort photos" is the old photo grouping screen
+- [ ] The mode you pick is remembered after closing and reopening the app
+
+## 13. Browser speech option and Whisper retranscribe
+
+- [ ] Settings → Voice → Speech recognition → Browser speech recognition. Record a note on a find: words appear as you speak and the field form still fills in
+- [ ] The saved note has an audio player and a "Retranscribe with Whisper" button (needs the Whisper model downloaded). Tap it: the transcript is replaced and any new details fill empty fields
+- [ ] If the Settings text says this browser can't keep the audio, recording still works, just with no audio on the note. Report phone and Chrome version
+- [ ] Airplane mode with Browser speech chosen: the recorder uses Whisper (if downloaded)
+- [ ] Switch back to On-device Whisper: notes use Whisper again
+
+## 14. Model routing
+
+- [ ] Settings → Model routing opens the node view. On the phone, routes run top to bottom and the boxes are readable
+- [ ] Link boxes by dragging from a dot, and by tapping one dot then another. "Current routing" under the graph changes to match, and survives closing and reopening the app
+- [ ] Tap a box: "Take out of route" joins the boxes either side; a grey box offers "Add to end of route". Tap a link: "Remove link"
+- [ ] Choosing Browser speech under Settings → Voice puts Browser speech first in the speech route, and Whisper puts Whisper first
+- [ ] Take Record only out of the speech route, turn on airplane mode with Whisper not downloaded, and tap record: an error says no speech model can run, instead of recording
+- [ ] Take the Word-list parser out of "Voice to form fields": voice notes no longer fill the form
+- [ ] With Browser speech first, lose signal mid-note: a notice says the recording carries on with the next model, and the saved note keeps the words heard before

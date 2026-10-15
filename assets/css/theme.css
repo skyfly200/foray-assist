@@ -32,8 +32,11 @@ body { overscroll-behavior-y: contain; }
 .fa-pill { border-radius: 999px !important; font-weight: 600; }
 .fa-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: rgba(27,138,90,.12); color: #1b8a5a; font-weight: 600; font-size: .8rem; }
 
-/* Reserve room for the bottom navigation + safe areas */
-.fa-page { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+/* Reserve room for the floating bottom navigation + safe areas: the bar is ~78px tall plus
+   the mode orb's ~26px overhang, so leave ~120px. !important because the container's
+   Vuetify pa-3 / pa-sm-4 utilities are !important and would otherwise win (desktop.css
+   resets this with a more specific rule). */
+.v-container.fa-page { padding-bottom: calc(120px + env(safe-area-inset-bottom)) !important; }
 
 /* Entrance + page transitions */
 .page-enter-active, .page-leave-active { transition: opacity .22s var(--fa-ease), transform .22s var(--fa-ease); }

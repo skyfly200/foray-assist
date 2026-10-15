@@ -2,7 +2,7 @@
 // the code that runs models (components/VoiceRecorder.vue). Module-level singleton.
 import { ref } from 'vue'
 import {
-  defaultRouting, normalizeRouting, noteFailure, ROUTING_KEY,
+  defaultRouting, normalizeRouting, noteFailure, preferInRoute, ROUTING_KEY,
   type Cooldowns, type FailReason, type ModelId, type RouteStep, type Routing, type TaskId,
 } from '~/utils/modelRouting'
 
@@ -14,7 +14,17 @@ let loading: Promise<void> | null = null
 
 function load(): Promise<void> {
   loading ??= (async () => {
-    try { routing.value = normalizeRouting((await useDb().settings.get(ROUTING_KEY))?.value) } catch { /* keep default */ }
+    try {
+      const db = useDb()
+      const stored = (await db.settings.get(ROUTING_KEY))?.value
+      if (stored) routing.value = normalizeRouting(stored)
+      else if ((await db.settings.get('speechEngine'))?.value === 'browser') {
+        // Chosen before the routing existed (Settings → Voice): browser speech first.
+        const r = defaultRouting()
+        r.routes.speech = preferInRoute(r.routes.speech, 'web-speech', 'whisper')
+        routing.value = r
+      }
+    } catch { /* keep default */ }
     loaded.value = true
   })()
   return loading
