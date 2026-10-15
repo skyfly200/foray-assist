@@ -169,3 +169,14 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] The foray picker narrows the pins; the frame button fits them all; the target button shows where you are
 - [ ] Look at the map with signal, then turn on airplane mode and reopen it: the area you viewed still draws
 - [ ] Open a foray, then tap MycoDex, Map or Settings: the page shows (it used to come up blank)
+
+## 16. ID key ("Not sure? Narrow it down")
+
+- [ ] Under Species guess, tap Not sure? Narrow it down: on a phone the key fills the screen, on desktop it is a dialog
+- [ ] The first question is the kind of mushroom (gills, pores, shelf...). Each answer lowers the "N of 190 species fit" count
+- [ ] Fill in spore print, ring or substrate on the form first, then open the key: those show as answers with a form icon and are not asked again
+- [ ] Not sure, skip moves on; Back undoes the last answer; tapping an answer chip clears it
+- [ ] Walk it with a mushroom you know: it should end in a short list that includes it. Note any species it gets wrong
+- [ ] Deadly and poisonous species show a red or orange badge
+- [ ] Use on a match: the key closes, Species guess reads "Name?", and empty underside, spore print and stem fields are filled from the answers
+- [ ] Works in airplane mode

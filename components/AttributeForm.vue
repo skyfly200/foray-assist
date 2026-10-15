@@ -53,6 +53,18 @@
               </v-list-item>
             </v-list>
           </v-sheet>
+          <v-btn
+            v-if="f.key === 'speciesGuess'"
+            class="mt-2"
+            size="small"
+            variant="tonal"
+            color="primary"
+            prepend-icon="mdi-file-tree-outline"
+            @click="keyOpen = true"
+          >
+            Not sure? Narrow it down
+          </v-btn>
+          <IdKeyDialog v-if="f.key === 'speciesGuess'" v-model="keyOpen" :notes="local" @pick="applyPatch" />
           <v-chip-group v-if="f.options" column class="mt-1">
             <v-chip
               v-for="o in f.options"
@@ -176,6 +188,16 @@ function queue(key: Key) {
   pending[key] = (local[key] ?? '') as string
   if (timer) clearTimeout(timer)
   timer = setTimeout(flush, 500)
+}
+
+// The ID key fills the species guess (and empty fields it learned) in one go.
+const keyOpen = ref(false)
+function applyPatch(patch: FieldNotes) {
+  for (const [k, v] of Object.entries(patch) as [Key, string][]) {
+    local[k] = v
+    pending[k] = v
+  }
+  flush()
 }
 
 function pick(key: Key, value: string) {
