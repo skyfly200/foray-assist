@@ -62,3 +62,53 @@ test('place prefers parks and woods over towns', () => {
   assert.equal(placeFromNominatim({ address: { town: 'Morrison', county: 'Jefferson County' } }), 'Morrison')
   assert.equal(placeFromNominatim({}), null)
 })
+
+import { photoStamp, findStamp, FRESH_PHOTO_MS } from '../utils/pastForay.ts'
+import { pickCaptureForay } from '../utils/captureTarget.ts'
+
+const NOW = Date.parse('2026-10-15T18:00:00Z')
+
+test('an old photo keeps its own time and never borrows the device position', () => {
+  const s = photoStamp({ capturedAt: '2026-09-20T14:00:00Z', timeSource: 'exif' }, NOW)
+  assert.deepEqual(s, { timestamp: '2026-09-20T14:00:00Z', useDevicePosition: false })
+})
+
+test('a photo taken just now may use the device position; its own GPS still wins', () => {
+  const fresh = new Date(NOW - 60_000).toISOString()
+  assert.equal(photoStamp({ capturedAt: fresh, timeSource: 'exif' }, NOW).useDevicePosition, true)
+  const g = photoStamp({ capturedAt: fresh, timeSource: 'exif', latitude: 1, longitude: 2 }, NOW)
+  assert.equal(g.latitude, 1)
+})
+
+test('an old gallery file counts as old even without EXIF', () => {
+  assert.equal(photoStamp({ capturedAt: '2026-09-20T14:00:00Z', timeSource: 'file' }, NOW).useDevicePosition, false)
+})
+
+test('a find from old photos takes the earliest time and their place', () => {
+  const s = findStamp([
+    { capturedAt: '2026-09-20T14:10:00Z', timeSource: 'exif', latitude: 39.6, longitude: -105.2 },
+    { capturedAt: '2026-09-20T14:00:00Z', timeSource: 'exif' },
+  ], NOW)
+  assert.deepEqual(s, { timestamp: '2026-09-20T14:00:00.000Z', latitude: 39.6, longitude: -105.2, useDevicePosition: false })
+})
+
+test('a find from fresh photos is stamped now', () => {
+  const s = findStamp([{ capturedAt: new Date(NOW - FRESH_PHOTO_MS / 2).toISOString(), timeSource: 'exif' }], NOW)
+  assert.equal(s.timestamp, new Date(NOW).toISOString())
+  assert.equal(s.useDevicePosition, true)
+})
+
+const fr = (id, start, end) => ({ id, startedAt: start, endedAt: end })
+
+test('old photos go to the foray they were taken during, not the open one', () => {
+  const forays = [fr('past', '2026-09-20T13:00:00Z', '2026-09-20T16:00:00Z'), fr('open', '2026-10-15T17:00:00Z')]
+  assert.equal(pickCaptureForay(forays, null, '2026-09-20T14:00:00Z', NOW), 'past')
+})
+
+test('old photos with no matching foray get null, so a past foray is started', () => {
+  assert.equal(pickCaptureForay([fr('open', '2026-10-15T17:00:00Z')], null, '2026-09-20T14:00:00Z', NOW), null)
+})
+
+test('the foray on screen still wins for old photos', () => {
+  assert.equal(pickCaptureForay([fr('a', '2026-10-01T10:00:00Z')], 'a', '2026-09-20T14:00:00Z', NOW), 'a')
+})
