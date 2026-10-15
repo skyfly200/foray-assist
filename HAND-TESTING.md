@@ -161,3 +161,11 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] Suggestions appear as chips (only for empty fields, never the species). ✓ adds one to the form, ✕ skips it, Add all adds the rest
 - [ ] Note how long the first answer takes and how good the suggestions are, and the computer's graphics card
 - [ ] Reload and tap again: no download, it starts from the saved copy. The ⋮ menu can remove the model
+
+## 15. Map tab, and leaving a foray
+
+- [ ] The bottom bar reads Forays, MycoDex, New find, Map, Settings, and fits without labels clipping
+- [ ] Map shows a pin for each find that has a location; tapping one shows its name, ID, date and foray, and Open foray goes there
+- [ ] The foray picker narrows the pins; the frame button fits them all; the target button shows where you are
+- [ ] Look at the map with signal, then turn on airplane mode and reopen it: the area you viewed still draws
+- [ ] Open a foray, then tap MycoDex, Map or Settings: the page shows (it used to come up blank)

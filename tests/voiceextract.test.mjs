@@ -141,3 +141,15 @@ test('custom fields: quick picks and free text after the field name', async () =
   assert.deepEqual(extractCustomFields('it was very acrid on the tongue', fields), { x_taste: 'acrid' })
   assert.deepEqual(extractCustomFields('nothing here', fields), {})
 })
+
+test('"X shaped" cap shapes', () => {
+  assert.equal(x('the cap is heart shaped').capShape, 'heart-shaped')
+  assert.equal(x('The cap is heart-shaped.').capShape, 'heart-shaped')
+  assert.equal(x('cap shaped like a fan').capShape, 'fan-shaped')
+  assert.equal(x('bell shaped cap').capShape, 'bell-shaped')
+  assert.equal(x('kidney shaped cap, convex').capShape, 'kidney-shaped, convex')
+  assert.equal(x('cordate cap').capShape, 'heart-shaped')
+  assert.equal(x('the stem is club shaped').stemFeatures, 'club-shaped')
+  assert.equal(x('the stem is club shaped').capShape, undefined)
+  assert.equal(x('the cap is oddly shaped').capShape, undefined)
+})

@@ -43,10 +43,17 @@ const TEXTURES: Record<string, string> = {
   wrinkly: 'wrinkled', rugose: 'wrinkled', warts: 'warty', warty: 'warty', powdery: 'powdery', shiny: 'shiny', dry: 'dry',
 }
 
+// "<word> shaped" / "shaped like a <word>": canonical names for words people use. Anything else
+// said that way is kept as "<word>-shaped".
+const SHAPE_NOUNS: Record<string, string> = { cone: 'conical', bell: 'bell-shaped', ball: 'round', globe: 'round', button: 'button-shaped', dome: 'convex' }
+const NOT_SHAPES = new Set(['is', 'was', 'a', 'an', 'the', 'its', "it's", 'odd', 'oddly', 'weird', 'weirdly', 'strange', 'strangely', 'nicely', 'well', 'same', 'of', 'in', 'and', 'kind', 'sort', 'cap', 'stem', 'mushroom', ','])
+
 const SHAPES: Record<string, string> = {
   convex: 'convex', flat: 'flat', plane: 'flat', conical: 'conical', conic: 'conical', cone: 'conical', bell: 'bell-shaped',
   campanulate: 'bell-shaped', umbonate: 'umbonate', umbo: 'umbonate', depressed: 'depressed', funnel: 'funnel-shaped',
   infundibuliform: 'funnel-shaped', vase: 'vase-shaped', domed: 'convex', dome: 'convex', rounded: 'convex', wavy: 'wavy',
+  cordate: 'heart-shaped', reniform: 'kidney-shaped', flabelliform: 'fan-shaped', hemispherical: 'hemispherical',
+  ovoid: 'egg-shaped', spherical: 'round', globose: 'round', parabolic: 'parabolic', irregular: 'irregular',
 }
 
 const TREES: Record<string, string> = {
@@ -342,6 +349,23 @@ export function extractFieldNotes(text: string, names: string[] = []): Extracted
       for (let k = i; k < c.end; k++) used.add(k)
       i = c.end - 1
     }
+
+    // --- "heart shaped", "shaped like a fan"
+    toks.forEach((t, i) => {
+      if (t !== 'shaped' && t !== 'shape') return
+      let w = -1
+      if (i > 0 && !NOT_SHAPES.has(toks[i - 1]) && /^[a-z]+$/.test(toks[i - 1])) w = i - 1
+      else if (toks[i + 1] === 'like') w = ['a', 'an', 'the'].includes(toks[i + 2]) ? i + 3 : i + 2
+      const word = toks[w]
+      if (!word || NOT_SHAPES.has(word) || !/^[a-z]+$/.test(word) || negated(toks, Math.min(i, w))) return
+      const part = nearestPart(partList, Math.min(i, w), Math.max(i, w) + 1) ?? 'cap'
+      const shape = SHAPES[word] ?? SHAPE_NOUNS[word] ?? `${word}-shaped`
+      if (part === 'cap') add('capShape', shape)
+      else if (part === 'stem') add('stemFeatures', shape)
+      else return
+      used.add(i)
+      used.add(w)
+    })
 
     // --- textures and shapes to the nearest part
     toks.forEach((t, i) => {

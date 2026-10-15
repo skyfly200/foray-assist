@@ -4,6 +4,7 @@ const { mode, isForay, setMode } = useMode()
 
 const homeActive = computed(() => route.path === '/' || route.path.startsWith('/forays'))
 const dexActive = computed(() => route.path.startsWith('/dex'))
+const mapActive = computed(() => route.path.startsWith('/map'))
 const settingsActive = computed(() => route.path.startsWith('/settings'))
 function toggleMode() {
   setMode(isForay.value ? 'review' : 'foray')
@@ -26,6 +27,11 @@ function toggleMode() {
         <span class="fa-side__pill"><v-icon icon="mdi-book-open-variant" size="24" /></span>
         <span class="fa-side__label">MycoDex</span>
       </NuxtLink>
+      <NuxtLink to="/map" class="fa-side__item" :class="{ 'is-active': mapActive }" :aria-current="mapActive ? 'page' : undefined">
+        <span class="fa-side__pill"><v-icon icon="mdi-map-outline" size="24" /></span>
+        <span class="fa-side__label">Map</span>
+      </NuxtLink>
+
       <NuxtLink to="/settings" class="fa-side__item" :class="{ 'is-active': settingsActive }" :aria-current="settingsActive ? 'page' : undefined">
         <span class="fa-side__pill"><v-icon icon="mdi-cog-outline" size="24" /></span>
         <span class="fa-side__label">Settings</span>
