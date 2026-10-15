@@ -89,3 +89,38 @@ export function placeFromNominatim(r: any): string | null {
     ?? a.hamlet ?? a.village ?? a.town ?? a.city ?? a.suburb ?? a.county ?? r?.name
   return typeof pick === 'string' && pick.trim() ? pick.trim() : null
 }
+
+/** Time and place for a find or photo, taken from photo metadata. */
+export interface FindStamp {
+  timestamp: string
+  latitude?: number
+  longitude?: number
+  /** the photo was taken just now, so the device's current position is a fair stand-in for missing GPS */
+  useDevicePosition: boolean
+}
+
+/** A photo counts as "just taken" within this window; older ones never borrow the device's position. */
+export const FRESH_PHOTO_MS = 30 * 60_000
+
+export function photoStamp(m: PhotoStamp, now = Date.now()): FindStamp {
+  const t = Date.parse(m.capturedAt)
+  // File times count too: a gallery file last modified weeks ago is an old photo, EXIF or not.
+  const fresh = !Number.isFinite(t) || now - t < FRESH_PHOTO_MS
+  return {
+    timestamp: m.capturedAt,
+    ...(typeof m.latitude === 'number' && typeof m.longitude === 'number' ? { latitude: m.latitude, longitude: m.longitude } : {}),
+    useDevicePosition: fresh,
+  }
+}
+
+/** One stamp for a find made of several photos: the earliest camera time and the middle GPS point. */
+export function findStamp(metas: PhotoStamp[], now = Date.now()): FindStamp | null {
+  const s = summarizePhotos(metas)
+  if (!s) return null
+  const fresh = now - Date.parse(s.endedAt) < FRESH_PHOTO_MS
+  return {
+    timestamp: fresh ? new Date(now).toISOString() : s.startedAt,
+    ...(s.center ?? {}),
+    useDevicePosition: fresh,
+  }
+}

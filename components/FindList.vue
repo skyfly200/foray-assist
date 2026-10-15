@@ -51,7 +51,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useDisplay } from 'vuetify'
-import { addPhoto, createFind, useEmptyFindIds, useLiveQuery } from '~/composables/useFinds'
+import { createFind, createFindFromPhotos, useEmptyFindIds, useLiveQuery } from '~/composables/useFinds'
 import type { Specimen } from '~/utils/db'
 
 const props = withDefaults(defineProps<{ forayId: string; variant?: 'capture' | 'review' }>(), { variant: 'capture' })
@@ -105,8 +105,7 @@ async function onCaptured(e: Event) {
   if (!files.length || creating.value) return
   creating.value = true
   try {
-    const row = await createFind(props.forayId)
-    for (const f of files) await addPhoto(row.id, props.forayId, f, 'capture')
+    const row = await createFindFromPhotos(props.forayId, files)
     celebrate(row.id)
   } finally {
     creating.value = false

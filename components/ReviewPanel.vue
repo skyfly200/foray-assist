@@ -1,9 +1,11 @@
 <template>
   <div>
     <v-card class="fa-card mb-4" variant="flat" color="primary">
-      <v-card-text class="d-flex flex-wrap align-center ga-3">
+      <v-card-text class="d-flex flex-wrap align-center ga-2 source-row">
         <v-btn color="white" class="text-primary" size="large" prepend-icon="mdi-image-plus" :disabled="busy" @click="picker?.click()">Add photos</v-btn>
         <input ref="picker" type="file" accept="image/*" multiple hidden @change="onPick" />
+        <!-- SLOT: other photo sources (e.g. Google Photos), right beside Add photos. They write Photo rows with specimenRowId '' -->
+        <slot name="sources" />
         <v-btn variant="outlined" color="white" size="large" prepend-icon="mdi-auto-fix" :disabled="busy || !unassigned.length" :loading="grouping" @click="group">
           Group into finds
           <span v-if="unassigned.length" class="count-bubble ml-2">{{ unassigned.length }}</span>
@@ -27,9 +29,6 @@
         </div>
       </Transition>
     </v-card>
-
-    <!-- SLOT: photo sources (e.g. Google Photos import) are mounted here. They write Photo rows with specimenRowId '' -->
-    <slot name="sources" />
 
     <div v-if="progress && !photos.length" class="d-flex flex-column ga-4" aria-hidden="true">
       <div class="fa-shimmer skeleton" />
@@ -125,6 +124,8 @@ async function group() {
 </script>
 
 <style scoped>
+/* Tighter buttons so Add photos and Google Photos fit side by side on a phone. */
+.source-row :deep(.v-btn--size-large) { padding-inline: 12px; }
 .count-bubble { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.3); font-size: 0.75rem; }
 .cluster-grid { display: flex; flex-direction: column; gap: 16px; }
 @media (min-width: 960px) {
