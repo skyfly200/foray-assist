@@ -153,3 +153,11 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] If the Settings text says this browser can't keep the audio, recording still works, just with no audio on the note. Report phone and Chrome version
 - [ ] Airplane mode with Browser speech chosen: the recorder uses Whisper (if downloaded)
 - [ ] Switch back to On-device Whisper: notes use Whisper again
+
+## 13. Map tab, and leaving a foray
+
+- [ ] The bottom bar reads Forays, MycoDex, New find, Map, Settings, and fits without labels clipping
+- [ ] Map shows a pin for each find that has a location; tapping one shows its name, ID, date and foray, and Open foray goes there
+- [ ] The foray picker narrows the pins; the frame button fits them all; the target button shows where you are
+- [ ] Look at the map with signal, then turn on airplane mode and reopen it: the area you viewed still draws
+- [ ] Open a foray, then tap MycoDex, Map or Settings: the page shows (it used to come up blank)
