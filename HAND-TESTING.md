@@ -153,3 +153,11 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] If the Settings text says this browser can't keep the audio, recording still works, just with no audio on the note. Report phone and Chrome version
 - [ ] Airplane mode with Browser speech chosen: the recorder uses Whisper (if downloaded)
 - [ ] Switch back to On-device Whisper: notes use Whisper again
+
+## 14. Photo tag suggestions (Gemma, desktop)
+
+- [ ] On a computer with Chrome or Edge, open a foray in Review mode → Identify & edit. A find with a photo shows "Suggest tags from photos". On a phone it does not show
+- [ ] Tap it: a dialog asks before the ~3 GB download. Download: the progress bar fills, then "Looking at N photos…"
+- [ ] Suggestions appear as chips (only for empty fields, never the species). ✓ adds one to the form, ✕ skips it, Add all adds the rest
+- [ ] Note how long the first answer takes and how good the suggestions are, and the computer's graphics card
+- [ ] Reload and tap again: no download, it starts from the saved copy. The ⋮ menu can remove the model
