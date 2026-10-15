@@ -103,7 +103,8 @@ Needs migration `0006` and two signed-in phones (or a phone and a laptop) on dif
 - [ ] Owner rotates the join code and turns joining off: the old code stops working, existing members keep access
 - [ ] Leave the foray: live access stops, past shared finds stay with their authors
 - [ ] Sharing or joining while signed out or unverified shows "Confirm your email"
-- [ ] Group: create one in the SQL Editor (SETUP 2.6), the officer sees the join code under Settings → Groups, a member joins with it
+- [ ] Group admin: add yourself to `app_admins` (SETUP 2.6), then Settings → Groups → Create a group; with a blank officer email you become its officer and see the code
+- [ ] Group: create one (in the app or the SQL Editor), the officer sees the join code under Settings → Groups, a member joins with it
 - [ ] Officer or leader gets a voucher sheet (`U`–`Z` class) and adds a voucher number to a find; run a shared foray as a group foray
 - [ ] Send a single find (Send on the find card) and open it on another phone (Open a shared find): preview, approve, no duplicate, nothing overwritten
 - [ ] Opening the same shared find twice doesn't create a second copy
