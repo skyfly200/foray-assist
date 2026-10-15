@@ -2,6 +2,7 @@
 // Foray detail. Foray Mode: log finds in the field (photos, voice, notes, labels).
 // Review Mode: identify and edit finds, sort photos, print forms, and publish to iNaturalist.
 import { liveQuery } from 'dexie'
+import { canEditForay } from '~/composables/useNewFind'
 
 const route = useRoute()
 const id = route.params.id as string
@@ -43,7 +44,14 @@ onMounted(() => {
     <template v-else>
       <header class="fa-hero foray-hero mb-4" :class="{ 'hero-in-desk': isForay }">
         <div class="text-overline hero-kicker">{{ isForay ? '🍄 Foray mode' : '🔍 Review mode' }}</div>
-        <h1 class="text-h5 font-weight-bold hero-title">{{ foray?.name }}</h1>
+        <div class="hero-title-row">
+          <h1 class="text-h5 font-weight-bold hero-title">{{ foray?.name }}</h1>
+          <RenameForayDialog v-if="foray && canEditForay(foray)" :foray="foray">
+            <template #activator="{ props: act }">
+              <v-btn v-bind="act" icon="mdi-pencil" size="small" variant="text" aria-label="Edit foray title" />
+            </template>
+          </RenameForayDialog>
+        </div>
         <div v-if="foray" class="hero-sub">
           Started {{ new Date(foray.startedAt).toLocaleString() }}
           <span v-if="foray.endedAt"> · ended {{ new Date(foray.endedAt).toLocaleString() }}</span>
@@ -114,7 +122,8 @@ onMounted(() => {
 .foray-hero { margin-left: -12px; margin-right: -12px; } /* matches the page container's pa-3 on phones */
 @media (min-width: 600px) { .foray-hero { margin-left: -16px; margin-right: -16px; } }
 .hero-kicker { opacity: 0.9; }
-.hero-title { line-height: 1.2; word-break: break-word; }
+.hero-title-row { display: flex; align-items: center; gap: 4px; }
+.hero-title { line-height: 1.2; word-break: break-word; min-width: 0; }
 .hero-sub { opacity: 0.9; font-size: 0.85rem; }
 .hero-share :deep(.v-btn) { background: rgba(255, 255, 255, 0.22); color: inherit; }
 .hero-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); font-weight: 600; font-size: 0.85rem; }
