@@ -18,9 +18,41 @@
             hide-details
             clearable
             @update:model-value="queue(f.key)"
-            @focus="editing = f.key"
+            @focus="onFocus(f.key)"
             @blur="editing = null; flush()"
+            @keydown="f.key === 'speciesGuess' && onSpeciesKey($event)"
           />
+          <v-sheet
+            v-if="f.key === 'speciesGuess' && speciesHits.length"
+            class="fa-species-suggest mt-1"
+            border
+            rounded
+            role="listbox"
+            aria-label="Species suggestions"
+          >
+            <v-list density="compact" class="py-0" bg-color="transparent">
+              <v-list-item
+                v-for="(s, i) in speciesHits"
+                :key="s.name"
+                :active="i === hiIndex"
+                role="option"
+                @pointerdown.prevent
+                @mousedown.prevent
+                @click="pickSpecies(s.name)"
+              >
+                <v-list-item-title class="font-italic">{{ s.name }}</v-list-item-title>
+                <v-list-item-subtitle v-if="s.common || s.source !== 'list'">
+                  <span v-if="s.common">{{ s.common }}</span>
+                  <span v-if="s.common && s.source !== 'list'"> · </span>
+                  <span v-if="s.source === 'past'">your finds{{ s.count && s.count > 1 ? ` ×${s.count}` : '' }}</span>
+                  <span v-else-if="s.source === 'custom'">your word list</span>
+                </v-list-item-subtitle>
+                <template #prepend>
+                  <v-icon :icon="s.source === 'past' ? 'mdi-history' : s.source === 'custom' ? 'mdi-account-star' : 'mdi-mushroom'" size="18" />
+                </template>
+              </v-list-item>
+            </v-list>
+          </v-sheet>
           <v-chip-group v-if="f.options" column class="mt-1">
             <v-chip
               v-for="o in f.options"
@@ -43,7 +75,7 @@
           auto-grow
           hide-details
           @update:model-value="queue('notes')"
-          @focus="editing = 'notes'"
+          @focus="onFocus('notes')"
           @blur="editing = null; flush()"
         />
       </v-expansion-panel-text>
@@ -56,6 +88,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { updateFieldNotes } from '~/composables/useFinds'
 import type { FieldNotes } from '~/utils/db'
 import { formGroups, groupOf, type ResolvedGroup } from '~/utils/fieldForm'
+import { useSpeciesSuggest } from '~/composables/useSpeciesSuggest'
 
 const props = defineProps<{ specimenRowId: string; modelValue: FieldNotes }>()
 
@@ -102,7 +135,44 @@ watch(
   { deep: true },
 )
 
+// Species autocomplete: the user's past names, their word list, then the built-in list.
+const species = useSpeciesSuggest()
+const speciesTyped = ref(false)
+const hiIndex = ref(-1)
+const speciesHits = computed(() =>
+  editing.value === 'speciesGuess' && speciesTyped.value ? species.suggest(local.speciesGuess ?? '') : [],
+)
+watch(speciesHits, () => { hiIndex.value = -1 })
+
+function onFocus(key: Key) {
+  editing.value = key
+  if (key === 'speciesGuess') {
+    speciesTyped.value = false
+    void species.refresh(props.specimenRowId)
+  }
+}
+
+function pickSpecies(name: string) {
+  local.speciesGuess = name
+  queue('speciesGuess')
+  flush()
+  speciesTyped.value = false
+}
+
+function onSpeciesKey(e: KeyboardEvent) {
+  const n = speciesHits.value.length
+  if (e.key === 'Escape') speciesTyped.value = false
+  if (!n) return
+  if (e.key === 'ArrowDown') { hiIndex.value = (hiIndex.value + 1) % n; e.preventDefault() }
+  else if (e.key === 'ArrowUp') { hiIndex.value = (hiIndex.value - 1 + n) % n; e.preventDefault() }
+  else if ((e.key === 'Enter' || e.key === 'Tab') && hiIndex.value >= 0) {
+    pickSpecies(speciesHits.value[hiIndex.value].name)
+    e.preventDefault()
+  }
+}
+
 function queue(key: Key) {
+  if (key === 'speciesGuess' && editing.value === 'speciesGuess') speciesTyped.value = true
   pending[key] = (local[key] ?? '') as string
   if (timer) clearTimeout(timer)
   timer = setTimeout(flush, 500)
@@ -141,6 +211,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .attr-sections { display: flex; flex-direction: column; gap: 8px; }
 .fa-voice-filled :deep(.v-field) { animation: fa-voice-flash 1.6s var(--fa-ease, ease); }
+.fa-species-suggest { max-height: 264px; overflow-y: auto; }
 @keyframes fa-voice-flash { 0%, 40% { background: rgba(var(--v-theme-primary), 0.18); } 100% { background: transparent; } }
 .attr-sections :deep(.v-expansion-panel) { background: rgba(var(--v-theme-primary), 0.06); border-radius: var(--fa-radius-sm) !important; }
 .attr-sections :deep(.v-expansion-panel::after) { display: none; }
