@@ -99,7 +99,7 @@
     </div>
 
     <v-dialog v-model="confirmOpen" max-width="360">
-      <v-card :title="`Delete ${pending ? 'this find' : displayId(find.specimenId)}?`" text="This removes the find and its photos from this device.">
+      <v-card :title="`Delete ${pending ? 'this find' : displayId(find.specimenId)}?`" text="This removes the find, its photos and its voice notes from this device.">
         <v-card-actions>
           <v-spacer />
           <v-btn @click="confirmOpen = false">Cancel</v-btn>

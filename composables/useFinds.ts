@@ -1,7 +1,8 @@
 // Foray Mode find logging. Everything is local (Dexie); sync happens via the outbox.
 import { liveQuery } from 'dexie'
-import { onMounted, onBeforeUnmount, ref, type Ref } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, type Ref } from 'vue'
 import { nextSpecimenId } from '~/utils/specimenId'
+import { isEmptyFind } from '~/utils/findEmpty'
 import type { FieldNotes, Geoprivacy, Photo, Specimen } from '~/utils/db'
 
 /** Best-effort position; resolves null on denial/timeout/unsupported. Never rejects. */
@@ -125,16 +126,53 @@ export async function removePhoto(id: string) {
   })
 }
 
-/** Deletes the find and its photos locally and queues remote deletes. */
+/** Deletes the find, its photos and its voice notes locally and queues remote deletes. */
 export async function deleteFind(id: string) {
   const db = useDb()
-  await db.transaction('rw', db.specimens, db.photos, db.outbox, async () => {
+  await db.transaction('rw', db.specimens, db.photos, db.voiceNotes, db.outbox, async () => {
     const photoIds = (await db.photos.where('specimenRowId').equals(id).primaryKeys()) as string[]
+    const noteIds = (await db.voiceNotes.where('specimenRowId').equals(id).primaryKeys()) as string[]
     await db.photos.bulkDelete(photoIds)
+    await db.voiceNotes.bulkDelete(noteIds)
     await db.specimens.delete(id)
     for (const pid of photoIds) await enqueue('photos', pid, 'delete')
+    for (const nid of noteIds) await enqueue('voiceNotes', nid, 'delete')
     await enqueue('specimens', id, 'delete')
   })
+}
+
+/** True when nothing was recorded on the find (see utils/findEmpty.ts). */
+export async function findIsEmpty(find: Specimen): Promise<boolean> {
+  const db = useDb()
+  const [photos, voiceNotes, comments] = await Promise.all([
+    db.photos.where('specimenRowId').equals(find.id).count(),
+    db.voiceNotes.where('specimenRowId').equals(find.id).count(),
+    db.comments.where('specimenRowId').equals(find.id).count(),
+  ])
+  return isEmptyFind({ ...find, fieldNotes: find.fieldNotes as Record<string, string | undefined> }, { photos, voiceNotes, comments })
+}
+
+/** Ids of the foray's empty finds. */
+export async function emptyFindIds(forayId: string): Promise<string[]> {
+  const rows = await useDb().specimens.where('forayId').equals(forayId).toArray()
+  const flags = await Promise.all(rows.map(findIsEmpty))
+  return rows.filter((_, i) => flags[i]).map((r) => r.id)
+}
+
+/** Delete the find if it is (still) empty. Returns true when it was removed. */
+export async function removeIfEmpty(id: string): Promise<boolean> {
+  if (!id) return false
+  const row = await useDb().specimens.get(id)
+  if (!row || !(await findIsEmpty(row))) return false
+  await deleteFind(id)
+  return true
+}
+
+/** Delete every empty find in the foray. Returns how many were removed. */
+export async function removeEmptyFinds(forayId: string): Promise<number> {
+  let n = 0
+  for (const id of await emptyFindIds(forayId)) if (await removeIfEmpty(id)) n++
+  return n
 }
 
 /**
@@ -152,4 +190,10 @@ export function useLiveQuery<T>(querier: () => T | Promise<T>, initial: T): Ref<
   })
   onBeforeUnmount(() => sub?.unsubscribe())
   return data
+}
+
+/** Live set of the foray's empty finds, for hiding them in Review Mode lists. */
+export function useEmptyFindIds(forayId: () => string): Ref<Set<string>> {
+  const ids = useLiveQuery<string[]>(() => emptyFindIds(forayId()), [])
+  return computed(() => new Set(ids.value)) as unknown as Ref<Set<string>>
 }

@@ -35,10 +35,12 @@
       <div class="fa-shimmer skeleton" />
     </div>
 
+    <EmptyFindsBar v-model:show="showEmpty" :foray-id="forayId" :count="emptyIds.size" class="mb-4" />
+
     <TransitionGroup name="fa-list" tag="div" class="cluster-grid">
-      <ClusterCard v-if="unassigned.length" key="__unassigned" :find="null" :photos="unassigned" :other-finds="finds.map(label)" />
-      <ClusterCard v-for="f in finds" :key="f.id" :find="f" :photos="photosBySpecimen.get(f.id) ?? []" :other-finds="finds.filter((o) => o.id !== f.id).map(label)" />
-      <div v-if="!finds.length && !unassigned.length && !progress" key="__empty" class="cluster-empty text-center text-medium-emphasis py-6">
+      <ClusterCard v-if="unassigned.length" key="__unassigned" :find="null" :photos="unassigned" :other-finds="visible.map(label)" />
+      <ClusterCard v-for="f in visible" :key="f.id" :find="f" :photos="photosBySpecimen.get(f.id) ?? []" :other-finds="visible.filter((o) => o.id !== f.id).map(label)" />
+      <div v-if="!visible.length && !unassigned.length && !progress" key="__empty" class="cluster-empty text-center text-medium-emphasis py-6">
         <div class="empty-emoji" aria-hidden="true">📷</div>
         No photos yet. Add photos taken outside the app to get started.
       </div>
@@ -48,7 +50,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useLiveQuery } from '~/composables/useFinds'
+import { useEmptyFindIds, useLiveQuery } from '~/composables/useFinds'
 import { clusterUnassigned, importFiles, scorePhotos } from '~/composables/useReview'
 import type { Photo, Specimen } from '~/utils/db'
 import { displayId, isPendingId } from '~/utils/idCode'
@@ -73,7 +75,14 @@ const photosBySpecimen = computed(() => {
   for (const p of photos.value) if (p.specimenRowId) m.set(p.specimenRowId, [...(m.get(p.specimenRowId) ?? []), p])
   return m
 })
-const label = (f: Specimen) => ({ id: f.id, label: isPendingId(f.specimenId) ? `ID pending (${new Date(f.timestamp).toLocaleTimeString([], { timeStyle: 'short' })})` : displayId(f.specimenId) })
+const emptyIds = useEmptyFindIds(() => props.forayId)
+const showEmpty = ref(false)
+const visible = computed(() => (showEmpty.value ? finds.value : finds.value.filter((f) => !emptyIds.value.has(f.id))))
+const label = (f: Specimen) => {
+  const id = isPendingId(f.specimenId) ? `ID pending (${new Date(f.timestamp).toLocaleTimeString([], { timeStyle: 'short' })})` : displayId(f.specimenId)
+  const species = f.fieldNotes.speciesGuess?.trim()
+  return { id: f.id, label: species ? `${id} · ${species}` : id }
+}
 
 async function runScoring() {
   progress.value = { done: 0, total: 0 }

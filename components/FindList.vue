@@ -34,13 +34,16 @@
     <input ref="cameraInput" type="file" accept="image/*" capture="environment" hidden @change="onCaptured" />
     </Teleport>
 
+    <!-- Review hides finds with nothing on them; Foray mode keeps them, since a new find starts empty. -->
+    <EmptyFindsBar v-if="!capture" v-model:show="showEmpty" :foray-id="forayId" :count="emptyIds.size" class="mb-2" />
+
     <div v-if="!finds.length" class="empty text-center mt-6">
       <div class="empty-emoji" aria-hidden="true">🌿</div>
       <p class="text-medium-emphasis">{{ !capture ? 'No finds in this foray yet.' : mdAndUp ? 'No finds yet. Tap the camera when you spot something.' : 'No finds yet. Tap New find below when you spot something.' }}</p>
     </div>
 
     <TransitionGroup name="fa-list" tag="div" class="finds-grid">
-      <FindCard v-for="f in finds" :key="f.id" :find="f" :variant="variant" :class="{ 'fa-pop-enter-active': freshIds.has(f.id) }" />
+      <FindCard v-for="f in visible" :key="f.id" :find="f" :variant="variant" :class="{ 'fa-pop-enter-active': freshIds.has(f.id) }" />
     </TransitionGroup>
   </div>
 </template>
@@ -48,7 +51,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useDisplay } from 'vuetify'
-import { addPhoto, createFind, useLiveQuery } from '~/composables/useFinds'
+import { addPhoto, createFind, useEmptyFindIds, useLiveQuery } from '~/composables/useFinds'
 import type { Specimen } from '~/utils/db'
 
 const props = withDefaults(defineProps<{ forayId: string; variant?: 'capture' | 'review' }>(), { variant: 'capture' })
@@ -66,6 +69,10 @@ const finds = useLiveQuery<Specimen[]>(
   },
   [],
 )
+
+const emptyIds = useEmptyFindIds(() => props.forayId)
+const showEmpty = ref(false)
+const visible = computed(() => (capture.value || showEmpty.value ? finds.value : finds.value.filter((f) => !emptyIds.value.has(f.id))))
 
 function celebrate(id: string) {
   burst.value++

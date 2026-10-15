@@ -2,6 +2,9 @@
 import { nextSpecimenId } from '~/utils/specimenId'
 import { clusterPhotos, withinWindow, DEFAULT_MAX_METERS, DEFAULT_MAX_SECONDS } from '~/utils/cluster'
 import { readPhotoMeta } from '~/utils/exif'
+import { FIELD_DEFS } from '~/utils/fieldForm'
+import { mergeFieldNotes } from '~/utils/findEmpty'
+import { deleteFind, removeIfEmpty, removePhoto } from '~/composables/useFinds'
 import type { Photo, Specimen } from '~/utils/db'
 
 // ---------- blur worker client (singleton, falls back to main thread) ----------
@@ -263,24 +266,25 @@ export async function clusterUnassigned(forayId: string): Promise<{ created: num
   return { created: newSpecimens.length, merged: joins.size, photos: unassigned.length }
 }
 
-// ---------- moving photos ----------
+// ---------- moving photos and refining groups ----------
+// Sorting photos can leave a find with nothing on it; such a find is removed right away
+// (removeIfEmpty keeps any find that still has notes, voice notes, comments or a voucher).
+
 /** Move a photo to another find, or to '' to un-assign it. Clears its selection flag. */
 export async function movePhoto(photoId: string, targetSpecimenRowId: string) {
   const db = useDb()
+  const from = (await db.photos.get(photoId))?.specimenRowId ?? ''
   await db.transaction('rw', db.photos, db.outbox, async () => {
     await db.photos.update(photoId, { specimenRowId: targetSpecimenRowId, isSelected: false, updatedAt: nowIso() })
     await enqueue('photos', photoId)
   })
+  if (from !== targetSpecimenRowId) await removeIfEmpty(from)
 }
 
-/** Move a photo into a brand-new find (timestamp/GPS from the photo). */
-export async function movePhotoToNewFind(photoId: string): Promise<Specimen | null> {
-  const db = useDb()
-  const p = await db.photos.get(photoId)
-  if (!p) return null
-  const row: Specimen = {
+function newFindFrom(p: Photo): Specimen {
+  return {
     id: newId(),
-    specimenId: await nextSpecimenId(),
+    specimenId: '',
     forayId: p.forayId,
     timestamp: p.capturedAt,
     ...(p.latitude !== undefined ? { latitude: p.latitude, longitude: p.longitude } : {}),
@@ -288,11 +292,123 @@ export async function movePhotoToNewFind(photoId: string): Promise<Specimen | nu
     fieldNotes: {},
     updatedAt: nowIso(),
   }
+}
+
+/** Move a photo into a brand-new find (timestamp/GPS from the photo). */
+export async function movePhotoToNewFind(photoId: string): Promise<Specimen | null> {
+  const db = useDb()
+  const p = await db.photos.get(photoId)
+  if (!p) return null
+  const row = { ...newFindFrom(p), specimenId: await nextSpecimenId() }
   await db.transaction('rw', db.specimens, db.photos, db.outbox, async () => {
     await db.specimens.add(row)
     await enqueue('specimens', row.id)
     await db.photos.update(photoId, { specimenRowId: row.id, isSelected: true, updatedAt: nowIso() })
     await enqueue('photos', photoId)
   })
+  await removeIfEmpty(p.specimenRowId)
   return row
+}
+
+/**
+ * Split a group in two: this photo and every later photo of its find move to a new find.
+ * Used when one burst of photos really covers two mushrooms.
+ */
+export async function splitFindAt(photoId: string): Promise<Specimen | null> {
+  const db = useDb()
+  const p = await db.photos.get(photoId)
+  if (!p || !p.specimenRowId) return null
+  const later = (await db.photos.where('specimenRowId').equals(p.specimenRowId).toArray())
+    .filter((o) => o.capturedAt > p.capturedAt || (o.capturedAt === p.capturedAt && o.id >= p.id))
+  const gps = later.find((o) => o.latitude !== undefined && o.longitude !== undefined)
+  const row: Specimen = {
+    ...newFindFrom(p),
+    specimenId: await nextSpecimenId(),
+    ...(gps ? { latitude: gps.latitude, longitude: gps.longitude } : {}),
+  }
+  await db.transaction('rw', db.specimens, db.photos, db.outbox, async () => {
+    await db.specimens.add(row)
+    await enqueue('specimens', row.id)
+    for (const o of later) {
+      await db.photos.update(o.id, { specimenRowId: row.id, isSelected: false, updatedAt: nowIso() })
+      await enqueue('photos', o.id)
+    }
+  })
+  await autoSelect(row.id)
+  await autoSelect(p.specimenRowId, { onlyIfNone: true })
+  await removeIfEmpty(p.specimenRowId)
+  return row
+}
+
+/** Send every photo of a find back to Ungrouped. The find goes too unless it has notes. */
+export async function ungroupFind(specimenRowId: string) {
+  const db = useDb()
+  await db.transaction('rw', db.photos, db.outbox, async () => {
+    const ids = (await db.photos.where('specimenRowId').equals(specimenRowId).primaryKeys()) as string[]
+    for (const id of ids) {
+      await db.photos.update(id, { specimenRowId: '', isSelected: false, updatedAt: nowIso() })
+      await enqueue('photos', id)
+    }
+  })
+  await removeIfEmpty(specimenRowId)
+}
+
+const fieldLabel = (k: string) => FIELD_DEFS.find((d) => d.key === k)?.label ?? k
+
+/**
+ * Merge one find into another: photos and voice notes move over, notes are combined (the
+ * target's values win; differing values are kept in its notes) and the source find is deleted.
+ */
+export async function mergeFinds(sourceId: string, targetId: string) {
+  if (!sourceId || !targetId || sourceId === targetId) return
+  const db = useDb()
+  await db.transaction('rw', db.specimens, db.photos, db.voiceNotes, db.comments, db.outbox, async () => {
+    const [src, dst] = await Promise.all([db.specimens.get(sourceId), db.specimens.get(targetId)])
+    if (!src || !dst) return
+    const photoIds = (await db.photos.where('specimenRowId').equals(sourceId).primaryKeys()) as string[]
+    for (const id of photoIds) {
+      await db.photos.update(id, { specimenRowId: targetId, updatedAt: nowIso() })
+      await enqueue('photos', id)
+    }
+    const noteIds = (await db.voiceNotes.where('specimenRowId').equals(sourceId).primaryKeys()) as string[]
+    for (const id of noteIds) {
+      await db.voiceNotes.update(id, { specimenRowId: targetId, updatedAt: nowIso() })
+      await enqueue('voiceNotes', id)
+    }
+    // Our own comments follow the find; other people's stay with the old one on the server.
+    const mine = await db.comments.where('specimenRowId').equals(sourceId).filter((c) => c.mine === 1).toArray()
+    for (const c of mine) {
+      await db.comments.update(c.id, { specimenRowId: targetId, updatedAt: nowIso() })
+      await enqueue('comments', c.id)
+    }
+    const fieldNotes = mergeFieldNotes(dst.fieldNotes as Record<string, string | undefined>, src.fieldNotes as Record<string, string | undefined>, fieldLabel)
+    const earlier = src.timestamp < dst.timestamp
+    await db.specimens.update(targetId, {
+      fieldNotes,
+      ...(earlier ? { timestamp: src.timestamp } : {}),
+      ...(dst.latitude === undefined && src.latitude !== undefined ? { latitude: src.latitude, longitude: src.longitude } : {}),
+      ...(!dst.voucherId && src.voucherId ? { voucherId: src.voucherId } : {}),
+      updatedAt: nowIso(),
+    })
+    await enqueue('specimens', targetId)
+  })
+  await deleteFind(sourceId)
+}
+
+/** Delete one photo while sorting; a find left with nothing on it goes too. */
+export async function deleteSortedPhoto(photoId: string) {
+  const from = (await useDb().photos.get(photoId))?.specimenRowId ?? ''
+  await removePhoto(photoId)
+  await removeIfEmpty(from)
+}
+
+/** Delete every photo that is still ungrouped in this foray. */
+export async function deleteUngrouped(forayId: string): Promise<number> {
+  const db = useDb()
+  const ids = (await db.photos.where('forayId').equals(forayId).filter((p) => p.specimenRowId === '').primaryKeys()) as string[]
+  await db.transaction('rw', db.photos, db.outbox, async () => {
+    await db.photos.bulkDelete(ids)
+    for (const id of ids) await enqueue('photos', id, 'delete')
+  })
+  return ids.length
 }

@@ -7,14 +7,30 @@
         <v-tooltip activator="parent" location="bottom">You'll get an ID when you sign in and have a connection</v-tooltip>
       </span>
       <span v-else class="text-subtitle-1 font-weight-bold">{{ displayId(find.specimenId) }}</span>
+      <span v-if="species" class="text-body-2 font-italic species">{{ species }}</span>
       <span class="fa-badge"><v-icon icon="mdi-check-circle" size="14" /> {{ selectedCount }}/{{ photos.length }} selected</span>
       <v-spacer />
       <span v-if="find" class="text-caption text-medium-emphasis">{{ timeLabel }}</span>
+      <v-menu>
+        <template #activator="{ props: mp }">
+          <v-btn v-bind="mp" icon="mdi-dots-vertical" size="small" variant="text" :aria-label="find ? 'Find options' : 'Ungrouped photo options'" />
+        </template>
+        <v-list density="compact">
+          <template v-if="find">
+            <v-list-subheader v-if="otherFinds.length">Merge into</v-list-subheader>
+            <v-list-item v-for="o in otherFinds" :key="o.id" :title="o.label" prepend-icon="mdi-call-merge" @click="ask('merge', o)" />
+            <v-divider v-if="otherFinds.length" class="my-1" />
+            <v-list-item v-if="photos.length" title="Ungroup photos" prepend-icon="mdi-image-off" @click="ungroup" />
+            <v-list-item title="Delete find" prepend-icon="mdi-delete" base-color="error" @click="ask('delete')" />
+          </template>
+          <v-list-item v-else title="Delete all ungrouped photos" prepend-icon="mdi-delete" base-color="error" @click="ask('deleteUngrouped')" />
+        </v-list>
+      </v-menu>
     </v-card-title>
     <v-card-text>
       <div v-if="!photos.length" class="text-medium-emphasis">No photos in this find.</div>
       <TransitionGroup name="fa-list" tag="div" class="thumbs">
-        <div v-for="t in thumbs" :key="t.photo.id" class="thumb" :class="{ selected: t.photo.isSelected, scoring: typeof t.photo.blurScore !== 'number' }">
+        <div v-for="(t, i) in thumbs" :key="t.photo.id" class="thumb" :class="{ selected: t.photo.isSelected, scoring: typeof t.photo.blurScore !== 'number' }">
           <img :src="t.url" alt="Find photo" role="button" tabindex="0" :aria-pressed="t.photo.isSelected" @click="toggle(t.photo)" @keydown.enter="toggle(t.photo)" />
           <span class="badge" :class="`tone-${tone(t.photo)}`">
             <v-icon :icon="tone(t.photo) === 'success' ? 'mdi-star' : tone(t.photo) === 'pending' ? 'mdi-timer-sand' : 'mdi-leaf'" size="12" />
@@ -32,18 +48,32 @@
               <v-list-item v-for="o in otherFinds" :key="o.id" :title="o.label" @click="move(t.photo.id, o.id)" />
               <v-list-item title="New find" prepend-icon="mdi-plus" @click="moveNew(t.photo.id)" />
               <v-list-item v-if="find" title="Ungrouped" prepend-icon="mdi-image-off" @click="move(t.photo.id, '')" />
+              <v-divider class="my-1" />
+              <v-list-item v-if="find && i > 0" title="Split from here" subtitle="This and later photos become a new find" prepend-icon="mdi-call-split" @click="split(t.photo.id)" />
+              <v-list-item title="Delete photo" prepend-icon="mdi-delete" base-color="error" @click="ask('deletePhoto', undefined, t.photo.id)" />
             </v-list>
           </v-menu>
         </div>
       </TransitionGroup>
-      <div class="text-caption text-medium-emphasis mt-2">Tap a photo to approve or un-approve it.</div>
+      <div class="text-caption text-medium-emphasis mt-2">Tap a photo to approve or un-approve it. Use a photo's menu to move, split or delete it.</div>
     </v-card-text>
+
+    <v-dialog v-model="confirm.open" max-width="380">
+      <v-card :title="confirm.title" :text="confirm.text">
+        <v-card-actions>
+          <v-spacer />
+          <v-btn @click="confirm.open = false">Cancel</v-btn>
+          <v-btn :color="confirm.kind === 'merge' ? 'primary' : 'error'" :loading="busy" @click="onConfirm">{{ confirm.action }}</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-card>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { movePhoto, movePhotoToNewFind, setPhotoSelected } from '~/composables/useReview'
+import { deleteFind } from '~/composables/useFinds'
+import { deleteSortedPhoto, deleteUngrouped, mergeFinds, movePhoto, movePhotoToNewFind, setPhotoSelected, splitFindAt, ungroupFind } from '~/composables/useReview'
 import type { Photo, Specimen } from '~/utils/db'
 import { displayId, isPendingId } from '~/utils/idCode'
 
@@ -70,7 +100,7 @@ watch(
       }
     }
     for (const p of list) if (!urls.has(p.id)) urls.set(p.id, URL.createObjectURL(p.blob))
-    thumbs.value = [...list].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt)).map((p) => ({ photo: p, url: urls.get(p.id)! }))
+    thumbs.value = [...list].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || (a.id < b.id ? -1 : 1)).map((p) => ({ photo: p, url: urls.get(p.id)! }))
   },
   { immediate: true },
 )
@@ -83,6 +113,40 @@ const badge = (p: Photo) => (typeof p.blurScore === 'number' ? Math.round(p.blur
 // Heuristic colour only; scores are relative within a foray.
 const tone = (p: Photo) => (typeof p.blurScore !== 'number' ? 'pending' : p.blurScore < 30 ? 'error' : p.blurScore < 100 ? 'warning' : 'success')
 
+const species = computed(() => props.find?.fieldNotes.speciesGuess?.trim() ?? '')
+const findName = computed(() => (!props.find ? '' : pending.value ? 'this find' : displayId(props.find.specimenId)))
+
+// One confirm dialog for the actions that remove or combine finds and photos.
+type Kind = 'merge' | 'delete' | 'deletePhoto' | 'deleteUngrouped'
+const confirm = ref({ open: false, kind: 'delete' as Kind, title: '', text: '', action: '', target: '', photoId: '' })
+const busy = ref(false)
+function ask(kind: Kind, target?: { id: string; label: string }, photoId = '') {
+  const n = props.photos.length
+  const texts: Record<Kind, [string, string, string]> = {
+    merge: [`Merge into ${target?.label}?`, `Its ${n} photo${n === 1 ? '' : 's'}, voice notes and notes move to ${target?.label}, and ${findName.value} is removed. Where both have a value, the other one is kept in Notes.`, 'Merge'],
+    delete: [`Delete ${findName.value}?`, `This removes the find and its ${n} photo${n === 1 ? '' : 's'} from this device. To keep the photos, use Ungroup photos instead.`, 'Delete'],
+    deletePhoto: ['Delete this photo?', 'It is removed from this device.', 'Delete'],
+    deleteUngrouped: [`Delete ${n} ungrouped photo${n === 1 ? '' : 's'}?`, 'They are removed from this device.', 'Delete all'],
+  }
+  const [title, text, action] = texts[kind]
+  confirm.value = { open: true, kind, title, text, action, target: target?.id ?? '', photoId }
+}
+async function onConfirm() {
+  const c = confirm.value
+  busy.value = true
+  try {
+    if (c.kind === 'merge' && props.find) await mergeFinds(props.find.id, c.target)
+    else if (c.kind === 'delete' && props.find) await deleteFind(props.find.id)
+    else if (c.kind === 'deletePhoto') await deleteSortedPhoto(c.photoId)
+    else if (c.kind === 'deleteUngrouped' && props.photos[0]) await deleteUngrouped(props.photos[0].forayId)
+  } finally {
+    busy.value = false
+    confirm.value.open = false
+  }
+}
+const ungroup = () => props.find && ungroupFind(props.find.id)
+const split = (id: string) => splitFindAt(id)
+
 const toggle = (p: Photo) => setPhotoSelected(p.id, !p.isSelected)
 const move = (id: string, target: string) => movePhoto(id, target)
 const moveNew = (id: string) => movePhotoToNewFind(id)
@@ -90,6 +154,7 @@ const moveNew = (id: string) => movePhotoToNewFind(id)
 
 <style scoped>
 .id-pending { color: #8a5a00; background: #fff3d6; }
+.species { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
 @media (min-width: 960px) {
   .thumbs { grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 12px; }
