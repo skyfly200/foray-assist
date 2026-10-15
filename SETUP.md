@@ -69,7 +69,8 @@ You already created the project. Verify it deploys.
    4. `20261001000004_unique_specimen_id.sql`
    5. `20261001000005_id_sets.sql`
    6. `20261001000006_shared_forays.sql` (shared forays, comments, societies, device keys)
-3. Check **Table Editor**: you should see `forays`, `specimens`, `photos`, `voice_notes`, `integration_tokens`, `id_networks`, `id_sets`, `foray_members`, `find_comments`, `societies`, `society_members`, `society_id_sets`, `device_keys`. `integration_tokens` should show RLS enabled with no policies. That's intentional, and only the server can read it. `id_networks` and `id_sets` let you read your own rows only; they are written solely by the `claim_id_sets` function.
+   7. `20261015000001_group_admins.sql` (app admins who can create groups in the app)
+3. Check **Table Editor**: you should see `forays`, `specimens`, `photos`, `voice_notes`, `integration_tokens`, `id_networks`, `id_sets`, `foray_members`, `find_comments`, `societies`, `society_members`, `society_id_sets`, `device_keys`, `app_admins`. `integration_tokens` should show RLS enabled with no policies. That's intentional, and only the server can read it. `id_networks` and `id_sets` let you read your own rows only; they are written solely by the `claim_id_sets` function.
 4. Check **Storage**: there should be a private bucket named `foray-media`.
 
 (If you prefer the CLI: install the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started), run `supabase link`, then `supabase db push`.)
@@ -94,7 +95,11 @@ Make the email contain a 6-digit code as well as the link. A link opens in whate
 3. Save. Under **Authentication → Providers → Email** the code length is 6 by default.
 
 ### 2.6 Groups (societies such as FRMS, CMS, ...)
-Groups (called societies in the database) are created by you, the project admin, in the **SQL Editor** (nobody can create one from the app). The officer's email must already have signed in to the app once.
+Groups are called societies in the database. App admins create them in the app: **Settings → Groups → Create a group** (name, optional short name, optional officer email; blank makes you the officer). To make yourself an admin, sign in to the app once, then run this in the **SQL Editor** (needs migration 7, `20261015000001_group_admins.sql`):
+```sql
+insert into public.app_admins (user_id) select id from auth.users where email = 'you@example.com';
+```
+Nobody can add admins from the app. You can still create a group straight from the SQL Editor instead. The officer's email must already have signed in to the app once.
 ```sql
 select create_society('frms', 'Front Range Mycological Society', 'officer@example.com');
 select create_society('cms', 'Colorado Mycological Society', 'officer@example.com');

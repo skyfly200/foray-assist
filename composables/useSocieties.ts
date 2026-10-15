@@ -1,5 +1,6 @@
 // Societies such as FRMS and CMS (roadmap Phase 12): membership, society forays and voucher
-// numbers. A society is created by the project admin (create_society in SQL, see SETUP.md);
+// numbers. Shown as "groups" in the app. An app admin creates one in Settings (admin_create_group)
+// or in SQL (create_society, see SETUP.md);
 // people join with the society's code. Officers and leaders claim sets of voucher numbers in
 // the society network (U-Z class) for preprinted sheets; members record a voucher number on
 // their own finds. Memberships are cached so the voucher field works offline.
@@ -19,6 +20,8 @@ export interface SocietySet { societyId: string; network: string; set: number; c
 
 const societies = ref<Society[]>([])
 const loaded = ref(false)
+/** This account is an app admin (app_admins) and can create groups. */
+const isAdmin = ref(false)
 
 async function session() {
   if (typeof navigator !== 'undefined' && !navigator.onLine) throw new Error("You're offline. This needs a connection.")
@@ -38,6 +41,11 @@ function friendly(msg: string) {
   if (/not a valid society number/i.test(msg)) return "That isn't a valid group voucher number."
   if (/society network is full/i.test(msg)) return 'This group has used all its voucher numbers.'
   if (/only officers can change the society code/i.test(msg)) return 'Only group officers can change the group code.'
+  if (/only app admins can create groups/i.test(msg)) return 'Only app admins can create groups.'
+  if (/group name must be/i.test(msg)) return 'The group name needs 2 to 120 characters.'
+  if (/group short name must be/i.test(msg)) return 'The short name needs 2 to 32 letters, numbers or dashes.'
+  if (/group short name already taken/i.test(msg)) return 'Another group already uses that short name. Pick a different one.'
+  if (/no account with that officer email/i.test(msg)) return "No one has signed in with that officer email yet. They need to sign in to the app once first."
   if (/verified email required/i.test(msg)) return 'Confirm your email (sign in above) first.'
   if (/function .* does not exist|schema cache/i.test(msg)) return 'The server is missing the groups update (migration 0006, see SETUP.md).'
   return msg
@@ -56,6 +64,22 @@ async function refresh(): Promise<void> {
   societies.value = data ?? []
   loaded.value = true
   await useDb().settings.put({ key: 'societies', value: JSON.parse(JSON.stringify(societies.value)) })
+  // Older servers (before migration 0007) have no am_i_admin: treat that as not an admin.
+  const admin = await sb.rpc('am_i_admin')
+  isAdmin.value = !admin.error && admin.data === true
+}
+
+export interface NewGroup { society_id: string; slug: string; name: string; network: string; join_code: string }
+
+/** App admin: create a group. A blank officer email makes the admin its officer. */
+async function createGroup(name: string, slug: string, officerEmail: string): Promise<NewGroup> {
+  const sb = await session()
+  const { data, error } = await sb.rpc('admin_create_group', {
+    p_name: name.trim(), p_slug: slug.trim() || null, p_officer_email: officerEmail.trim() || null,
+  })
+  if (error) throw new Error(friendly(error.message))
+  await refresh()
+  return data?.[0]
 }
 
 async function join(code: string, displayName: string): Promise<Society> {
@@ -134,5 +158,5 @@ async function setVoucher(specimenRowId: string, input: string) {
 
 export function useSocieties() {
   void loadCached()
-  return { societies, refresh, join, forays, claimVoucherSets, claimedSets, setRange, voucherProblem, setVoucher }
+  return { societies, isAdmin, refresh, join, createGroup, forays, claimVoucherSets, claimedSets, setRange, voucherProblem, setVoucher }
 }
