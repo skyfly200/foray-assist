@@ -93,13 +93,13 @@ Make the email contain a 6-digit code as well as the link. A link opens in whate
    ```
 3. Save. Under **Authentication → Providers → Email** the code length is 6 by default.
 
-### 2.6 Societies (FRMS, CMS, ...)
-Societies are created by you, the project admin, in the **SQL Editor** (nobody can create one from the app). The officer's email must already have signed in to the app once.
+### 2.6 Groups (societies such as FRMS, CMS, ...)
+Groups (called societies in the database) are created by you, the project admin, in the **SQL Editor** (nobody can create one from the app). The officer's email must already have signed in to the app once.
 ```sql
 select create_society('frms', 'Front Range Mycological Society', 'officer@example.com');
 select create_society('cms', 'Colorado Mycological Society', 'officer@example.com');
 ```
-Each society gets its own voucher-number range starting with a letter from U to Z. In the app, the officer sees the society's join code under **Settings → Societies** and shares it with members. Officers and foray leaders can get voucher numbers there too (1,024 per sheet), and can run a shared foray as a society foray.
+Each group gets its own voucher-number range starting with a letter from U to Z. In the app, the officer sees the group's join code under **Settings → Groups** and shares it with members. Officers and foray leaders can get voucher numbers there too (1,024 per sheet), and can run a shared foray as a group foray.
 
 ### 2.7 Test it
 Open your deployed app → **Settings** → enter your email → **Send link** → open the email on the same device → you should land back on Settings showing signed in, and the sync pill should turn green after a moment. In Supabase **Table Editor → forays** you should see your forays appear.
@@ -179,7 +179,7 @@ For the full list of things to test by hand on a real phone, printer and account
 - [ ] Share a foray (Share button on the foray screen), join it from a second phone with the code or QR, and see each other's finds
 - [ ] On a shared find, add a comment and an ID suggestion; it shows on the other phone
 - [ ] Send a find (Send on the find card) and open it on another phone (Open a shared find)
-- [ ] Join a society with its code (Settings → Societies) and add a voucher number to a find
+- [ ] Join a group with its code (Settings → Groups) and add a voucher number to a find
 
 ## Troubleshooting
 

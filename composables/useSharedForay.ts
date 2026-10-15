@@ -28,6 +28,7 @@ async function requireSession(): Promise<{ sb: any; userId: string; email: strin
 function friendly(msg: string): string {
   if (/verified email required/i.test(msg)) return 'Confirm your email (Settings, sign in) before sharing or joining.'
   if (/join code not found/i.test(msg)) return "That code didn't match a shared foray. Check it with the person who shared it; it may have been changed."
+  if (/only society officers and leaders/i.test(msg)) return 'Only group officers and foray leaders can run a group foray.'
   if (/function .* does not exist|schema cache/i.test(msg)) return 'The server is missing the shared-foray update (migration 0006, see SETUP.md).'
   return msg
 }

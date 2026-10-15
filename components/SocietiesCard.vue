@@ -1,13 +1,13 @@
 <template>
   <v-card class="fa-card" variant="flat">
     <v-card-title class="d-flex align-center">
-      <v-icon icon="mdi-account-group" color="primary" class="mr-2" /> Societies
+      <v-icon icon="mdi-account-group" color="primary" class="mr-2" /> Groups
       <v-spacer />
-      <v-btn v-if="signedIn" size="small" variant="text" icon="mdi-refresh" :loading="busy" aria-label="Refresh societies" @click="run(refresh)" />
+      <v-btn v-if="signedIn" size="small" variant="text" icon="mdi-refresh" :loading="busy" aria-label="Refresh groups" @click="run(refresh)" />
     </v-card-title>
     <v-card-text>
       <p class="text-body-2 text-medium-emphasis mb-3">
-        Join a mycological society (for example FRMS or CMS) to see its forays and record its voucher numbers on your finds.
+        Join a group, such as a mycological society like FRMS or CMS, to see its forays and record its voucher numbers on your finds.
         Your own finds keep your personal IDs.
       </p>
 
@@ -22,7 +22,7 @@
         <div v-if="s.join_code" class="text-caption mt-1">Code for new members: <b class="mono">{{ formatJoinCode(s.join_code) }}</b></div>
 
         <div v-if="openForays === s.society_id" class="mt-2">
-          <div v-if="!sforays.length" class="text-caption text-medium-emphasis">No open society forays.</div>
+          <div v-if="!sforays.length" class="text-caption text-medium-emphasis">No open group forays.</div>
           <div v-for="f in sforays" :key="f.foray_id" class="d-flex align-center py-1">
             <div class="flex-grow-1">{{ f.name }} <span class="text-caption text-medium-emphasis">{{ new Date(f.started_at).toLocaleDateString() }}</span></div>
             <v-btn size="small" color="primary" variant="tonal" :loading="busy" @click="joinSocietyForay(f.join_code)">Join</v-btn>
@@ -38,10 +38,10 @@
       </div>
 
       <div v-if="signedIn" class="d-flex ga-2 align-start">
-        <v-text-field v-model="code" label="Society code" placeholder="ABCD-EFGH" density="comfortable" variant="outlined" hide-details="auto" />
+        <v-text-field v-model="code" label="Group code" placeholder="ABCD-EFGH" density="comfortable" variant="outlined" hide-details="auto" />
         <v-btn color="primary" :loading="busy" :disabled="!code.trim()" class="mt-1" @click="onJoin">Join</v-btn>
       </div>
-      <div v-else class="text-caption text-medium-emphasis">Sign in to join a society.</div>
+      <div v-else class="text-caption text-medium-emphasis">Sign in to join a group.</div>
       <v-alert v-if="error" type="error" variant="tonal" density="compact" class="mt-3">{{ error }}</v-alert>
     </v-card-text>
   </v-card>
