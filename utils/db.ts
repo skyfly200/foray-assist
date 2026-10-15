@@ -170,7 +170,8 @@ export interface OutboxItem {
 // 'printer' (last used printer info), 'displayName' (name shown to
 // foray members), 'societies' (cached my_societies() rows), 'societySets' (voucher sets this device claimed),
 // 'deviceKey' ({ privateKey, publicKey } CryptoKeys for signing, Phase 13), 'deviceKeyPublished' (key id sent
-// to the server), 'nearbyEnabled' (opt-in for nearby alerts), 'fieldForm' (FormConfig: hidden and added form fields, forms per printed page).
+// to the server), 'nearbyEnabled' (opt-in for nearby alerts), 'fieldForm' (FormConfig: hidden and added form fields, forms per printed page),
+// 'pullCursor' (last synced_at pulled per table), 'syncUserId' (account this device first synced).
 export interface Setting {
   key: string
   value: unknown

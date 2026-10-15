@@ -152,7 +152,7 @@ const status = computed(() => {
             <v-list-item v-if="lastError" title="Last error" :subtitle="lastError" prepend-icon="mdi-alert-circle-outline" base-color="error" />
           </v-list>
 
-          <v-btn class="mt-2" color="primary" variant="tonal" prepend-icon="mdi-sync" :loading="syncing" :disabled="!online || !signedIn || syncing" @click="syncNow()">
+          <v-btn class="mt-2" color="primary" variant="tonal" prepend-icon="mdi-sync" :loading="syncing" :disabled="!online || !signedIn || syncing" @click="syncNow({ full: true })">
             Sync now
           </v-btn>
           <div v-if="!signedIn" class="text-caption mt-1">Sign in (verified email) to get your ID block and enable syncing.</div>
