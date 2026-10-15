@@ -4,6 +4,7 @@ const router = useRouter()
 
 const homeActive = computed(() => route.path === '/' || route.path.startsWith('/forays'))
 const dexActive = computed(() => route.path.startsWith('/dex'))
+const mapActive = computed(() => route.path.startsWith('/map'))
 const settingsActive = computed(() => route.path.startsWith('/settings'))
 // New find: opens the camera straight from the tap (browsers only allow that synchronously),
 // then files the photo under the foray on screen, else the newest open foray, else a new one.
@@ -41,6 +42,11 @@ async function onCaptured(e: Event) {
         <span class="fa-nav__label">Forays</span>
       </NuxtLink>
 
+      <NuxtLink to="/dex" class="fa-nav__item" :class="{ 'is-active': dexActive }" :aria-current="dexActive ? 'page' : undefined">
+        <span class="fa-nav__pill"><v-icon icon="mdi-book-open-variant" size="24" /></span>
+        <span class="fa-nav__label">MycoDex</span>
+      </NuxtLink>
+
       <button
         type="button"
         class="fa-nav__item fa-nav__new"
@@ -56,9 +62,9 @@ async function onCaptured(e: Event) {
       </button>
       <input ref="cameraInput" type="file" accept="image/*" capture="environment" hidden @change="onCaptured" />
 
-      <NuxtLink to="/dex" class="fa-nav__item" :class="{ 'is-active': dexActive }" :aria-current="dexActive ? 'page' : undefined">
-        <span class="fa-nav__pill"><v-icon icon="mdi-book-open-variant" size="24" /></span>
-        <span class="fa-nav__label">MycoDex</span>
+      <NuxtLink to="/map" class="fa-nav__item" :class="{ 'is-active': mapActive }" :aria-current="mapActive ? 'page' : undefined">
+        <span class="fa-nav__pill"><v-icon icon="mdi-map-outline" size="24" /></span>
+        <span class="fa-nav__label">Map</span>
       </NuxtLink>
 
       <NuxtLink to="/settings" class="fa-nav__item" :class="{ 'is-active': settingsActive }" :aria-current="settingsActive ? 'page' : undefined">
@@ -85,7 +91,7 @@ async function onCaptured(e: Event) {
 .fa-nav__bar {
   pointer-events: auto;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   align-items: end;
   width: 100%;
   max-width: 460px;
@@ -116,7 +122,7 @@ async function onCaptured(e: Event) {
 .fa-nav__pill {
   display: grid;
   place-items: center;
-  width: 54px;
+  width: 48px;
   height: 32px;
   border-radius: 999px;
   transition: background 0.3s var(--fa-ease), transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
