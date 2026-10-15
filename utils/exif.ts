@@ -15,7 +15,11 @@ export async function readPhotoMeta(file: File | Blob): Promise<PhotoMeta> {
   try {
     const exifr: any = await import('exifr')
     const lib = exifr.default ?? exifr
-    const tags = await lib.parse(file, { gps: true, pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate', 'latitude', 'longitude'] })
+    // exifr computes latitude/longitude from the raw GPS tags, so pick those, not the computed names.
+    const tags = await lib.parse(file, {
+      gps: true,
+      pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate', 'GPSLatitude', 'GPSLatitudeRef', 'GPSLongitude', 'GPSLongitudeRef'],
+    })
     const d = tags?.DateTimeOriginal ?? tags?.CreateDate ?? tags?.ModifyDate
     if (d instanceof Date && !Number.isNaN(d.getTime())) time = d
     if (typeof tags?.latitude === 'number' && typeof tags?.longitude === 'number' && Number.isFinite(tags.latitude) && Number.isFinite(tags.longitude)) {

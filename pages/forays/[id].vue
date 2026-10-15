@@ -7,7 +7,7 @@ const route = useRoute()
 const id = route.params.id as string
 const { isForay } = useMode()
 // Review mode: work on the finds themselves, or sort loose photos into finds.
-const reviewTab = ref<'finds' | 'photos'>('finds')
+const reviewTab = ref<'finds' | 'photos'>(route.query.tab === 'photos' ? 'photos' : 'finds')
 
 const foray = ref<Foray | null | undefined>(undefined)
 let sub: { unsubscribe(): void } | null = null

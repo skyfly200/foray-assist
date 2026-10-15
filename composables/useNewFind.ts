@@ -2,13 +2,14 @@
 import { addPhoto, createFind } from '~/composables/useFinds'
 import { pickCaptureForay } from '~/utils/captureTarget'
 
-/** Starts a foray now; the name defaults to today's date. */
-export async function startForay(name?: string): Promise<Foray> {
+/** Starts a foray now; the name defaults to today's date. Pass `when` to log a past foray (already ended). */
+export async function startForay(name?: string, when?: { startedAt: string; endedAt: string }): Promise<Foray> {
   const now = nowIso()
   const row: Foray = {
     id: newId(),
-    name: name?.trim() || `Foray ${new Date().toLocaleDateString()}`,
-    startedAt: now,
+    name: name?.trim() || `Foray ${new Date(when?.startedAt ?? now).toLocaleDateString()}`,
+    startedAt: when?.startedAt ?? now,
+    ...(when ? { endedAt: when.endedAt } : {}),
     updatedAt: now,
   }
   await useDb().forays.add(row)
