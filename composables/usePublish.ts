@@ -1,5 +1,6 @@
 import type { Geoprivacy } from '~/utils/db'
 import { isPendingId } from '~/utils/idCode'
+import { requirePhotoBlob } from './useMedia'
 // iNaturalist publish queue (SPEC 3.6). State lives in Specimen.inatStatus /
 // inatError / iNatObservationId (Dexie); never blocks field logging. Runs
 // sequentially when online + signed in + iNat connected.
@@ -74,7 +75,7 @@ async function publishOne(id: string) {
     const done = new Set(await donePhotos(id))
     for (const p of photos) {
       if (done.has(p.id)) continue
-      const jpeg = await downscale(p.blob)
+      const jpeg = await downscale(await requirePhotoBlob(p))
       const fd = new FormData()
       fd.append('file', jpeg, `${sp.specimenId}-${p.id.slice(0, 8)}.jpg`)
       await apiFetch(`/api/inat/observations/${obsId}/photos`, { method: 'POST', body: fd })

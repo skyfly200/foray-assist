@@ -3,6 +3,7 @@ import { nextSpecimenId } from '~/utils/specimenId'
 import { clusterPhotos, withinWindow, DEFAULT_MAX_METERS, DEFAULT_MAX_SECONDS } from '~/utils/cluster'
 import { readPhotoMeta } from '~/utils/exif'
 import type { Photo, Specimen } from '~/utils/db'
+import { ensurePhotoBlob } from './useMedia'
 
 // ---------- blur worker client (singleton, falls back to main thread) ----------
 let worker: Worker | null = null
@@ -126,11 +127,15 @@ export async function scorePhotos(forayId: string, onProgress?: (done: number, t
     const p = await db.photos.get(id)
     if (p && p.blurScore === undefined) {
       try {
-        const score = await scoreBlob(p.blob)
-        await db.transaction('rw', db.photos, db.outbox, async () => {
-          await db.photos.update(id, { blurScore: score, updatedAt: nowIso() })
-          await enqueue('photos', id)
-        })
+        // A photo from another device is fetched first; offline, it stays unscored until next time.
+        const blob = await ensurePhotoBlob(p)
+        if (blob) {
+          const score = await scoreBlob(blob)
+          await db.transaction('rw', db.photos, db.outbox, async () => {
+            await db.photos.update(id, { blurScore: score, updatedAt: nowIso() })
+            await enqueue('photos', id)
+          })
+        }
       } catch (e) {
         console.warn('blur score failed', id, e) // undecodable image: leave unscored
       }
