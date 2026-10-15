@@ -69,6 +69,27 @@
           You are offline. Connect to download the model.
         </div>
       </div>
+
+      <div v-if="downloaded.length" class="mt-4" data-testid="voice-storage">
+        <div class="text-body-2 font-weight-medium mb-1">Space on this device</div>
+        <v-list density="compact" class="py-0 bg-transparent">
+          <v-list-item v-for="key in downloaded" :key="key" class="px-0" :data-testid="`voice-storage-${key}`">
+            <v-list-item-title>{{ models[key].label }}</v-list-item-title>
+            <v-list-item-subtitle>
+              {{ formatBytes(storage.models[key]) }}<span v-if="key === model"> · in use</span>
+            </v-list-item-subtitle>
+            <template #append>
+              <v-btn color="error" variant="text" size="small" prepend-icon="mdi-delete" :disabled="busy" @click="confirmKey = key">
+                Delete
+              </v-btn>
+            </template>
+          </v-list-item>
+          <v-list-item v-if="storage.runtime" class="px-0">
+            <v-list-item-title>Speech engine</v-list-item-title>
+            <v-list-item-subtitle>{{ formatBytes(storage.runtime) }} · deleted with the last model</v-list-item-subtitle>
+          </v-list-item>
+        </v-list>
+      </div>
     </v-card-text>
     <v-card-actions>
       <v-btn
@@ -85,11 +106,25 @@
       <v-btn v-else-if="status !== 'ready'" variant="tonal" prepend-icon="mdi-power" :loading="status === 'loading'" @click="download">
         Load model
       </v-btn>
-      <v-spacer />
-      <v-btn v-if="isCached" color="error" variant="text" prepend-icon="mdi-delete" :disabled="busy" @click="removeCache()">
-        Remove from device
-      </v-btn>
     </v-card-actions>
+
+    <v-dialog :model-value="!!confirmKey" max-width="420" @update:model-value="(v: boolean) => { if (!v) confirmKey = null }">
+      <v-card v-if="confirmKey">
+        <v-card-title class="text-subtitle-1 font-weight-bold">Delete {{ models[confirmKey].label }}?</v-card-title>
+        <v-card-text class="text-body-2">
+          Frees about {{ formatBytes(freedBytes) }}.
+          <template v-if="confirmKey === model">
+            Until you download it again, voice notes use the browser's speech recognition when online, and recordings are kept to transcribe later.
+          </template>
+          Your voice notes are not deleted.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="confirmKey = null">Cancel</v-btn>
+          <v-btn color="error" variant="flat" :loading="deleting" data-testid="confirm-delete-model" @click="confirmDelete">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-card>
 </template>
 
@@ -100,7 +135,33 @@ import { VOICE_VOCAB_KEY } from '~/composables/useVoiceVocab'
 import { useSpeechEngine } from '~/composables/useSpeechEngine'
 import { webSpeechSupported, webSpeechTakesTrack } from '~/composables/useWebSpeech'
 
-const { model, models, status, progress, error, device, cachedModels, isCached, setModel, download, removeCache } = useWhisper()
+const { model, models, status, progress, error, device, cachedModels, isCached, storage, refreshStorage, setModel, download, removeCache } = useWhisper()
+
+type ModelKey = keyof typeof models
+const downloaded = computed(() => (Object.keys(models) as ModelKey[]).filter((k) => cachedModels.value[k]))
+const confirmKey = ref<ModelKey | null>(null)
+const deleting = ref(false)
+/** The model, plus the speech engine when it is the last model on the device. */
+const freedBytes = computed(() => {
+  const k = confirmKey.value
+  if (!k) return 0
+  const last = downloaded.value.length === 1 && downloaded.value[0] === k
+  return storage.value.models[k] + (last ? storage.value.runtime : 0)
+})
+async function confirmDelete() {
+  if (!confirmKey.value) return
+  deleting.value = true
+  try { await removeCache(confirmKey.value) } finally {
+    deleting.value = false
+    confirmKey.value = null
+  }
+}
+function formatBytes(n: number) {
+  if (!n) return 'size unknown'
+  return n >= 1e6 ? `${Math.round(n / 1e6)} MB` : `${Math.max(1, Math.round(n / 1e3))} KB`
+}
+onMounted(refreshStorage)
+watch(cachedModels, refreshStorage, { deep: true })
 
 const { engine, setEngine } = useSpeechEngine()
 const browserSpeech = ref(true)

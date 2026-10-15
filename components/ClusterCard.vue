@@ -74,6 +74,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { deleteFind } from '~/composables/useFinds'
 import { deleteSortedPhoto, deleteUngrouped, mergeFinds, movePhoto, movePhotoToNewFind, setPhotoSelected, splitFindAt, ungroupFind } from '~/composables/useReview'
+import { ensurePhotoBlob } from '~/composables/useMedia'
 import type { Photo, Specimen } from '~/utils/db'
 import { displayId, isPendingId } from '~/utils/idCode'
 
@@ -99,8 +100,12 @@ watch(
         urls.delete(id)
       }
     }
-    for (const p of list) if (!urls.has(p.id)) urls.set(p.id, URL.createObjectURL(p.blob))
-    thumbs.value = [...list].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || (a.id < b.id ? -1 : 1)).map((p) => ({ photo: p, url: urls.get(p.id)! }))
+    for (const p of list) {
+      if (urls.has(p.id)) continue
+      if (p.blob) urls.set(p.id, URL.createObjectURL(p.blob))
+      else void ensurePhotoBlob(p)
+    }
+    thumbs.value = [...list].filter((p) => urls.has(p.id)).sort((a, b) => a.capturedAt.localeCompare(b.capturedAt) || (a.id < b.id ? -1 : 1)).map((p) => ({ photo: p, url: urls.get(p.id)! }))
   },
   { immediate: true },
 )

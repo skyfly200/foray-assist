@@ -96,7 +96,10 @@ export interface Photo {
   width?: number
   height?: number
   source: 'capture' | 'picker' | 'google-photos'
-  blob: Blob
+  /** The image. Absent for a photo taken on another device until it is first shown (composables/useMedia.ts). */
+  blob?: Blob
+  /** Where the image is stored on the server, once uploaded. */
+  storagePath?: string
   mimeType: string
   capturedAt: string
   latitude?: number
@@ -111,7 +114,10 @@ export interface VoiceNote {
   id: string
   specimenRowId?: string // optional: a note may belong to the foray as a whole
   forayId: string
+  /** Absent for a note recorded on another device until it is first played (composables/useMedia.ts). */
   audio?: Blob
+  /** Where the audio is stored on the server, once uploaded. */
+  storagePath?: string
   transcript: string
   model: string // e.g. 'web-speech', 'whisper-tiny.en'
   at: string
@@ -170,7 +176,8 @@ export interface OutboxItem {
 // 'printer' (last used printer info), 'displayName' (name shown to
 // foray members), 'societies' (cached my_societies() rows), 'societySets' (voucher sets this device claimed),
 // 'deviceKey' ({ privateKey, publicKey } CryptoKeys for signing, Phase 13), 'deviceKeyPublished' (key id sent
-// to the server), 'nearbyEnabled' (opt-in for nearby alerts), 'fieldForm' (FormConfig: hidden and added form fields, forms per printed page).
+// to the server), 'nearbyEnabled' (opt-in for nearby alerts), 'fieldForm' (FormConfig: hidden and added form fields, forms per printed page),
+// 'pullCursor' (last synced_at pulled per table), 'syncUserId' (account this device first synced).
 export interface Setting {
   key: string
   value: unknown

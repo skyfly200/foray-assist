@@ -2,6 +2,7 @@
 // MycoDex: one card per species you've found, numbered in the order you first found them.
 import { liveQuery } from 'dexie'
 import type { DexEntry, DexStats } from '~/utils/dex'
+import { ensurePhotoBlob } from '~/composables/useMedia'
 
 type SortKey = 'number' | 'count' | 'recent' | 'name'
 
@@ -65,25 +66,30 @@ onMounted(() => {
     const photos = ids.length ? await db.photos.where('specimenRowId').anyOf(ids).toArray() : []
     const byFind = new Map<string, typeof photos>()
     for (const p of photos) {
-      if (!(p.blob instanceof Blob)) continue
       byFind.set(p.specimenRowId, [...(byFind.get(p.specimenRowId) ?? []), p])
     }
     const cov: { key: string; photoId: string; blob: Blob }[] = []
+    const fetch: typeof photos = []
     for (const e of dex.entries) {
       for (const s of e.sightings) {
         const ps = byFind.get(s.findId)
         if (!ps?.length) continue
-        const p = ps.find((x) => x.isSelected) ?? ps.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))[0]
-        cov.push({ key: e.key, photoId: p.id, blob: p.blob })
+        const best = ps.find((x) => x.isSelected) ?? ps.sort((a, b) => a.capturedAt.localeCompare(b.capturedAt))[0]
+        // A photo from another device downloads now; until then use one this device already has.
+        if (!best.blob) fetch.push(best)
+        const p = best.blob ? best : ps.find((x) => x.blob)
+        if (!p) continue
+        cov.push({ key: e.key, photoId: p.id, blob: p.blob! })
         break
       }
     }
-    return { ...dex, cov }
+    return { ...dex, cov, fetch }
   }).subscribe({
     next: (r) => {
       entries.value = r.entries
       stats.value = r.stats
       syncCovers(r.cov)
+      r.fetch.forEach((p) => void ensurePhotoBlob(p))
       if (open.value) open.value = r.entries.find((e) => e.key === open.value!.key) ?? null
       loaded.value = true
     },

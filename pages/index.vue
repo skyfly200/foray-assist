@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { liveQuery } from 'dexie'
+import { ensurePhotoBlob } from '~/composables/useMedia'
+import type { Photo } from '~/utils/db'
 
 const { isForay } = useMode()
 const router = useRouter()
@@ -80,14 +82,18 @@ onMounted(() => {
       const [fc, sc, pc, fs] = await Promise.all([db.forays.count(), db.specimens.count(), db.photos.count(), db.forays.toArray()])
       const counts: Record<string, number> = {}
       const cov: { forayId: string; photoId: string; blob: Blob }[] = []
+      const fetch: Photo[] = []
       await Promise.all(
         fs.map(async (f) => {
           counts[f.id] = await db.specimens.where('forayId').equals(f.id).count()
-          const p = await db.photos.where('forayId').equals(f.id).sortBy('capturedAt').then((a) => a.find((x) => x.blob instanceof Blob))
-          if (p) cov.push({ forayId: f.id, photoId: p.id, blob: p.blob })
+          const all = await db.photos.where('forayId').equals(f.id).sortBy('capturedAt')
+          // The cover is the foray's first photo; if it came from another device, fetch it and show one we have meanwhile.
+          if (all[0] && !all[0].blob) fetch.push(all[0])
+          const p = all.find((x) => x.blob instanceof Blob)
+          if (p) cov.push({ forayId: f.id, photoId: p.id, blob: p.blob! })
         }),
       )
-      return { fc, sc, pc, counts, cov, ids: fs.map((f) => f.id) }
+      return { fc, sc, pc, counts, cov, fetch, ids: fs.map((f) => f.id) }
     }).subscribe({
       next: (r) => {
         stats.forays = r.fc
@@ -95,6 +101,7 @@ onMounted(() => {
         stats.photos = r.pc
         findCounts.value = r.counts
         syncCovers(r.cov, new Set(r.ids))
+        r.fetch.forEach((p) => void ensurePhotoBlob(p))
       },
       error: (e) => console.error('stats query failed', e),
     }),
@@ -171,6 +178,11 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
             <v-btn v-bind="act" variant="tonal" color="white" rounded="xl" size="small" prepend-icon="mdi-account-multiple-plus">Join a shared foray</v-btn>
           </template>
         </JoinForayDialog>
+        <PastForayDialog>
+          <template #activator="{ props: act }">
+            <v-btn v-bind="act" variant="tonal" color="white" rounded="xl" size="small" prepend-icon="mdi-calendar-clock">Log a past foray</v-btn>
+          </template>
+        </PastForayDialog>
       </div>
 
     </section>
@@ -254,7 +266,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 .fa-home__fab-label { font-weight: 800; font-size: 1.05rem; }
 .fa-home__name { width: 100%; max-width: 340px; text-align: left; }
 .fa-home__name :deep(.v-field) { border-radius: 999px; }
-.fa-home__join { margin-top: 12px; }
+.fa-home__join { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
 @keyframes fa-home-breathe { 50% { transform: scale(1.05); } }
 
 .fa-home__section { margin: 22px 4px 10px; font-size: 1.1rem; font-weight: 800; }

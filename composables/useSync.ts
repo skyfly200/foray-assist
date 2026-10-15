@@ -4,6 +4,7 @@
 import { liveQuery } from 'dexie'
 import { countParked, countPending, pickNext, planFailure, type SyncOutboxItem } from '../utils/syncPolicy'
 import { stripPhotoBlob } from '../utils/jpeg'
+import { PULL_TABLES, advanceCursor, pullSince, remoteToLocal, rowsDeletedElsewhere, shouldApply, type PullTable } from '../utils/syncPull'
 
 const MEDIA_BUCKET = 'foray-media'
 
@@ -99,9 +100,12 @@ async function processItem(sb: any, item: OutboxItem) {
 
   let blob: Blob | undefined
   let path: string | undefined
+  // Media is uploaded once; after that (or for media that came from another device) only the row changes.
   // Uploaded photos lose their EXIF (GPS) so a find's location setting holds once it is shared.
-  if (item.table === 'photos' && row.blob instanceof Blob) { blob = await stripPhotoBlob(row.blob); path = mediaPath('photos') }
-  if (item.table === 'voiceNotes' && row.audio instanceof Blob) { blob = row.audio; path = mediaPath('voice') }
+  if (!row.storagePath) {
+    if (item.table === 'photos' && row.blob instanceof Blob) { blob = await stripPhotoBlob(row.blob); path = mediaPath('photos') }
+    if (item.table === 'voiceNotes' && row.audio instanceof Blob) { blob = row.audio; path = mediaPath('voice') }
+  }
 
   const payload = toRow(row, [...map.drop])
   if (path) payload.storage_path = path
@@ -116,10 +120,63 @@ async function processItem(sb: any, item: OutboxItem) {
     if (upErr) throw upErr
   }
   // Mark synced without touching updatedAt (not a user edit).
-  await (db as any)[item.table].update(item.rowId, { syncedAt: nowIso() })
+  await (db as any)[item.table].update(item.rowId, { syncedAt: nowIso(), ...(path ? { storagePath: path } : {}) })
 }
 
-async function syncNow(): Promise<void> {
+const PAGE = 500
+type PullCursors = Partial<Record<PullTable, string>>
+let pulledFullThisSession = false
+
+/**
+ * Download this account's rows that other devices uploaded (SPEC 4.3). Incremental
+ * by synced_at; a full pull (first sync of a session, or Sync now) also removes
+ * rows another device deleted. Photo images and voice audio are not downloaded
+ * here; they load the first time they are shown (composables/useMedia.ts).
+ */
+async function pullRemote(sb: any, full: boolean) {
+  const db: any = useDb()
+  const cursors: PullCursors = full ? {} : (((await db.settings.get('pullCursor'))?.value as PullCursors) ?? {})
+  const next: PullCursors = { ...cursors }
+  const outbox = await db.outbox.toArray()
+  // Only remove rows another device deleted when this device has only ever synced this
+  // account; after switching accounts, the old account's rows are simply left alone.
+  const owner = (await db.settings.get('syncUserId'))?.value as string | undefined
+  if (!owner) await db.settings.put({ key: 'syncUserId', value: userId })
+  const mayDelete = full && (!owner || owner === userId)
+  const seen: Array<{ table: PullTable; ids: Set<string>; pending: Set<string> }> = []
+
+  for (const { table, remote } of PULL_TABLES) {
+    const since = pullSince(cursors[table])
+    const rows: any[] = []
+    for (let from = 0; ; from += PAGE) {
+      let q = sb.from(remote).select('*').eq('user_id', userId).order('synced_at').order('id').range(from, from + PAGE - 1)
+      if (since) q = q.gte('synced_at', since)
+      const { data, error } = await q
+      if (error) throw error
+      rows.push(...(data ?? []))
+      if (!data || data.length < PAGE) break
+    }
+    const pending = new Set<string>(outbox.filter((o: any) => o.table === table).map((o: any) => o.rowId))
+
+    for (const r of rows) {
+      const local = await db[table].get(r.id)
+      if (!shouldApply(local, r.updated_at, pending.has(r.id))) continue
+      // Keep local-only fields (a foray's sharing state, media already on this device).
+      await db[table].put({ ...local, ...remoteToLocal(table, r), syncedAt: r.synced_at })
+    }
+
+    if (mayDelete) seen.push({ table, ids: new Set(rows.map((r) => r.id)), pending })
+    next[table] = advanceCursor(cursors[table], rows)
+  }
+  const accountHasRows = seen.some((t) => t.ids.size > 0)
+  for (const { table, ids, pending } of seen) {
+    const gone = rowsDeletedElsewhere(await db[table].toArray(), ids, pending, accountHasRows)
+    if (gone.length) await db[table].bulkDelete(gone)
+  }
+  await db.settings.put({ key: 'pullCursor', value: next })
+}
+
+async function syncNow(opts: { full?: boolean } = {}): Promise<void> {
   init()
   if (syncing.value || !online.value || !signedIn.value) return
   const sb = getClient()
@@ -145,6 +202,10 @@ async function syncNow(): Promise<void> {
         // permanent: backed off or parked; carry on with unrelated rows
       }
     }
+    // Upload first so this device's edits are on the server before others' are merged in.
+    const full = !!opts.full || !pulledFullThisSession
+    await pullRemote(sb, full)
+    if (full) pulledFullThisSession = true
   } catch { /* never throw */ } finally {
     syncing.value = false
   }

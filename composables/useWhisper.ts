@@ -22,6 +22,7 @@ export const WHISPER_MODELS: Record<WhisperModel, { repo: string; label: string;
 }
 
 const CACHE_NAME = 'transformers-cache' // Transformers.js default env.cacheKey
+const ORT_SW_CACHE = 'ort-runtime' // service worker runtime cache for /ort/ (nuxt.config.ts)
 
 const model = ref<WhisperModel>('tiny.en')
 const status = ref<WhisperStatus>('unknown')
@@ -29,6 +30,8 @@ const progress = ref(0)
 const error = ref('')
 const device = ref('')
 const cachedModels = ref<Record<WhisperModel, boolean>>({ 'tiny.en': false, 'base.en': false })
+/** Bytes each model and the shared speech runtime take on this device (0 when absent). */
+const storage = ref<{ models: Record<WhisperModel, number>; runtime: number }>({ models: { 'tiny.en': 0, 'base.en': 0 }, runtime: 0 })
 
 let worker: Worker | null = null
 let initDone: Promise<void> | null = null
@@ -208,17 +211,77 @@ async function setModel(m: WhisperModel) {
   await refreshCache()
 }
 
-/** Delete the model's cached files (and free the worker). */
+async function entryBytes(cache: Cache, req: Request): Promise<number> {
+  try {
+    const res = await cache.match(req)
+    if (!res) return 0
+    const len = Number(res.headers.get('content-length'))
+    if (len > 0) return len
+    return (await res.blob()).size
+  } catch { return 0 }
+}
+
+async function sumBytes(cache: Cache, keys: readonly Request[]): Promise<number> {
+  let n = 0
+  for (const k of keys) n += await entryBytes(cache, k)
+  return n
+}
+
+const isOrtKey = (r: Request) => new URL(r.url).pathname.startsWith('/ort/')
+
+/** Recount how much space each model and the speech runtime use. */
+async function refreshStorage() {
+  if (typeof caches === 'undefined') return
+  try {
+    const models = { 'tiny.en': 0, 'base.en': 0 } as Record<WhisperModel, number>
+    for (const m of Object.keys(WHISPER_MODELS) as WhisperModel[]) {
+      const r = await cacheKeysFor(m)
+      if (r) models[m] = await sumBytes(r.cache, r.keys)
+    }
+    // The runtime can sit in both caches (transformers.js wasm cache and the SW cache); both copies take space.
+    let runtime = 0
+    for (const name of [CACHE_NAME, ORT_SW_CACHE]) {
+      if (!(await caches.has(name))) continue
+      const c = await caches.open(name)
+      runtime += await sumBytes(c, (await c.keys()).filter(isOrtKey))
+    }
+    storage.value = { models, runtime }
+  } catch { /* leave previous numbers */ }
+}
+
+function disposeWorker() {
+  worker?.postMessage({ type: 'dispose' })
+  loadedModel = ''
+  status.value = 'unknown'
+  progress.value = 0
+}
+
+/** Delete the shared speech runtime (WASM) from every cache it lands in. */
+async function removeRuntime() {
+  if (typeof caches === 'undefined') return
+  for (const name of [CACHE_NAME, ORT_SW_CACHE]) {
+    if (!(await caches.has(name))) continue
+    const c = await caches.open(name)
+    await Promise.all((await c.keys()).filter(isOrtKey).map((k) => c.delete(k)))
+  }
+  ortFetched = false
+}
+
+/**
+ * Delete the model's cached files (and free the worker) to free up space.
+ * When no other model is left, the speech runtime goes too, since nothing uses it.
+ */
 async function removeCache(m: WhisperModel = model.value) {
   const r = await cacheKeysFor(m)
   if (r) await Promise.all(r.keys.map((k) => r.cache.delete(k)))
-  if (m === model.value) {
-    worker?.postMessage({ type: 'dispose' })
-    loadedModel = ''
-    status.value = 'unknown'
-    progress.value = 0
-  }
+  if (m === model.value || loadedModel === m) disposeWorker()
   await refreshCache()
+  if (!Object.values(cachedModels.value).some(Boolean)) {
+    await removeRuntime()
+    disposeWorker()
+    await refreshCache()
+  }
+  await refreshStorage()
 }
 
 /**
@@ -258,6 +321,8 @@ export function useWhisper() {
     isReady,
     models: WHISPER_MODELS,
     refreshCache,
+    storage,
+    refreshStorage,
     download,
     setModel,
     removeCache,
