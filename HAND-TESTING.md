@@ -154,7 +154,15 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] Airplane mode with Browser speech chosen: the recorder uses Whisper (if downloaded)
 - [ ] Switch back to On-device Whisper: notes use Whisper again
 
-## 13. Map tab, and leaving a foray
+## 14. Photo tag suggestions (Gemma, desktop)
+
+- [ ] On a computer with Chrome or Edge, open a foray in Review mode → Identify & edit. A find with a photo shows "Suggest tags from photos". On a phone it does not show
+- [ ] Tap it: a dialog asks before the ~3 GB download. Download: the progress bar fills, then "Looking at N photos…"
+- [ ] Suggestions appear as chips (only for empty fields, never the species). ✓ adds one to the form, ✕ skips it, Add all adds the rest
+- [ ] Note how long the first answer takes and how good the suggestions are, and the computer's graphics card
+- [ ] Reload and tap again: no download, it starts from the saved copy. The ⋮ menu can remove the model
+
+## 15. Map tab, and leaving a foray
 
 - [ ] The bottom bar reads Forays, MycoDex, New find, Map, Settings, and fits without labels clipping
 - [ ] Map shows a pin for each find that has a location; tapping one shows its name, ID, date and foray, and Open foray goes there

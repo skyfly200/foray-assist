@@ -32,6 +32,8 @@
 
       <VoiceRecorder :foray-id="find.forayId" :specimen-row-id="find.id" :list-only="!capture" class="mb-3" />
 
+      <PhotoTagSuggest v-if="!capture" :find="find" />
+
       <AttributeForm :specimen-row-id="find.id" :model-value="find.fieldNotes" class="mb-2" />
 
       <!-- Field capture keeps the card short; privacy, vouchers and comments are Review work. -->
