@@ -171,6 +171,11 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
             <v-btn v-bind="act" variant="tonal" color="white" rounded="xl" size="small" prepend-icon="mdi-account-multiple-plus">Join a shared foray</v-btn>
           </template>
         </JoinForayDialog>
+        <PastForayDialog>
+          <template #activator="{ props: act }">
+            <v-btn v-bind="act" variant="tonal" color="white" rounded="xl" size="small" prepend-icon="mdi-calendar-clock">Log a past foray</v-btn>
+          </template>
+        </PastForayDialog>
       </div>
 
     </section>
@@ -254,7 +259,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 .fa-home__fab-label { font-weight: 800; font-size: 1.05rem; }
 .fa-home__name { width: 100%; max-width: 340px; text-align: left; }
 .fa-home__name :deep(.v-field) { border-radius: 999px; }
-.fa-home__join { margin-top: 12px; }
+.fa-home__join { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
 @keyframes fa-home-breathe { 50% { transform: scale(1.05); } }
 
 .fa-home__section { margin: 22px 4px 10px; font-size: 1.1rem; font-weight: 800; }
