@@ -105,6 +105,8 @@ export interface Photo {
   latitude?: number
   longitude?: number
   blurScore?: number
+  /** Which diagnostic shot this is, when taken in the AR guide (see utils/score.ts). */
+  angle?: 'cap' | 'underside' | 'stem' | 'habitat'
   isSelected: boolean
   updatedAt: string
   syncedAt?: string

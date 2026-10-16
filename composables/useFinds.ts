@@ -112,6 +112,7 @@ export async function addPhoto(
   blob: Blob,
   source: Photo['source'] = 'capture',
   meta?: PhotoMeta,
+  angle?: Photo['angle'],
 ): Promise<Photo> {
   const db = useDb()
   // The photo's own time and GPS win; the device's position only fills in for a photo taken just now.
@@ -129,6 +130,7 @@ export async function addPhoto(
     capturedAt: stamp.useDevicePosition ? now : stamp.timestamp,
     ...(stamp.latitude !== undefined ? { latitude: stamp.latitude, longitude: stamp.longitude } : {}),
     ...(pos ?? {}),
+    ...(angle ? { angle } : {}),
     isSelected: false,
     updatedAt: now,
   }

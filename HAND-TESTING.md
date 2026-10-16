@@ -180,3 +180,16 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] Deadly and poisonous species show a red or orange badge
 - [ ] Use on a match: the key closes, Species guess reads "Name?", and empty underside, spore print and stem fields are filled from the answers
 - [ ] Works in airplane mode
+
+## 17. Guided capture, AR and scores
+
+- [ ] On a find in Foray mode, tap **Guided capture**. The camera fills the screen with the Thoroughness ring, the four shot chips and a hint
+- [ ] Take a photo: the screen flashes, the chip gets a check, "+N% Thoroughness" pops up and the next missing shot is selected
+- [ ] Tap the mic and talk ("brown convex cap, white gills, smells like anise"): captions appear at the bottom and filled fields show as tags on the left
+- [ ] Tap the pin button, tap the picture, then record a note: the pin shows your words
+- [ ] Open the checklist button: it lists what is still missing
+- [ ] Android Chrome only: an **AR** button appears. Tap it, move the phone until the circle turns yellow, aim at the mushroom and tap **Place**. Four shot markers ring the find and stay put as you walk around
+- [ ] In AR, take a photo. If the phone can't save photos from AR, the app switches back to the camera and takes it there. Report which happened
+- [ ] In AR, the pin button drops a note where the circle is; it stays there as you move
+- [ ] MycoDex shows the Finds score, Thoroughness, streak and badges. A find counts toward Finds once it is at least 50% complete
+- [ ] iPhone: no AR button; the camera screen works
