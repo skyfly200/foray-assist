@@ -2,6 +2,7 @@
 // Foray detail. Foray Mode: log finds in the field (photos, voice, notes, labels).
 // Review Mode: identify and edit finds, sort photos, print forms, and publish to iNaturalist.
 import { liveQuery } from 'dexie'
+import { canEditForay } from '~/composables/useNewFind'
 
 const route = useRoute()
 const id = route.params.id as string
@@ -34,77 +35,86 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="foray === null">
-    <v-alert type="warning" variant="tonal" class="mb-4">Foray not found.</v-alert>
-    <v-btn to="/" prepend-icon="mdi-arrow-left">Back to forays</v-btn>
-  </div>
-  <!-- One root element: the page transition (mode out-in) never finishes leaving a page with several. -->
-  <div v-else>
-    <header class="fa-hero foray-hero mb-4" :class="{ 'hero-in-desk': isForay }">
-      <div class="text-overline hero-kicker">{{ isForay ? '🍄 Foray mode' : '🔍 Review mode' }}</div>
-      <h1 class="text-h5 font-weight-bold hero-title">{{ foray?.name }}</h1>
-      <div v-if="foray" class="hero-sub">
-        Started {{ new Date(foray.startedAt).toLocaleString() }}
-        <span v-if="foray.endedAt"> · ended {{ new Date(foray.endedAt).toLocaleString() }}</span>
-      </div>
-      <div class="hero-share mt-2">
-        <ShareForayDialog :foray="foray" />
-        <span v-if="foray?.shared && foray.shared.role !== 'owner' && foray.shared.ownerName" class="hero-sub ml-2">Shared by {{ foray.shared.ownerName }}</span>
-      </div>
-      <div class="hero-pills d-flex flex-wrap ga-2 mt-3">
-        <span class="hero-pill"><v-icon icon="mdi-leaf" size="16" /> {{ counts.finds }} find{{ counts.finds === 1 ? '' : 's' }}</span>
-        <span class="hero-pill"><v-icon icon="mdi-camera" size="16" /> {{ counts.photos }} photo{{ counts.photos === 1 ? '' : 's' }}</span>
-        <span class="hero-pill"><v-icon icon="mdi-star" size="16" /> {{ counts.picked }} picked</span>
-      </div>
-    </header>
-
-    <div>
-      <Transition name="page" mode="out-in">
-        <!-- Desktop: two panes (main + sticky right column). Mobile: the columns simply stack in DOM order. -->
-        <div v-if="isForay" key="foray" class="fa-split">
-          <aside class="fa-desk" aria-label="Field desk">
-            <section class="desk-summary" aria-label="Foray summary">
-              <div class="desk-title">Field desk</div>
-              <div v-if="foray" class="desk-sub">
-                {{ foray.name }} · started {{ new Date(foray.startedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) }}
-              </div>
-              <div class="desk-stats">
-                <div class="stat"><b>{{ counts.finds }}</b><span>find{{ counts.finds === 1 ? '' : 's' }}</span></div>
-                <div class="stat"><b>{{ counts.photos }}</b><span>photo{{ counts.photos === 1 ? '' : 's' }}</span></div>
-                <div class="stat"><b>{{ counts.picked }}</b><span>picked</span></div>
-              </div>
-            </section>
-            <VoiceRecorder :foray-id="id" class="mb-4 desk-voice" />
-            <NearbyCard v-if="foray?.shared" :foray-id="id" :foray="foray" class="mb-4" />
-            <!-- FindList teleports its camera / New find action here on desktop. -->
-            <div id="fa-desk-actions" class="desk-actions" />
-          </aside>
-          <div class="fa-split-main">
-            <FindList :foray-id="id" />
-            <v-divider class="my-6" />
-            <SharedFindsPanel :foray-id="id" :foray="foray" />
-          </div>
-        </div>
-        <div v-else key="review" class="fa-split">
-          <div class="fa-split-main">
-            <v-tabs v-model="reviewTab" color="primary" density="comfortable" class="review-tabs mb-4" grow>
-              <v-tab value="finds" prepend-icon="mdi-magnify">Identify &amp; edit</v-tab>
-              <v-tab value="photos" prepend-icon="mdi-image-multiple">Sort photos</v-tab>
-            </v-tabs>
-            <FindList v-if="reviewTab === 'finds'" :foray-id="id" variant="review" />
-            <ReviewPanel v-else :foray-id="id">
-              <template #sources>
-                <GooglePhotosImport :foray-id="id" />
-              </template>
-            </ReviewPanel>
-          </div>
-          <v-divider class="my-4 d-md-none" />
-          <aside class="fa-desk" aria-label="Publish">
-            <PublishPanel :foray-id="id" />
-          </aside>
-        </div>
-      </Transition>
+  <!-- One root element: the page transition (out-in) never finishes leaving a fragment root, which left the next page blank. -->
+  <div class="foray-page">
+    <div v-if="foray === null">
+      <v-alert type="warning" variant="tonal" class="mb-4">Foray not found.</v-alert>
+      <v-btn to="/" prepend-icon="mdi-arrow-left">Back to forays</v-btn>
     </div>
+    <template v-else>
+      <header class="fa-hero foray-hero mb-4" :class="{ 'hero-in-desk': isForay }">
+        <div class="text-overline hero-kicker">{{ isForay ? '🍄 Foray mode' : '🔍 Review mode' }}</div>
+        <div class="hero-title-row">
+          <h1 class="text-h5 font-weight-bold hero-title">{{ foray?.name }}</h1>
+          <RenameForayDialog v-if="foray && canEditForay(foray)" :foray="foray">
+            <template #activator="{ props: act }">
+              <v-btn v-bind="act" icon="mdi-pencil" size="small" variant="text" aria-label="Edit foray title" />
+            </template>
+          </RenameForayDialog>
+        </div>
+        <div v-if="foray" class="hero-sub">
+          Started {{ new Date(foray.startedAt).toLocaleString() }}
+          <span v-if="foray.endedAt"> · ended {{ new Date(foray.endedAt).toLocaleString() }}</span>
+        </div>
+        <div class="hero-share mt-2">
+          <ShareForayDialog :foray="foray" />
+          <span v-if="foray?.shared && foray.shared.role !== 'owner' && foray.shared.ownerName" class="hero-sub ml-2">Shared by {{ foray.shared.ownerName }}</span>
+        </div>
+        <div class="hero-pills d-flex flex-wrap ga-2 mt-3">
+          <span class="hero-pill"><v-icon icon="mdi-leaf" size="16" /> {{ counts.finds }} find{{ counts.finds === 1 ? '' : 's' }}</span>
+          <span class="hero-pill"><v-icon icon="mdi-camera" size="16" /> {{ counts.photos }} photo{{ counts.photos === 1 ? '' : 's' }}</span>
+          <span class="hero-pill"><v-icon icon="mdi-star" size="16" /> {{ counts.picked }} picked</span>
+        </div>
+      </header>
+
+      <div>
+        <Transition name="page" mode="out-in">
+          <!-- Desktop: two panes (main + sticky right column). Mobile: the columns simply stack in DOM order. -->
+          <div v-if="isForay" key="foray" class="fa-split">
+            <aside class="fa-desk" aria-label="Field desk">
+              <section class="desk-summary" aria-label="Foray summary">
+                <div class="desk-title">Field desk</div>
+                <div v-if="foray" class="desk-sub">
+                  {{ foray.name }} · started {{ new Date(foray.startedAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) }}
+                </div>
+                <div class="desk-stats">
+                  <div class="stat"><b>{{ counts.finds }}</b><span>find{{ counts.finds === 1 ? '' : 's' }}</span></div>
+                  <div class="stat"><b>{{ counts.photos }}</b><span>photo{{ counts.photos === 1 ? '' : 's' }}</span></div>
+                  <div class="stat"><b>{{ counts.picked }}</b><span>picked</span></div>
+                </div>
+              </section>
+              <VoiceRecorder :foray-id="id" class="mb-4 desk-voice" />
+              <NearbyCard v-if="foray?.shared" :foray-id="id" :foray="foray" class="mb-4" />
+              <!-- FindList teleports its camera / New find action here on desktop. -->
+              <div id="fa-desk-actions" class="desk-actions" />
+            </aside>
+            <div class="fa-split-main">
+              <FindList :foray-id="id" />
+              <v-divider class="my-6" />
+              <SharedFindsPanel :foray-id="id" :foray="foray" />
+            </div>
+          </div>
+          <div v-else key="review" class="fa-split">
+            <div class="fa-split-main">
+              <v-tabs v-model="reviewTab" color="primary" density="comfortable" class="review-tabs mb-4" grow>
+                <v-tab value="finds" prepend-icon="mdi-magnify">Identify &amp; edit</v-tab>
+                <v-tab value="photos" prepend-icon="mdi-image-multiple">Sort photos</v-tab>
+              </v-tabs>
+              <FindList v-if="reviewTab === 'finds'" :foray-id="id" variant="review" />
+              <ReviewPanel v-else :foray-id="id">
+                <template #sources>
+                  <GooglePhotosImport :foray-id="id" />
+                </template>
+              </ReviewPanel>
+            </div>
+            <v-divider class="my-4 d-md-none" />
+            <aside class="fa-desk" aria-label="Publish">
+              <PublishPanel :foray-id="id" />
+            </aside>
+          </div>
+        </Transition>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -112,7 +122,8 @@ onMounted(() => {
 .foray-hero { margin-left: -12px; margin-right: -12px; } /* matches the page container's pa-3 on phones */
 @media (min-width: 600px) { .foray-hero { margin-left: -16px; margin-right: -16px; } }
 .hero-kicker { opacity: 0.9; }
-.hero-title { line-height: 1.2; word-break: break-word; }
+.hero-title-row { display: flex; align-items: center; gap: 4px; }
+.hero-title { line-height: 1.2; word-break: break-word; min-width: 0; }
 .hero-sub { opacity: 0.9; font-size: 0.85rem; }
 .hero-share :deep(.v-btn) { background: rgba(255, 255, 255, 0.22); color: inherit; }
 .hero-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.22); font-weight: 600; font-size: 0.85rem; }

@@ -4,6 +4,8 @@ import { computed, onMounted, onBeforeUnmount, ref, type Ref } from 'vue'
 import { nextSpecimenId } from '~/utils/specimenId'
 import { isEmptyFind } from '~/utils/findEmpty'
 import type { FieldNotes, Geoprivacy, Photo, Specimen } from '~/utils/db'
+import { readPhotoMeta, type PhotoMeta } from '~/utils/exif'
+import { findStamp, photoStamp, type FindStamp } from '~/utils/pastForay'
 
 /** Best-effort position; resolves null on denial/timeout/unsupported. Never rejects. */
 export function getPositionBestEffort(timeoutMs = 4000): Promise<{ latitude: number; longitude: number } | null> {
@@ -36,8 +38,12 @@ export function getPositionBestEffort(timeoutMs = 4000): Promise<{ latitude: num
   })
 }
 
-/** Creates the find immediately (offline-safe); GPS is filled in afterwards if it arrives. */
-export async function createFind(forayId: string): Promise<Specimen> {
+/**
+ * Creates the find immediately (offline-safe); GPS is filled in afterwards if it arrives.
+ * Pass `at` (from the photos' metadata) to use their time and place instead of the device's; an old
+ * photo with no GPS gets no location rather than wherever the phone is now.
+ */
+export async function createFind(forayId: string, at?: FindStamp): Promise<Specimen> {
   const db = useDb()
   const specimenId = await nextSpecimenId()
   const now = nowIso()
@@ -45,7 +51,8 @@ export async function createFind(forayId: string): Promise<Specimen> {
     id: newId(),
     specimenId,
     forayId,
-    timestamp: now,
+    timestamp: at?.timestamp ?? now,
+    ...(at?.latitude !== undefined && at.longitude !== undefined ? { latitude: at.latitude, longitude: at.longitude } : {}),
     geoprivacy: 'obscured',
     fieldNotes: {},
     updatedAt: now,
@@ -54,6 +61,7 @@ export async function createFind(forayId: string): Promise<Specimen> {
     await db.specimens.add(row)
     await enqueue('specimens', row.id)
   })
+  if (at && (row.latitude !== undefined || !at.useDevicePosition)) return row
   // Fire and forget: never block the UI on GPS.
   void getPositionBestEffort().then(async (pos) => {
     if (!pos) return
@@ -64,6 +72,14 @@ export async function createFind(forayId: string): Promise<Specimen> {
       await enqueue('specimens', row.id)
     })
   })
+  return row
+}
+
+/** New find holding these photos, dated and placed from their metadata. */
+export async function createFindFromPhotos(forayId: string, files: File[], metas?: PhotoMeta[]): Promise<Specimen> {
+  metas ??= await Promise.all(files.map((f) => readPhotoMeta(f)))
+  const row = await createFind(forayId, findStamp(metas) ?? undefined)
+  for (let i = 0; i < files.length; i++) await addPhoto(row.id, forayId, files[i], 'capture', metas[i])
   return row
 }
 
@@ -95,10 +111,14 @@ export async function addPhoto(
   forayId: string,
   blob: Blob,
   source: Photo['source'] = 'capture',
+  meta?: PhotoMeta,
   angle?: Photo['angle'],
 ): Promise<Photo> {
   const db = useDb()
-  const pos = await getPositionBestEffort(2500)
+  // The photo's own time and GPS win; the device's position only fills in for a photo taken just now.
+  const m = meta ?? (await readPhotoMeta(blob))
+  const stamp = photoStamp(m)
+  const pos = stamp.latitude !== undefined ? null : stamp.useDevicePosition ? await getPositionBestEffort(2500) : null
   const now = nowIso()
   const photo: Photo = {
     id: newId(),
@@ -107,7 +127,8 @@ export async function addPhoto(
     source,
     blob,
     mimeType: blob.type || 'image/jpeg',
-    capturedAt: now,
+    capturedAt: stamp.useDevicePosition ? now : stamp.timestamp,
+    ...(stamp.latitude !== undefined ? { latitude: stamp.latitude, longitude: stamp.longitude } : {}),
     ...(pos ?? {}),
     ...(angle ? { angle } : {}),
     isSelected: false,

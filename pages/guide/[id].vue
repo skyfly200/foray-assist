@@ -262,7 +262,7 @@ async function shoot() {
     }
     if (!blob) { say('Could not take the photo'); return }
     const angle = target.value
-    await addPhoto(find.value.id, find.value.forayId, blob, 'capture', angle)
+    await addPhoto(find.value.id, find.value.forayId, blob, 'capture', undefined, angle)
     flash.value = true
     setTimeout(() => (flash.value = false), 150)
     // Move on to the next shot still missing.

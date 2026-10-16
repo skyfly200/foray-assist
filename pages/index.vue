@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { liveQuery } from 'dexie'
 import { ensurePhotoBlob } from '~/composables/useMedia'
+import { canEditForay } from '~/composables/useNewFind'
 import type { Photo } from '~/utils/db'
 
 const { isForay } = useMode()
@@ -12,6 +13,9 @@ const findCounts = ref<Record<string, number>>({})
 const covers = ref<Record<string, string>>({})
 const loaded = ref(false)
 const starting = ref(false)
+// The foray whose title dialog is open; the dialog lives outside the card menu so closing the menu doesn't unmount it.
+const renaming = ref<Foray | null>(null)
+const renameOpen = computed({ get: () => !!renaming.value, set: (v) => { if (!v) renaming.value = null } })
 
 const subs: { unsubscribe(): void }[] = []
 const coverCache = new Map<string, { photoId: string; url: string }>()
@@ -163,8 +167,8 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
         <v-text-field
           v-model="newName"
           class="fa-home__name"
-          placeholder="Name it (optional, defaults to today)"
-          aria-label="New foray name"
+          placeholder="Title (optional, defaults to today)"
+          aria-label="New foray title"
           hide-details
           density="comfortable"
           bg-color="surface"
@@ -189,6 +193,8 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 
     <OnboardingCard />
 
+    <RenameForayDialog v-if="renaming" v-model="renameOpen" :foray="renaming" />
+
     <h2 v-if="forays.length" class="fa-home__section">Your forays</h2>
 
     <TransitionGroup v-if="forays.length" name="fa-list" tag="div" class="fa-home__list">
@@ -208,7 +214,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
           <v-menu location="bottom end">
             <template #activator="{ props }">
               <v-btn
-                v-if="!f.endedAt"
+                v-if="canEditForay(f)"
                 v-bind="props"
                 icon="mdi-dots-vertical"
                 size="small"
@@ -220,7 +226,8 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
               />
             </template>
             <v-list density="comfortable" rounded="lg">
-              <v-list-item prepend-icon="mdi-flag-checkered" title="End foray" @click="endForay(f)" />
+              <v-list-item prepend-icon="mdi-pencil" title="Edit title" @click="renaming = f" />
+              <v-list-item v-if="!f.endedAt" prepend-icon="mdi-flag-checkered" title="End foray" @click="endForay(f)" />
             </v-list>
           </v-menu>
         </div>
