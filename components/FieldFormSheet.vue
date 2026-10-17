@@ -13,7 +13,7 @@
     <table class="ff-meta">
       <tbody>
         <tr><th>Foray</th><td>{{ forayName || '' }}</td><th>Date</th><td>{{ when }}</td></tr>
-        <tr><th>Location</th><td>{{ location }}</td><th>Voucher</th><td>{{ voucher }}</td></tr>
+        <tr><th>Location</th><td>{{ location }}</td><th>Society #</th><td>{{ voucher }}</td></tr>
         <tr v-if="size !== 'quarter'"><th>Collector</th><td /><th>Det. by</th><td /></tr>
       </tbody>
     </table>

@@ -37,9 +37,9 @@ function friendly(msg: string) {
   if (/society code not found/i.test(msg)) return "That code didn't match a group. Ask an officer for the current code."
   if (/only society officers and leaders/i.test(msg)) return 'Only group officers and foray leaders can do that.'
   if (/not a member of this society/i.test(msg)) return "You're not a member of this group."
-  if (/not issued to a society you belong to/i.test(msg)) return "That voucher number belongs to a group you haven't joined."
-  if (/not a valid society number/i.test(msg)) return "That isn't a valid group voucher number."
-  if (/society network is full/i.test(msg)) return 'This group has used all its voucher numbers.'
+  if (/not issued to a society you belong to/i.test(msg)) return "That society number belongs to a group you haven't joined."
+  if (/not a valid society number/i.test(msg)) return "That isn't a valid society number."
+  if (/society network is full/i.test(msg)) return 'This group has used all its society numbers.'
   if (/only officers can change the society code/i.test(msg)) return 'Only group officers can change the group code.'
   if (/only app admins can create groups/i.test(msg)) return 'Only app admins can create groups.'
   if (/group name must be/i.test(msg)) return 'The group name needs 2 to 120 characters.'
@@ -137,7 +137,7 @@ function setRange(s: { network: string; set: number }) {
 function voucherProblem(input: string): string {
   const id = normalizeId(input)
   if (!id) return 'Use letters and numbers only.'
-  if (!/^[U-Z]/.test(id)) return 'Group voucher numbers start with U to Z.'
+  if (!/^[U-Z]/.test(id)) return 'Society numbers start with U to Z.'
   if (!isValidId(id)) return 'That number has a typo (the last character does not match).'
   const p = parseId(id)!
   if (!societies.value.some((s) => s.network === p.network)) return "That number belongs to a group you haven't joined on this device."

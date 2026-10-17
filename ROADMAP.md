@@ -13,6 +13,14 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
+## Pending: Custom Domain
+*Status: the app is now called Voucher but still lives at `foray-assist.vercel.app`, kept on purpose until a custom domain is bought.*
+
+* **Do**: pick and buy a domain, add it in Vercel, then update `APP_ORIGIN`, the Supabase auth redirect URLs, and the Google and iNaturalist OAuth redirect URIs (SETUP.md sections 2 to 4) to the new origin.
+* **Keep**: a redirect from `foray-assist.vercel.app` so existing join links and bookmarks still work.
+
+---
+
 ## Phase 2: Advanced On-Device Computer Vision & Diagnostic Quality Scoring
 *Goal: Expand beyond simple Laplacian blur checks to intelligent macro-feature detection.*
 
