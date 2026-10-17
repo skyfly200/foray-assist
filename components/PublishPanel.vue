@@ -62,8 +62,7 @@ async function publishSelected() {
     </v-card-title>
     <v-card-text>
       <v-alert v-if="!ready" type="info" variant="tonal" density="compact" class="mb-3">
-        {{ !signedIn ? 'Sign in and connect iNaturalist in Settings.' : 'Connect iNaturalist in Settings.' }}
-        You can still queue finds; they publish once connected and online.
+        {{ !signedIn ? 'Sign in and connect iNaturalist in Settings to publish.' : 'Connect iNaturalist in Settings to publish.' }}
       </v-alert>
       <v-alert v-else-if="!online" type="info" variant="tonal" density="compact" class="mb-3" icon="mdi-wifi-off">
         Offline: queued finds publish when you reconnect.
@@ -128,7 +127,7 @@ async function publishSelected() {
       </TransitionGroup>
     </v-card-text>
     <v-card-actions class="flex-wrap ga-2 px-4 pb-4 pub-actions">
-      <v-btn color="primary" variant="flat" size="x-large" block prepend-icon="mdi-rocket-launch" :disabled="!checked.length" @click="publishSelected">
+      <v-btn color="primary" variant="flat" size="x-large" block prepend-icon="mdi-rocket-launch" :disabled="!checked.length || !connected" @click="publishSelected">
         Publish to iNaturalist ({{ checked.length }})
       </v-btn>
       <v-btn variant="text" :disabled="!selectable.length" @click="checked = selectable.map((r) => r.id)">Select all</v-btn>

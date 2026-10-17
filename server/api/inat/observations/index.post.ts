@@ -13,6 +13,11 @@ export default defineEventHandler(async (event) => {
   }
   try {
     const jwt = await getInatJwt(userId)
+    const guess = (payload.observation as any).species_guess
+    if (guess) {
+      const taxonId = await resolveTaxonId(guess)
+      if (taxonId) (payload.observation as any).taxon_id = taxonId
+    }
     const id = await createObservation(jwt, payload)
     return { id, created: true }
   } catch (e) { throw toHttpError(e) }
