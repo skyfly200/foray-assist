@@ -28,6 +28,8 @@ export interface SharedInfo {
   ownerName?: string | null
   members?: ForayMember[]
   refreshedAt?: string
+  /** Joined offline from a QR code: usable locally, the server join runs once online and signed in. */
+  pendingJoin?: boolean
 }
 
 export interface Foray {

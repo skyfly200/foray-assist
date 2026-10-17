@@ -5,7 +5,7 @@
         <v-btn v-bind="act" variant="tonal" rounded="xl" prepend-icon="mdi-account-multiple-plus">Join a foray</v-btn>
       </slot>
     </template>
-    <JoinForayForm :initial-code="initialCode" @joined="onJoined" @cancel="open = false" />
+    <JoinForayForm :initial-code="initialCode" @joined="onJoined" @queued="open = false" @cancel="open = false" />
   </v-dialog>
 </template>
 

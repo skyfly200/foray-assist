@@ -43,13 +43,19 @@
           <div v-if="code" class="code-block">
             <div class="text-overline">Join code</div>
             <div class="code" data-testid="join-code">{{ formatJoinCode(code) }}</div>
-            <img v-if="qr" :src="qr" alt="QR code to join this foray" class="qr" />
+            <img v-if="qr" :src="qr" alt="QR code to join this foray" class="qr" data-testid="join-qr" />
+            <div v-if="qr" class="text-caption text-medium-emphasis mt-1">
+              Others scan this from Join a shared foray. It works with no signal: they can log finds right away and join once they're back online.
+            </div>
             <div class="d-flex flex-wrap ga-2 justify-center mt-2">
               <v-btn variant="tonal" size="small" prepend-icon="mdi-content-copy" @click="copyLink">{{ copied ? 'Copied' : 'Copy link' }}</v-btn>
               <v-btn v-if="canShareLink" variant="tonal" size="small" prepend-icon="mdi-share" @click="shareLink">Send link</v-btn>
             </div>
           </div>
-          <v-alert v-else type="info" variant="tonal" density="compact" class="mb-3">
+          <v-alert v-if="foray?.shared?.pendingJoin" type="info" variant="tonal" density="compact" class="mb-3" data-testid="pending-join-note">
+            You joined this foray offline. Your finds are saved here, and joining finishes when you're online and signed in.
+          </v-alert>
+          <v-alert v-else-if="!code" type="info" variant="tonal" density="compact" class="mb-3">
             Joining is turned off. Members who already joined still see everything.
           </v-alert>
 
@@ -114,7 +120,10 @@ const canManage = computed(() => isOwner.value || props.foray?.shared?.role === 
 const code = computed(() => props.foray?.shared?.joinCode ?? '')
 const activeMembers = computed(() => (props.foray?.shared?.members ?? []).filter((m) => !m.leftAt))
 const formerCount = computed(() => (props.foray?.shared?.members ?? []).filter((m) => m.leftAt).length)
-const link = computed(() => (code.value && import.meta.client ? joinUrl(window.location.origin, code.value) : ''))
+// The link carries the foray id, name and start so a joiner with no signal can log finds into it right away.
+const link = computed(() => (code.value && import.meta.client
+  ? joinUrl(window.location.origin, code.value, props.foray ? { forayId: props.foray.id, name: props.foray.name, startedAt: props.foray.startedAt } : undefined)
+  : ''))
 const canShareLink = computed(() => import.meta.client && typeof (navigator as any).share === 'function')
 
 const roleLabel = (r: string) => ({ owner: 'Started this foray', leader: 'Leader', member: 'Member' } as Record<string, string>)[r] ?? r

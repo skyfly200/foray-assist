@@ -3,7 +3,8 @@
 // copy of everyone's finds are cached in Dexie, and our own finds and comments queue in the
 // outbox as usual. While the foray screen is open and online, the feed refreshes every 20 s.
 // Server side: supabase/migrations/20261001000006_shared_forays.sql.
-import { feedRowToPeerFind, mergeFeed, normalizeJoinCode, type FeedRow } from '~/utils/sharing'
+import { liveQuery } from 'dexie'
+import { feedRowToPeerFind, mergeFeed, normalizeJoinCode, upsertPendingJoin, type FeedRow, type PendingJoin } from '~/utils/sharing'
 import type { FindComment, Foray, ForayMember, SharedInfo } from '~/utils/db'
 import { publishDeviceKey } from './useDeviceKey'
 
@@ -94,7 +95,7 @@ export async function joinForay(codeInput: string, displayName: string): Promise
   if (!r) throw new Error('Could not join this foray.')
   const db = useDb()
   const shared: SharedInfo = {
-    role: r.role, joinCode: r.join_code, meshKey: r.mesh_key, societyName: r.society_name, ownerName: r.owner_name,
+    role: r.role, joinCode: r.join_code, meshKey: r.mesh_key, societyName: r.society_name, ownerName: r.owner_name, pendingJoin: false,
   }
   await db.transaction('rw', db.forays, async () => {
     const cur = await db.forays.get(r.foray_id)
@@ -107,8 +108,100 @@ export async function joinForay(codeInput: string, displayName: string): Promise
   return r.foray_id as string
 }
 
+// Joins saved offline (a QR scanned in the woods). Kept in settings under 'pendingJoins' and
+// retried by the sync plugin whenever the phone is online and signed in.
+const PENDING_KEY = 'pendingJoins'
+const pendingJoins = ref<PendingJoin[]>([])
+let pendingWatched = false
+let flushing = false
+
+async function readPending(): Promise<PendingJoin[]> {
+  return ((await useDb().settings.get(PENDING_KEY))?.value as PendingJoin[] | undefined) ?? []
+}
+async function writePending(list: PendingJoin[]) {
+  await useDb().settings.put({ key: PENDING_KEY, value: list })
+}
+
+/** Live list of joins waiting for a connection. */
+export function usePendingJoins() {
+  if (!pendingWatched && import.meta.client) {
+    pendingWatched = true
+    try {
+      liveQuery(readPending).subscribe({ next: (v) => (pendingJoins.value = v), error: () => {} })
+    } catch { /* IndexedDB unavailable */ }
+  }
+  return pendingJoins
+}
+
+/** Save a join to finish once there is a connection. */
+export async function queueJoin(codeInput: string, displayName: string, forayId?: string) {
+  const code = normalizeJoinCode(codeInput)
+  if (!code) throw new Error('A join code is 8 letters and numbers, like ABCD-EFGH.')
+  await setDisplayName(displayName)
+  await writePending(upsertPendingJoin(await readPending(), code, displayName.trim(), nowIso(), forayId))
+}
+
+/**
+ * Join with no signal, from a QR/link that carried the foray id: the foray is created on this
+ * device right away so finds can be logged into it (their rows carry the real foray id, so they
+ * sync into the shared foray as usual), and the server join is queued. Returns the foray id.
+ */
+export async function joinOffline(codeInput: string, displayName: string, foray: { forayId: string; name?: string; startedAt?: string }) {
+  const code = normalizeJoinCode(codeInput)
+  if (!code) throw new Error('A join code is 8 letters and numbers, like ABCD-EFGH.')
+  const db = useDb()
+  await db.transaction('rw', db.forays, async () => {
+    const cur = await db.forays.get(foray.forayId)
+    if (cur) {
+      // Already here (joined before, or our own): only mark it if it isn't set up yet.
+      if (!cur.shared) await db.forays.update(foray.forayId, { joined: true, shared: { role: 'member', joinCode: code, pendingJoin: true } })
+      return
+    }
+    await db.forays.add({
+      id: foray.forayId, name: foray.name || 'Shared foray', startedAt: foray.startedAt || nowIso(), updatedAt: nowIso(),
+      joined: true, shared: { role: 'member', joinCode: code, pendingJoin: true },
+    })
+  })
+  await queueJoin(code, displayName, foray.forayId)
+  return foray.forayId
+}
+
+export async function dropPendingJoin(code: string) {
+  await writePending((await readPending()).filter((p) => p.code !== code))
+}
+
+/** Try every saved join. Server refusals stay listed with the reason; network trouble waits for next time. */
+export async function flushPendingJoins(): Promise<string[]> {
+  if (flushing) return []
+  flushing = true
+  const joined: string[] = []
+  try {
+    for (const p of await readPending()) {
+      if (p.error) continue
+      try {
+        joined.push(await joinForay(p.code, p.displayName))
+        await dropPendingJoin(p.code)
+      } catch (e: any) {
+        const msg = e?.message ?? String(e)
+        if (/offline|sign in|fetch|network|load failed|connect/i.test(msg)) break
+        await writePending((await readPending()).map((q) => (q.code === p.code ? { ...q, error: msg } : q)))
+      }
+    }
+  } finally {
+    flushing = false
+  }
+  return joined
+}
+
 /** Member: stop seeing the foray live. Our finds stay in it; the local copy stays on this device. */
 export async function leaveForay(forayId: string) {
+  const f = await useDb().forays.get(forayId)
+  if (f?.shared?.pendingJoin) {
+    // Never reached the server: just forget the join. The foray stays as a local copy ("joined" keeps sync off its row).
+    if (f.shared.joinCode) await dropPendingJoin(f.shared.joinCode)
+    await useDb().forays.update(forayId, { shared: undefined })
+    return
+  }
   const { sb } = await requireSession()
   await rpc(sb, 'leave_foray', { p_foray_id: forayId })
   const db = useDb()
@@ -136,6 +229,12 @@ export async function setMemberRole(forayId: string, userId: string, role: 'lead
 /** Pull members, everyone's finds and comments into the local cache. */
 export async function refreshForay(forayId: string): Promise<void> {
   const { sb, userId } = await requireSession()
+  // Joined offline: finish the server join first; until then there is nothing to fetch.
+  if ((await useDb().forays.get(forayId))?.shared?.pendingJoin) {
+    await flushPendingJoins()
+    if ((await useDb().forays.get(forayId))?.shared?.pendingJoin) throw new Error("Not joined yet. It finishes when you're online and signed in.")
+    return
+  }
   const [members, feed, comments] = await Promise.all([
     rpc<any[]>(sb, 'foray_member_list', { p_foray_id: forayId }),
     rpc<FeedRow[]>(sb, 'foray_feed', { p_foray_id: forayId }),

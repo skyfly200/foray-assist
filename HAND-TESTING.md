@@ -193,3 +193,18 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] In AR, the pin button drops a note where the circle is; it stays there as you move
 - [ ] MycoDex shows the Finds score, Thoroughness, streak and badges. A find counts toward Finds once it is at least 50% complete
 - [ ] iPhone: no AR button; the camera screen works
+
+## 18. QR code to join a foray (offline)
+
+Needs two phones. Phone A has a shared foray; phone B is signed in.
+
+- [ ] Phone A: open the shared foray, tap **Shared**. The join code and a QR code show. Turn on airplane mode and reopen the dialog: the QR still shows
+- [ ] Phone B, online: **Join a shared foray**, **Scan QR code**. The camera opens (allow it if asked), reads A's QR within a second or two, fills the code and joins straight away when your name is filled in
+- [ ] Phone B, airplane mode: leave the foray (or use a second one) and scan again. The note names the foray and the button reads **Join offline**. Tap it: the foray opens right away
+- [ ] Still offline, log a find or two in it (photo, voice note). The Shared dialog says joining finishes when you're online
+- [ ] Turn airplane mode off: within a minute "Waiting to join" on home goes away, the Shared dialog lists the members, and A sees B's finds in the foray after A's next refresh
+- [ ] Offline, type a code instead of scanning: the button reads **Join later**, and home lists it under "Waiting to join" until you're online
+- [ ] iPhone Safari: scanning works too (it uses a different decoder there)
+- [ ] Scan a QR that isn't a foray code (any website QR): it says so and keeps scanning
+- [ ] Block the camera permission: the scanner says so and you can still type the code
+- [ ] A saved code that the owner changed (New code) before you got signal: "Waiting to join" shows the reason with **Try again** and an X to forget it. Finds you logged stay on your phone

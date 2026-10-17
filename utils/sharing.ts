@@ -18,9 +18,41 @@ export function formatJoinCode(code: string): string {
   return c.length === JOIN_CODE_LENGTH ? `${c.slice(0, 4)}-${c.slice(4)}` : c
 }
 
+/** Optional foray details a join link carries, so a phone with no signal can start using the foray at once. */
+export interface JoinLinkForay {
+  forayId: string
+  name?: string
+  startedAt?: string
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 /** The link a QR code carries: opening it on a phone goes straight to the join screen. */
-export function joinUrl(origin: string, code: string): string {
-  return `${origin.replace(/\/+$/, '')}/join/${normalizeJoinCode(code) ?? code}`
+export function joinUrl(origin: string, code: string, foray?: JoinLinkForay): string {
+  const base = `${origin.replace(/\/+$/, '')}/join/${normalizeJoinCode(code) ?? code}`
+  if (!foray?.forayId) return base
+  const q = new URLSearchParams({ f: foray.forayId })
+  if (foray.name) q.set('n', foray.name.slice(0, 80))
+  if (foray.startedAt) q.set('t', foray.startedAt)
+  return `${base}?${q}`
+}
+
+/** Code plus any foray details from a scanned or opened join link. Null unless the code is valid. */
+export function parseJoinLink(input: string): ({ code: string } & Partial<JoinLinkForay>) | null {
+  const code = parseJoinInput(input)
+  if (!code) return null
+  const qs = String(input ?? '').trim().match(/\/join\/[A-Za-z0-9-]+\/?\?([^#]*)/)?.[1]
+  if (!qs) return { code }
+  const q = new URLSearchParams(qs)
+  const forayId = q.get('f') ?? ''
+  if (!UUID.test(forayId)) return { code }
+  const t = q.get('t') ?? ''
+  return {
+    code,
+    forayId: forayId.toLowerCase(),
+    name: (q.get('n') ?? '').trim().slice(0, 80) || undefined,
+    startedAt: t && !Number.isNaN(Date.parse(t)) ? t : undefined,
+  }
 }
 
 /** Accepts a typed code, "XXXX-XXXX", or a scanned join link. */
@@ -28,6 +60,26 @@ export function parseJoinInput(input: string): string | null {
   const s = String(input ?? '').trim()
   const m = s.match(/\/join\/([A-Za-z0-9-]+)\/?(?:[?#].*)?$/)
   return normalizeJoinCode(m ? m[1]! : s)
+}
+
+/** A join saved while offline (scanned or typed at the foray); it goes through once there is signal. */
+export interface PendingJoin {
+  code: string
+  displayName: string
+  savedAt: string
+  /** Set when the link carried the foray id: the foray already exists locally and finds can be added. */
+  forayId?: string
+  /** Last server refusal (bad or changed code). Network failures just wait for the next try. */
+  error?: string
+}
+
+/** Add or refresh a saved join; one entry per code, newest name wins. */
+export function upsertPendingJoin(list: PendingJoin[], code: string, displayName: string, savedAt: string, forayId?: string): PendingJoin[] {
+  const c = normalizeJoinCode(code)
+  if (!c) return list
+  const prev = list.find((p) => p.code === c)
+  const id = forayId ?? prev?.forayId
+  return [...list.filter((p) => p.code !== c), { code: c, displayName, savedAt, ...(id ? { forayId: id } : {}) }]
 }
 
 export type PeerSource = 'server' | 'file' | 'mesh'
