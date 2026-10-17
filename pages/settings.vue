@@ -91,7 +91,7 @@ const status = computed(() => {
         <v-avatar color="white" size="48" class="hero-avatar"><v-icon color="primary" size="28">mdi-cog-outline</v-icon></v-avatar>
         <div>
           <h1 class="text-h5 font-weight-bold">Settings</h1>
-          <div class="text-body-2 hero-sub">Make Foray Assist yours</div>
+          <div class="text-body-2 hero-sub">Make Voucher yours</div>
         </div>
       </div>
     </header>

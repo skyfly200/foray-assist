@@ -2,7 +2,7 @@
   <div class="ff-sheet" :class="`ff-${size}`">
     <header class="ff-head">
       <div>
-        <div class="ff-kicker">Foray Assist · Field form</div>
+        <div class="ff-kicker">Voucher · Field form</div>
         <div class="ff-id">{{ idText }}</div>
         <div class="ff-species">{{ notes.speciesGuess || '' }}<span v-if="!notes.speciesGuess" class="ff-blank">&nbsp;</span></div>
       </div>
@@ -13,7 +13,7 @@
     <table class="ff-meta">
       <tbody>
         <tr><th>Foray</th><td>{{ forayName || '' }}</td><th>Date</th><td>{{ when }}</td></tr>
-        <tr><th>Location</th><td>{{ location }}</td><th>Voucher</th><td>{{ voucher }}</td></tr>
+        <tr><th>Location</th><td>{{ location }}</td><th>Society #</th><td>{{ voucher }}</td></tr>
         <tr v-if="size !== 'quarter'"><th>Collector</th><td /><th>Det. by</th><td /></tr>
       </tbody>
     </table>

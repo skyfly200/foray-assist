@@ -20,6 +20,7 @@ export default defineNuxtConfig({
     // @vite-pwa/nuxt emits manifest.webmanifest but does not link it from the page;
     // without this <link> Chrome reports the app as not installable.
     head: {
+      title: 'Voucher',
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },
         { rel: 'apple-touch-icon', href: '/pwa-192.png' },
@@ -46,9 +47,9 @@ export default defineNuxtConfig({
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
-      name: 'Foray Assist',
-      short_name: 'Foray',
-      description: 'Offline-first foray field logger',
+      name: 'Voucher',
+      short_name: 'Voucher',
+      description: 'Field records for mushroom forays',
       theme_color: '#2e7d32',
       background_color: '#ffffff',
       display: 'standalone',

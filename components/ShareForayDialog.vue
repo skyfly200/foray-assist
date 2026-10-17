@@ -167,7 +167,7 @@ async function copyLink() {
   } catch { error.value = 'Could not copy. Long-press the code instead.' }
 }
 async function shareLink() {
-  try { await (navigator as any).share({ title: props.foray?.name, text: `Join my foray in Foray Assist: code ${formatJoinCode(code.value)}`, url: link.value }) } catch { /* cancelled */ }
+  try { await (navigator as any).share({ title: props.foray?.name, text: `Join my foray in Voucher: code ${formatJoinCode(code.value)}`, url: link.value }) } catch { /* cancelled */ }
 }
 </script>
 
