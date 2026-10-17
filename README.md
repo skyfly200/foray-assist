@@ -1,4 +1,4 @@
-# 🍄 Foray Assistant App
+# 🍄 Voucher (formerly Foray Assist)
 
 > **Streamlining post-foray observation management, offline field tagging, and privacy-preserving ecological data contribution.**
 

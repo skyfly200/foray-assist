@@ -21,7 +21,7 @@ await page.evaluate(() => navigator.serviceWorker.ready)
 await page.waitForTimeout(3000) // let precache finish
 await context.setOffline(true)
 await page.reload()
-await page.waitForSelector('text=Foray Assist', { timeout: 10000 }).catch(() => fail('shell did not load offline', browser))
+await page.waitForSelector('text=Voucher', { timeout: 10000 }).catch(() => fail('shell did not load offline', browser))
 
 // create a foray offline
 await page.getByRole('button', { name: /start foray/i }).first().click({ force: true }).catch(() => fail('no create-foray control', browser))

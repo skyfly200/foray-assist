@@ -2,7 +2,7 @@
   <div class="ff-sheet" :class="`ff-${size}`">
     <header class="ff-head">
       <div>
-        <div class="ff-kicker">Foray Assist · Field form</div>
+        <div class="ff-kicker">Voucher · Field form</div>
         <div class="ff-id">{{ idText }}</div>
         <div class="ff-species">{{ notes.speciesGuess || '' }}<span v-if="!notes.speciesGuess" class="ff-blank">&nbsp;</span></div>
       </div>
