@@ -7,7 +7,11 @@ import { requirePhotoBlob } from './useMedia'
 const MAX_EDGE = 2048
 const PHOTO_GAP_MS = 400
 
-const connected = ref(false)
+// Last known iNaturalist connection, cached so finds can still be queued offline.
+const CONNECTED_KEY = 'fa-inat-connected'
+const readConnected = () => { try { return import.meta.client && localStorage.getItem(CONNECTED_KEY) === '1' } catch { return false } }
+const connected = ref(readConnected())
+watch(connected, (c) => { try { if (import.meta.client) localStorage.setItem(CONNECTED_KEY, c ? '1' : '0') } catch { /* storage blocked */ } })
 const inatLogin = ref<string | null>(null)
 const running = ref(false)
 const statusChecked = ref(false)
@@ -122,6 +126,9 @@ export function usePublish() {
 
   /** Queue finds for publishing (selected photos only). Safe offline. */
   async function queue(ids: string[]) {
+    // Only queue once iNaturalist is connected: a find queued earlier would otherwise publish
+    // later, unasked, alongside whatever the person publishes next.
+    if (!connected.value) return
     for (const id of ids) {
       const sp = await useDb().specimens.get(id)
       if (!sp || sp.inatStatus === 'queued') continue
