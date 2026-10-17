@@ -1,8 +1,10 @@
 // Browser check of QR sharing against the PRODUCTION build, no Supabase needed:
 //   1. The share dialog of a shared foray shows the join QR, offline.
 //   2. On another phone, offline, Join a shared foray -> Scan QR code reads that QR from a fake
-//      camera (jsQR path; headless Chromium has no BarcodeDetector), fills the code, and
-//      "Join later" lists it under "Waiting to join" on the home screen.
+//      camera (jsQR path; headless Chromium has no BarcodeDetector) and fills the code. "Join offline"
+//      opens the foray at once (same id as the owner's), a find can be logged into it, and home lists
+//      the join under "Waiting to join".
+//   3. A typed code offline (no foray details) is saved with "Join later".
 // Usage: npm run build && node tests/qr-join.mjs   (SHOT_DIR=... to keep screenshots)
 import { chromium } from 'playwright'
 import { spawn } from 'node:child_process'
@@ -15,6 +17,8 @@ const PORT = 4178
 const URL = `http://localhost:${PORT}`
 const OUT = process.env.SHOT_DIR || mkdtempSync(join(tmpdir(), 'fa-qr-'))
 const CODE = 'AB3DEF9H'
+const F = 'f0000000-0000-4000-8000-0000000000bb'
+const STARTED = '2026-10-17T09:00:00.000Z'
 
 // A Y4M "camera" showing the join QR (what the share dialog encodes).
 function qrVideo(text) {
@@ -40,7 +44,7 @@ const fail = async (msg) => { console.error('FAIL:', msg); await browser?.close(
 await new Promise((r) => setTimeout(r, 3000))
 browser = await chromium.launch({
   executablePath: '/opt/pw-browsers/chromium',
-  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-video-capture=${qrVideo(`${URL}/join/${CODE}`)}`],
+  args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-video-capture=${qrVideo(`${URL}/join/${CODE}?f=${F}&n=Trailhead+Foray&t=${encodeURIComponent(STARTED)}`)}`],
 })
 const phone = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, permissions: ['camera'] }
 const errors = []
@@ -56,14 +60,13 @@ async function newPhone() {
 
 // ---- 1. Owner's share dialog, offline ------------------------------------------------------
 const A = await newPhone()
-const F = 'f0000000-0000-4000-8000-0000000000bb'
 const now = new Date().toISOString()
 await A.page.evaluate(([row]) => new Promise((res, rej) => {
   const r = indexedDB.open('forray-assist')
   r.onerror = () => rej(r.error)
   r.onsuccess = () => { const tx = r.result.transaction('forays', 'readwrite'); tx.objectStore('forays').put(row); tx.oncomplete = () => res() }
 }), [{
-  id: F, name: 'Trailhead Foray', startedAt: now, updatedAt: now,
+  id: F, name: 'Trailhead Foray', startedAt: STARTED, updatedAt: now,
   shared: { role: 'owner', joinCode: CODE, refreshedAt: now, members: [{ userId: 'u1', displayName: 'Skyler', role: 'owner', keys: [] }] },
 }])
 await A.ctx.setOffline(true)
@@ -84,11 +87,35 @@ await B.page.waitForSelector('[data-testid="qr-video"]')
 await B.page.waitForFunction(() => document.querySelector('[data-testid="join-code-input"] input')?.value === 'AB3D-EF9H', null, { timeout: 15000 })
   .catch(() => fail('scan did not fill the code'))
 await B.page.getByLabel('Your name, as members see it').fill('Amy')
+await B.page.waitForSelector('[data-testid="join-offline"] >> text=Trailhead Foray').catch(() => fail('offline note does not name the foray'))
 await B.page.waitForTimeout(400)
 await B.page.screenshot({ path: `${OUT}/join-scanned.png` })
+await B.page.getByRole('button', { name: /join offline/i }).click()
+await B.page.waitForURL(new RegExp(`/forays/${F}`), { timeout: 10000 }).catch(() => fail('join offline did not open the foray'))
+await B.page.waitForSelector('text=Trailhead Foray')
+await B.page.getByRole('button', { name: /new find without photo/i }).click()
+await B.page.waitForSelector('text=ID pending', { timeout: 10000 }).catch(() => fail('could not log a find in the offline-joined foray'))
+await B.page.waitForTimeout(500)
+await B.page.screenshot({ path: `${OUT}/joined-offline.png` })
+const finds = await B.page.evaluate((id) => new Promise((res) => {
+  const r = indexedDB.open('forray-assist')
+  r.onsuccess = () => { const q = r.result.transaction('specimens').objectStore('specimens').getAll(); q.onsuccess = () => res(q.result.filter((s) => s.forayId === id).length) }
+}), F)
+if (finds !== 1) await fail(`expected 1 find in the shared foray, got ${finds}`)
+await B.page.goto(`${URL}/forays/${F}`)
+await B.page.getByRole('button', { name: /shared · 0/i }).first().click()
+await B.page.waitForSelector('[data-testid="pending-join-note"]').catch(() => fail('share dialog does not say the join is pending'))
+await B.page.waitForTimeout(400)
+await B.page.screenshot({ path: `${OUT}/joined-offline-share.png` })
+
+// ---- 3. Typed code offline: saved for later ---------------------------------------------------
+await B.page.goto(URL)
+await B.page.getByRole('button', { name: /join a shared foray/i }).click()
+await B.page.getByTestId('join-code-input').locator('input').fill('CDEF-GHJK')
+await B.page.getByLabel('Your name, as members see it').fill('Amy')
 await B.page.getByRole('button', { name: /join later/i }).click()
-await B.page.waitForSelector('[data-testid="pending-joins"]', { timeout: 10000 }).catch(() => fail('pending join not listed'))
-await B.page.waitForSelector('text=AB3D-EF9H')
+await B.page.waitForSelector('[data-testid="pending-joins"] >> text=CDEF-GHJK', { timeout: 10000 }).catch(() => fail('typed code not saved'))
+await B.page.waitForSelector('[data-testid="pending-joins"] >> text=AB3D-EF9H')
 await B.page.locator('[data-testid="pending-joins"]').scrollIntoViewIfNeeded()
 await B.page.waitForTimeout(800)
 await B.page.screenshot({ path: `${OUT}/pending.png` })

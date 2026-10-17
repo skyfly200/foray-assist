@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { feedRowToPeerFind, formatJoinCode, joinUrl, mergeFeed, normalizeJoinCode, parseJoinInput, summarizeSuggestions, upsertPendingJoin } from '../utils/sharing.ts'
+import { feedRowToPeerFind, formatJoinCode, joinUrl, mergeFeed, normalizeJoinCode, parseJoinInput, summarizeSuggestions, upsertPendingJoin, parseJoinLink } from '../utils/sharing.ts'
 import { stripJpegMetadata } from '../utils/jpeg.ts'
 
 test('join codes: normalise, format, links', () => {
@@ -24,6 +24,21 @@ test('pending joins: one per code, bad codes ignored', () => {
   assert.equal(l[0].displayName, 'Amy B')
   assert.equal(upsertPendingJoin(l, 'nope', 'x', 't3'), l)
   assert.equal(upsertPendingJoin(l, 'CDEFGHJK', 'Amy', 't3').length, 2)
+  l = upsertPendingJoin([], 'AB3DEF9H', 'Amy', 't1', 'f-1')
+  assert.equal(upsertPendingJoin(l, 'AB3DEF9H', 'Amy', 't2')[0].forayId, 'f-1', 'retry keeps the foray id')
+})
+
+test('join links carry the foray for offline joins', () => {
+  const id = 'f0000000-0000-4000-8000-0000000000aa'
+  const url = joinUrl('https://x.app', 'AB3DEF9H', { forayId: id, name: 'Fall Foray & Picnic', startedAt: '2026-10-17T09:00:00.000Z' })
+  assert.equal(parseJoinInput(url), 'AB3DEF9H')
+  assert.deepEqual(parseJoinLink(url), { code: 'AB3DEF9H', forayId: id, name: 'Fall Foray & Picnic', startedAt: '2026-10-17T09:00:00.000Z' })
+  assert.deepEqual(parseJoinLink('/join/AB3DEF9H?f=' + id), { code: 'AB3DEF9H', forayId: id, name: undefined, startedAt: undefined })
+  assert.deepEqual(parseJoinLink('https://x.app/join/AB3DEF9H'), { code: 'AB3DEF9H' })
+  assert.deepEqual(parseJoinLink('https://x.app/join/AB3DEF9H?f=not-a-uuid&n=x'), { code: 'AB3DEF9H' })
+  assert.deepEqual(parseJoinLink('AB3D-EF9H'), { code: 'AB3DEF9H' })
+  assert.equal(parseJoinLink('https://x.app/join/nope?f=' + id), null)
+  assert.equal(parseJoinLink(joinUrl('https://x.app', 'AB3DEF9H', { forayId: id, startedAt: 'garbage' })).startedAt, undefined)
 })
 
 const row = (id, user, at, extra = {}) => ({

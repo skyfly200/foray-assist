@@ -27,10 +27,10 @@
 <script setup lang="ts">
 // Reads a join QR with the camera, entirely on the device. Uses the browser's BarcodeDetector
 // where it exists (Chrome on Android) and falls back to jsQR on canvas frames (iOS Safari,
-// desktop Firefox). Emits the raw text only when it parses as a join code or join link.
-import { parseJoinInput } from '~/utils/sharing'
+// desktop Firefox). Emits only when the text parses as a join code or join link.
+import { parseJoinLink } from '~/utils/sharing'
 
-const emit = defineEmits<{ scanned: [code: string] }>()
+const emit = defineEmits<{ scanned: [link: NonNullable<ReturnType<typeof parseJoinLink>>] }>()
 const open = ref(false)
 const error = ref('')
 const video = ref<HTMLVideoElement | null>(null)
@@ -91,9 +91,9 @@ async function loop(decode: Decode) {
   let text: string | null = null
   try { text = await decode(video.value) } catch { /* frame not ready */ }
   if (text) {
-    const code = parseJoinInput(text)
-    if (code) {
-      emit('scanned', code)
+    const link = parseJoinLink(text)
+    if (link) {
+      emit('scanned', link)
       open.value = false
       return
     }
