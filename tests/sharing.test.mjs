@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { feedRowToPeerFind, formatJoinCode, joinUrl, mergeFeed, normalizeJoinCode, parseJoinInput, summarizeSuggestions } from '../utils/sharing.ts'
+import { feedRowToPeerFind, formatJoinCode, joinUrl, mergeFeed, normalizeJoinCode, parseJoinInput, summarizeSuggestions, upsertPendingJoin } from '../utils/sharing.ts'
 import { stripJpegMetadata } from '../utils/jpeg.ts'
 
 test('join codes: normalise, format, links', () => {
@@ -14,6 +14,16 @@ test('join codes: normalise, format, links', () => {
   assert.equal(parseJoinInput('https://x.app/join/ab3d-ef9h/?utm=1'), 'AB3DEF9H')
   assert.equal(parseJoinInput('AB3D EF9H'), 'AB3DEF9H')
   assert.equal(parseJoinInput('https://evil.example/other'), null)
+})
+
+test('pending joins: one per code, bad codes ignored', () => {
+  let l = upsertPendingJoin([], 'ab3d-ef9h', 'Amy', 't1')
+  assert.deepEqual(l, [{ code: 'AB3DEF9H', displayName: 'Amy', savedAt: 't1' }])
+  l = upsertPendingJoin(l, 'AB3DEF9H', 'Amy B', 't2')
+  assert.equal(l.length, 1)
+  assert.equal(l[0].displayName, 'Amy B')
+  assert.equal(upsertPendingJoin(l, 'nope', 'x', 't3'), l)
+  assert.equal(upsertPendingJoin(l, 'CDEFGHJK', 'Amy', 't3').length, 2)
 })
 
 const row = (id, user, at, extra = {}) => ({

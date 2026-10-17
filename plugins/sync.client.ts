@@ -2,9 +2,15 @@
 // syncNow() itself refuses to overlap and requires online + signed in. Retry
 // backoff/parking is persisted on outbox rows, so the interval/visibility ticks
 // just re-run the drain; items not yet due (nextAttemptAt) are skipped.
+// The same ticks finish joins that were saved offline (a QR scanned with no signal).
+import { flushPendingJoins } from '~/composables/useSharedForay'
+
 export default defineNuxtPlugin(() => {
   const { online, signedIn, pending, syncNow } = useSync()
-  const run = () => { void syncNow() }
+  const run = () => {
+    void syncNow()
+    if (online.value && signedIn.value) void flushPendingJoins().catch(() => {})
+  }
 
   window.addEventListener('online', run)
   watch(signedIn, (v) => { if (v) run() })

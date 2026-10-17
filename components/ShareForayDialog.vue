@@ -43,7 +43,10 @@
           <div v-if="code" class="code-block">
             <div class="text-overline">Join code</div>
             <div class="code" data-testid="join-code">{{ formatJoinCode(code) }}</div>
-            <img v-if="qr" :src="qr" alt="QR code to join this foray" class="qr" />
+            <img v-if="qr" :src="qr" alt="QR code to join this foray" class="qr" data-testid="join-qr" />
+            <div v-if="qr" class="text-caption text-medium-emphasis mt-1">
+              Others scan this from Join a shared foray. It works with no signal; they join once they're back online.
+            </div>
             <div class="d-flex flex-wrap ga-2 justify-center mt-2">
               <v-btn variant="tonal" size="small" prepend-icon="mdi-content-copy" @click="copyLink">{{ copied ? 'Copied' : 'Copy link' }}</v-btn>
               <v-btn v-if="canShareLink" variant="tonal" size="small" prepend-icon="mdi-share" @click="shareLink">Send link</v-btn>

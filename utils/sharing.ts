@@ -30,6 +30,22 @@ export function parseJoinInput(input: string): string | null {
   return normalizeJoinCode(m ? m[1]! : s)
 }
 
+/** A join saved while offline (scanned or typed at the foray); it goes through once there is signal. */
+export interface PendingJoin {
+  code: string
+  displayName: string
+  savedAt: string
+  /** Last server refusal (bad or changed code). Network failures just wait for the next try. */
+  error?: string
+}
+
+/** Add or refresh a saved join; one entry per code, newest name wins. */
+export function upsertPendingJoin(list: PendingJoin[], code: string, displayName: string, savedAt: string): PendingJoin[] {
+  const c = normalizeJoinCode(code)
+  if (!c) return list
+  return [...list.filter((p) => p.code !== c), { code: c, displayName, savedAt }]
+}
+
 export type PeerSource = 'server' | 'file' | 'mesh'
 
 export interface PeerPhoto {

@@ -3,7 +3,8 @@
 // copy of everyone's finds are cached in Dexie, and our own finds and comments queue in the
 // outbox as usual. While the foray screen is open and online, the feed refreshes every 20 s.
 // Server side: supabase/migrations/20261001000006_shared_forays.sql.
-import { feedRowToPeerFind, mergeFeed, normalizeJoinCode, type FeedRow } from '~/utils/sharing'
+import { liveQuery } from 'dexie'
+import { feedRowToPeerFind, mergeFeed, normalizeJoinCode, upsertPendingJoin, type FeedRow, type PendingJoin } from '~/utils/sharing'
 import type { FindComment, Foray, ForayMember, SharedInfo } from '~/utils/db'
 import { publishDeviceKey } from './useDeviceKey'
 
@@ -105,6 +106,66 @@ export async function joinForay(codeInput: string, displayName: string): Promise
   void publishDeviceKey()
   await refreshForay(r.foray_id).catch(() => {})
   return r.foray_id as string
+}
+
+// Joins saved offline (a QR scanned in the woods). Kept in settings under 'pendingJoins' and
+// retried by the sync plugin whenever the phone is online and signed in.
+const PENDING_KEY = 'pendingJoins'
+const pendingJoins = ref<PendingJoin[]>([])
+let pendingWatched = false
+let flushing = false
+
+async function readPending(): Promise<PendingJoin[]> {
+  return ((await useDb().settings.get(PENDING_KEY))?.value as PendingJoin[] | undefined) ?? []
+}
+async function writePending(list: PendingJoin[]) {
+  await useDb().settings.put({ key: PENDING_KEY, value: list })
+}
+
+/** Live list of joins waiting for a connection. */
+export function usePendingJoins() {
+  if (!pendingWatched && import.meta.client) {
+    pendingWatched = true
+    try {
+      liveQuery(readPending).subscribe({ next: (v) => (pendingJoins.value = v), error: () => {} })
+    } catch { /* IndexedDB unavailable */ }
+  }
+  return pendingJoins
+}
+
+/** Save a join to finish once there is a connection. */
+export async function queueJoin(codeInput: string, displayName: string) {
+  const code = normalizeJoinCode(codeInput)
+  if (!code) throw new Error('A join code is 8 letters and numbers, like ABCD-EFGH.')
+  await setDisplayName(displayName)
+  await writePending(upsertPendingJoin(await readPending(), code, displayName.trim(), nowIso()))
+}
+
+export async function dropPendingJoin(code: string) {
+  await writePending((await readPending()).filter((p) => p.code !== code))
+}
+
+/** Try every saved join. Server refusals stay listed with the reason; network trouble waits for next time. */
+export async function flushPendingJoins(): Promise<string[]> {
+  if (flushing) return []
+  flushing = true
+  const joined: string[] = []
+  try {
+    for (const p of await readPending()) {
+      if (p.error) continue
+      try {
+        joined.push(await joinForay(p.code, p.displayName))
+        await dropPendingJoin(p.code)
+      } catch (e: any) {
+        const msg = e?.message ?? String(e)
+        if (/offline|sign in|fetch|network|load failed|connect/i.test(msg)) break
+        await writePending((await readPending()).map((q) => (q.code === p.code ? { ...q, error: msg } : q)))
+      }
+    }
+  } finally {
+    flushing = false
+  }
+  return joined
 }
 
 /** Member: stop seeing the foray live. Our finds stay in it; the local copy stays on this device. */

@@ -7,7 +7,7 @@ const code = String(route.params.code ?? '')
 
 <template>
   <div class="join-page">
-    <JoinForayForm :initial-code="code" @joined="(id: string) => router.replace(`/forays/${id}`)" @cancel="router.replace('/')" />
+    <JoinForayForm :initial-code="code" @joined="(id: string) => router.replace(`/forays/${id}`)" @queued="router.replace('/')" @cancel="router.replace('/')" />
   </div>
 </template>
 
