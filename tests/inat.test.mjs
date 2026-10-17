@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { formatId, displayId } from '../utils/idCode.ts'
-import { buildObservationPayload, composeDescription, parseCreatedId, backoffMs, authorizeUrl, signState, verifyState } from '../server/utils/inat.ts'
+import { buildObservationPayload, pickTaxonId, composeDescription, parseCreatedId, backoffMs, authorizeUrl, signState, verifyState } from '../server/utils/inat.ts'
 
 const find = {
   specimenId: formatId('B7QM', 5, 42), timestamp: '2026-10-05T14:30:00.000Z',
@@ -45,4 +45,19 @@ test('state binds user, rejects tamper/expiry/wrong secret', async () => {
 test('description includes voice-filled form fields', () => {
   const d = composeDescription({ timestamp: 'x', fieldNotes: { capColor: 'brown', sporePrint: 'white', gillAttachment: 'free' } })
   assert.match(d, /Cap color: brown[\s\S]*Gill attachment: free[\s\S]*Spore print: white/)
+})
+
+test('pickTaxonId prefers an exact name, common name or matched term, else the top result', () => {
+  const results = [
+    { id: 1, name: 'Cantharellus cibarius', matched_term: 'Cantharellus cibarius', is_active: true },
+    { id: 2, name: 'Cantharellus formosus', preferred_common_name: 'Pacific Golden Chanterelle', is_active: true },
+    { id: 3, name: 'Cantharellus', matched_term: 'chanterelles', is_active: true },
+  ]
+  assert.equal(pickTaxonId(' cantharellus formosus ', results), 2)
+  assert.equal(pickTaxonId('Pacific golden chanterelle', results), 2)
+  assert.equal(pickTaxonId('Chanterelles', results), 3)
+  assert.equal(pickTaxonId('Cantharellus sp.', results), 1)
+  assert.equal(pickTaxonId('x', [{ id: 9, name: 'x', is_active: false }]), undefined)
+  assert.equal(pickTaxonId('', results), undefined)
+  assert.equal(pickTaxonId('anything', []), undefined)
 })

@@ -66,6 +66,34 @@ export function buildObservationPayload(f: FindInput) {
   return { observation: obs }
 }
 
+/**
+ * Pick the taxon iNaturalist should file a find under. species_guess alone is only a label:
+ * without taxon_id the observation shows as "Unknown". Prefers an exact (case-insensitive)
+ * match on the scientific name, the matched term or the common name; otherwise takes
+ * autocomplete's top result, which is what iNaturalist's own species box would pick.
+ */
+export function pickTaxonId(guess: string, results: any[]): number | undefined {
+  const g = guess.trim().toLowerCase()
+  if (!g || !Array.isArray(results)) return undefined
+  const live = results.filter((r) => typeof r?.id === 'number' && r.is_active !== false)
+  const norm = (v: unknown) => String(v ?? '').trim().toLowerCase()
+  const exact = live.find((r) => [r.name, r.matched_term, r.preferred_common_name].some((v) => norm(v) === g))
+  return (exact ?? live[0])?.id
+}
+
+/** Look up a taxon id for a free-text species guess (public endpoint, no auth). */
+export async function resolveTaxonId(guess: string): Promise<number | undefined> {
+  const q = guess.trim()
+  if (!q) return undefined
+  try {
+    const res = await inatFetch(`${INAT_API}/taxa/autocomplete?${new URLSearchParams({ q, per_page: '10' })}`, { retries: 1 })
+    if (!res.ok) return undefined
+    return pickTaxonId(q, ((await res.json()) as any)?.results ?? [])
+  } catch {
+    return undefined
+  }
+}
+
 /** Pull the observation id out of a v1 create response (array or {results}). */
 export function parseCreatedId(body: any): number | undefined {
   const first = Array.isArray(body) ? body[0] : body?.results?.[0] ?? body
