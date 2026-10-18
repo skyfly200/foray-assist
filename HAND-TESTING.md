@@ -193,3 +193,14 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] In AR, the pin button drops a note where the circle is; it stays there as you move
 - [ ] MycoDex shows the Finds score, Thoroughness, streak and badges. A find counts toward Finds once it is at least 50% complete
 - [ ] iPhone: no AR button; the camera screen works
+
+## 19. Offline base map and map layers
+
+- [ ] Open Map with location allowed and signal: within a few seconds the map centres on you and the layers button lists "Around you" under Saved for offline, with its size
+- [ ] Turn on airplane mode, close the app fully and reopen Map: roads, trails and place names still draw around you, from zoomed out to street level
+- [ ] Still offline, pan about 10 km away and zoom in: the map gets blank or blurry there (only the saved area is detailed). That is expected
+- [ ] Offline, open the layers button: Satellite and Terrain are greyed out and it says you're offline
+- [ ] Back online, pick Satellite: aerial photos show and your find pins stay on top. Pick Terrain: contour lines show. Leave the map and come back: your choice is kept
+- [ ] Pan somewhere else and tap Save this area: a progress bar runs and a new area is listed. Tap an area to jump to it; the bin icon removes it
+- [ ] Drive or walk to a new spot more than a few km away and open Map with signal: a second "Around you" area saves on its own (the three newest are kept)
+- [ ] The bottom right credits read OpenFreeMap, OpenMapTiles and OpenStreetMap on the Map layer, and Esri on Satellite

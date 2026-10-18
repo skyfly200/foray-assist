@@ -68,18 +68,9 @@ export default defineNuxtConfig({
       navigateFallbackDenylist: [/^\/api\//],
       globPatterns: ['**/*.{js,css,html,woff,woff2,ttf,png,svg,ico}'],
       cleanupOutdatedCaches: true,
+      // Base map files are cached by the Map page itself (composables/useOfflineMap.ts), not here.
       // The self-hosted ONNX/WASM speech runtime (~40 MB) is too big to precache; cache it on first use.
       runtimeCaching: [
-        // Map tiles: keep the ones you've looked at so the map still draws offline in the woods.
-        {
-          urlPattern: ({ url }: { url: URL }) => url.hostname === 'tile.openstreetmap.org',
-          handler: 'CacheFirst',
-          options: {
-            cacheName: 'map-tiles',
-            expiration: { maxEntries: 2000, maxAgeSeconds: 60 * 60 * 24 * 30 },
-            cacheableResponse: { statuses: [0, 200] },
-          },
-        },
         {
           urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/ort/'),
           handler: 'CacheFirst',
