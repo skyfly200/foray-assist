@@ -21,7 +21,7 @@ export interface XrMark {
 export async function arSupported(): Promise<boolean> {
   try {
     const xr = (navigator as any).xr
-    return !!xr && (await xr.isSessionSupported('immersive-ar'))
+    return !!xr && window.isSecureContext && (await xr.isSessionSupported('immersive-ar'))
   } catch {
     return false
   }
@@ -57,16 +57,24 @@ export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<
   const screen = ref<Record<string, ScreenPos>>({})
   const offsets = ref<Record<string, { mark: string; offset: XrPoint }>>({})
 
-  const canvas = document.createElement('canvas')
-  const gl: WebGL2RenderingContext | WebGLRenderingContext =
-    (canvas.getContext('webgl2', { xrCompatible: true, alpha: true }) as any) ?? (canvas.getContext('webgl', { xrCompatible: true, alpha: true }) as any)
-  const XRLayer = (window as any).XRWebGLLayer
-  session.updateRenderState({ baseLayer: new XRLayer(session, gl, { alpha: true }) })
-  const space = await session.requestReferenceSpace('local')
-  const viewer = await session.requestReferenceSpace('viewer')
-  const hitSource = await session.requestHitTestSource({ space: viewer })
-  const Binding = (window as any).XRWebGLBinding
-  const binding = Binding ? new Binding(session, gl) : null
+  let gl: WebGL2RenderingContext | WebGLRenderingContext
+  let space: any, viewer: any, hitSource: any, binding: any
+  try {
+    const canvas = document.createElement('canvas')
+    gl = (canvas.getContext('webgl2', { xrCompatible: true, alpha: true }) as any) ?? (canvas.getContext('webgl', { xrCompatible: true, alpha: true }) as any)
+    if (!gl) throw new Error('WebGL is not available')
+    const XRLayer = (window as any).XRWebGLLayer
+    session.updateRenderState({ baseLayer: new XRLayer(session, gl, { alpha: true }) })
+    space = await session.requestReferenceSpace('local')
+    viewer = await session.requestReferenceSpace('viewer')
+    hitSource = await session.requestHitTestSource({ space: viewer })
+    const Binding = (window as any).XRWebGLBinding
+    binding = Binding ? new Binding(session, gl) : null
+  } catch (e) {
+    // Don't leave a half-started session holding the camera.
+    await session.end().catch(() => {})
+    throw e
+  }
 
   let lastHit: any = null
   let ended = false

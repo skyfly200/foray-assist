@@ -168,6 +168,11 @@ const status = computed(() => {
 
       <div class="settings-col settings-col-right">
       <section class="mb-4">
+        <h2 class="section-title"><v-icon size="20" color="primary">mdi-cube-scan</v-icon> Capture</h2>
+        <CaptureModeSettings />
+      </section>
+
+      <section class="mb-4">
         <h2 class="section-title"><v-icon size="20" color="primary">mdi-microphone-outline</v-icon> Voice</h2>
         <VoiceModelSettings class="mb-4" />
       </section>

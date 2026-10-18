@@ -1,5 +1,5 @@
 // Bottom-bar "New find": snap a photo from anywhere and file it under the right foray.
-import { createFindFromPhotos } from '~/composables/useFinds'
+import { createFind, createFindFromPhotos } from '~/composables/useFinds'
 import { pickCaptureForay } from '~/utils/captureTarget'
 import { readPhotoMeta } from '~/utils/exif'
 import { pastForayName, summarizePhotos, FRESH_PHOTO_MS } from '~/utils/pastForay'
@@ -47,6 +47,15 @@ export async function newFindFromPhotos(files: File[], currentForayId?: string |
   const forayId = pickCaptureForay(forays, currentForayId, old?.startedAt)
     ?? (await startForay(old ? pastForayName(old.day) : undefined, old ? { startedAt: old.startedAt, endedAt: old.endedAt } : undefined)).id
   const find = await createFindFromPhotos(forayId, files, metas)
+  useLastNewFind().value = find.id
+  return { forayId, findId: find.id }
+}
+
+/** Creates an empty find for guided capture in the foray on screen, else the newest open foray, else a new one. */
+export async function newBlankFind(currentForayId?: string | null) {
+  const forays = await useDb().forays.toArray()
+  const forayId = pickCaptureForay(forays, currentForayId) ?? (await startForay()).id
+  const find = await createFind(forayId)
   useLastNewFind().value = find.id
   return { forayId, findId: find.id }
 }

@@ -193,6 +193,9 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] In AR, the pin button drops a note where the circle is; it stays there as you move
 - [ ] MycoDex shows the Finds score, Thoroughness, streak and badges. A find counts toward Finds once it is at least 50% complete
 - [ ] iPhone: no AR button; the camera screen works
+- [ ] Android Chrome: tap **New find** in the bottom bar. A find starts and AR opens straight away (first time, Chrome asks to allow AR). If it shows "AR couldn't start", report the error text under it
+- [ ] Tap New find, then back without taking anything: the empty find is gone from the foray
+- [ ] Settings → Capture → **Quick photo**: New find opens the camera app again, like before
 
 ## 19. Offline base map and map layers
 
