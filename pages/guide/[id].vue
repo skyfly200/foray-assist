@@ -75,6 +75,19 @@
       <span v-for="f in liveFilled" :key="f.key" class="tag">{{ f.label }}: {{ f.value }}</span>
     </div>
 
+    <!-- Opened from New find: AR needs one more tap when the first one has run out, and says why it failed. -->
+    <div v-if="arPrompt || arError" class="ar-start glass">
+      <template v-if="arError">
+        <div class="font-weight-bold">AR couldn't start</div>
+        <div class="text-caption mt-1">{{ arError }}</div>
+      </template>
+      <div v-else class="font-weight-bold">Start AR?</div>
+      <div class="d-flex justify-center ga-2 mt-3">
+        <v-btn color="primary" prepend-icon="mdi-cube-scan" @click="enterAr">{{ arError ? 'Try again' : 'Start AR' }}</v-btn>
+        <v-btn variant="text" color="white" @click="useCameraInstead">Use camera</v-btn>
+      </div>
+    </div>
+
     <div v-if="flash" class="flash" aria-hidden="true" />
     <transition name="pop">
       <div v-if="toast" :key="toast.key" class="toast">{{ toast.text }}</div>
@@ -139,7 +152,7 @@
 // On Chrome for Android it can switch to WebXR AR, where the shots become a ring of markers
 // around the find and pinned notes stay where you put them in the world.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { addPhoto, useLiveQuery } from '~/composables/useFinds'
+import { addPhoto, removeIfEmpty, useLiveQuery } from '~/composables/useFinds'
 import { arSupported, startAr, type XrHandle, type ScreenPos } from '~/composables/useXr'
 import { checklist, MIN_THOROUGHNESS, SHOT_ANGLES, SHOT_LABELS, shotsDone, thoroughness, type ShotAngle } from '~/utils/score'
 import type { Photo, Specimen } from '~/utils/db'
@@ -147,6 +160,9 @@ import type { Photo, Specimen } from '~/utils/db'
 const route = useRoute()
 const router = useRouter()
 const findId = computed(() => String(route.params.id))
+// Opened from the bottom bar's New find: the find was made for this screen, so try AR straight
+// away and drop the find again if nothing gets recorded.
+const isNew = route.query.new === '1'
 
 const data = useLiveQuery(async () => {
   const db = useDb()
@@ -200,6 +216,9 @@ const video = ref<HTMLVideoElement | null>(null)
 const camError = ref('')
 let stream: MediaStream | null = null
 let camStarting: Promise<void> = Promise.resolve()
+// False once AR takes over, so a camera that opens late is closed again instead of
+// holding the camera ARCore needs.
+let camWanted = false
 
 /** Resolves once the camera shows frames (or after 3 s). */
 async function cameraReady() {
@@ -208,21 +227,30 @@ async function cameraReady() {
 }
 
 function startCamera() {
+  if (camWanted) return camStarting
+  camWanted = true
   camStarting = openCamera()
   return camStarting
 }
 async function openCamera() {
   camError.value = ''
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+    if (!camWanted) { s.getTracks().forEach((t) => t.stop()); return }
+    stream = s
     if (video.value) video.value.srcObject = stream
   } catch (e: any) {
     camError.value = e?.name === 'NotAllowedError' ? 'Allow camera access to use guided capture.' : 'The camera is not available.'
   }
 }
+/** Stops the camera. True when it was running. */
 function stopCamera() {
+  camWanted = false
+  const was = !!stream
   stream?.getTracks().forEach((t) => t.stop())
   stream = null
+  if (video.value) video.value.srcObject = null
+  return was
 }
 
 async function grabFrame(): Promise<Blob | null> {
@@ -329,6 +357,8 @@ const at = (s: ScreenPos, dx = 0, dy = 0) => ({ transform: `translate(${Math.rou
 // ---------- AR ----------
 const arOk = ref(false)
 const ar = ref(false)
+const arPrompt = ref(false)
+const arError = ref('')
 const xr = ref<XrHandle | null>(null)
 const findPlaced = computed(() => !!xr.value?.marks.value.find)
 const findPos = computed(() => xr.value?.screen.value.find ?? null)
@@ -336,7 +366,11 @@ const RING_M = 0.3
 
 async function enterAr() {
   if (!root.value) return
-  stopCamera()
+  arPrompt.value = false
+  arError.value = ''
+  // Give the phone a moment to release the camera before ARCore asks for it; the tap that
+  // started this stays valid for a few seconds, which is what requestSession needs.
+  if (stopCamera()) await new Promise((r) => setTimeout(r, 300))
   try {
     const h = await startAr(root.value, () => {
       // Ended by us or by the system (back button, app switch).
@@ -355,9 +389,15 @@ async function enterAr() {
     xr.value = h
     ar.value = true
   } catch (e: any) {
-    say('AR could not start on this phone')
+    // Say exactly what the browser said, so it can be reported.
+    arError.value = [e?.name, e?.message].filter(Boolean).join(': ') || String(e)
     void startCamera()
   }
+}
+function useCameraInstead() {
+  arPrompt.value = false
+  arError.value = ''
+  void startCamera()
 }
 async function exitAr() {
   await xr.value?.end()
@@ -372,10 +412,21 @@ function leave() {
 }
 
 onMounted(async () => {
-  void startCamera()
+  if (!isNew) void startCamera()
   arOk.value = await arSupported()
+  if (!isNew) return
+  if (!arOk.value) {
+    void startCamera()
+    say('AR isn\'t available here, using the camera')
+    return
+  }
+  // The New find tap usually still counts as the gesture AR needs; if it has run out, ask for a tap.
+  const act = (navigator as any).userActivation
+  if (act && !act.isActive) arPrompt.value = true
+  else await enterAr()
 })
 onBeforeUnmount(() => {
+  if (isNew) void removeIfEmpty(findId.value)
   stopCamera()
   void xr.value?.end()
   if (toastTimer) clearTimeout(toastTimer)
@@ -447,6 +498,10 @@ onBeforeUnmount(() => {
 .shutter:active { transform: scale(0.92); }
 .shutter:disabled { opacity: 0.5; }
 .ar-help { margin-top: 12px; padding: 8px 12px; border-radius: 12px; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; }
+.ar-start {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(320px, calc(100vw - 32px)); padding: 16px; border-radius: 16px; text-align: center;
+}
 .flash { position: absolute; inset: 0; background: #fff; opacity: 0.7; pointer-events: none; }
 .toast {
   position: absolute; left: 50%; top: 42%; transform: translateX(-50%);

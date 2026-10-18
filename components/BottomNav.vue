@@ -6,15 +6,32 @@ const homeActive = computed(() => route.path === '/' || route.path.startsWith('/
 const dexActive = computed(() => route.path.startsWith('/dex'))
 const mapActive = computed(() => route.path.startsWith('/map'))
 const settingsActive = computed(() => route.path.startsWith('/settings'))
-// New find: opens the camera straight from the tap (browsers only allow that synchronously),
+// New find, in Settings' "guided" mode (default): starts a find and opens guided capture, which goes
+// into AR right away when the phone supports it (the tap still counts as the gesture AR needs).
+// In "photo" mode: opens the camera straight from the tap (browsers only allow that synchronously),
 // then files the photo under the foray on screen, else the newest open foray, else a new one.
+const { mode: captureMode } = useCaptureMode()
 const cameraInput = ref<HTMLInputElement | null>(null)
 const creating = ref(false)
 const failed = ref('')
 const failedOpen = ref(false)
 const currentForayId = computed(() => (route.path.startsWith('/forays/') ? String(route.params.id ?? '') : null))
 function onNewFind() {
-  if (!creating.value) cameraInput.value?.click()
+  if (creating.value) return
+  if (captureMode.value === 'photo') cameraInput.value?.click()
+  else void startGuided()
+}
+async function startGuided() {
+  creating.value = true
+  try {
+    const { findId } = await newBlankFind(currentForayId.value)
+    await router.push({ path: `/guide/${findId}`, query: { new: '1' } })
+  } catch (err: any) {
+    failedOpen.value = true
+    failed.value = err?.message ?? String(err)
+  } finally {
+    creating.value = false
+  }
 }
 async function onCaptured(e: Event) {
   const input = e.target as HTMLInputElement
@@ -50,13 +67,13 @@ async function onCaptured(e: Event) {
       <button
         type="button"
         class="fa-nav__item fa-nav__new"
-        aria-label="New find: take photo"
+        :aria-label="captureMode === 'photo' ? 'New find: take photo' : 'New find: guided capture'"
         :aria-busy="creating"
         @click="onNewFind"
       >
         <span class="fa-nav__orb" :class="{ 'is-busy': creating }">
           <v-progress-circular v-if="creating" indeterminate size="26" width="3" />
-          <v-icon v-else icon="mdi-camera-plus" size="28" />
+          <v-icon v-else :icon="captureMode === 'photo' ? 'mdi-camera-plus' : 'mdi-cube-scan'" size="28" />
         </span>
         <span class="fa-nav__label">New find</span>
       </button>
