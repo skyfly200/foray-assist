@@ -9,6 +9,17 @@ This document outlines the post-MVP evolution of the Foray Assistant App, detail
 
 ---
 
+## Pending: Rename the App to Voucher
+*Status: Skyler chose the name **Voucher** on 2026-10-17. The user-facing rename (app bar, page title, PWA name, welcome and share text, field form header) is in draft PR #36 and not merged yet. Everything else still says Foray Assist.*
+
+* **Step 1, user-facing names**: merge PR #36. It also relabels society voucher numbers as "Society #" so they don't clash with the app name.
+* **Step 2, custom domain**: pick and buy a domain, add it in Vercel, then update `APP_ORIGIN`, the Supabase auth redirect URLs, and the Google Photos and iNaturalist OAuth redirect URIs (SETUP.md) to the new origin. Keep a redirect from `foray-assist.vercel.app` (and the older `forray-assist`) so join links, QR codes and bookmarks keep working. Installed PWAs are tied to the old origin, so users will need to reinstall once.
+* **Step 3, project names**: rename the GitHub repo, the Vercel project and the Supabase project's display name, and update README, SPEC, SETUP and this file. GitHub and Vercel redirect old names; the Supabase project ref doesn't change.
+* **Keep as is (renaming would break data)**: the on-device database name `forray-assist`, the shared-find package format `foray-assist/find`, and the ID format. Changing these would orphan local finds or make older shared files unreadable, so they stay unless a migration is written.
+* **Optional tidy-up**: `package.json` name and internal identifiers such as `forray-capture`, which users never see.
+
+---
+
 ## Phase 2: Advanced On-Device Computer Vision & Diagnostic Quality Scoring
 *Goal: Expand beyond simple Laplacian blur checks to intelligent macro-feature detection.*
 
