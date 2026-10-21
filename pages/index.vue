@@ -167,7 +167,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
         <v-text-field
           v-model="newName"
           class="fa-home__name"
-          placeholder="Title (optional, defaults to today)"
+          placeholder="Title (optional, defaults to place and date)"
           aria-label="New foray title"
           hide-details
           density="comfortable"
