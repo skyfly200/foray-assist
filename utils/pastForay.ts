@@ -1,4 +1,5 @@
 // Logging a foray after the fact: work out its date and place from the photos' metadata.
+import { defaultForayName } from './forayName.ts'
 
 export interface PhotoStamp {
   capturedAt: string // ISO
@@ -77,9 +78,7 @@ export function pastForayTimes(day: string, summary: PastForaySummary | null, no
 
 /** Default name: "Place · Oct 3, 2026", or "Foray Oct 3, 2026" without a place. */
 export function pastForayName(day: string, place?: string | null): string {
-  const [y, m, d] = day.split('-').map(Number)
-  const date = new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-  return place?.trim() ? `${place.trim()} · ${date}` : `Foray ${date}`
+  return defaultForayName(day, place)
 }
 
 /** A short place name from a Nominatim reverse-geocode response (park or wood first, then town). */

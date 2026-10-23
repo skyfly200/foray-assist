@@ -3,19 +3,25 @@ import { createFind, createFindFromPhotos } from '~/composables/useFinds'
 import { pickCaptureForay } from '~/utils/captureTarget'
 import { readPhotoMeta } from '~/utils/exif'
 import { pastForayName, summarizePhotos, FRESH_PHOTO_MS } from '~/utils/pastForay'
+import { defaultForayName, dayOf } from '~/utils/forayName'
+import { addPlaceToForayName } from '~/composables/useForayPlace'
 
-/** Starts a foray now; the name defaults to today's date. Pass `when` to log a past foray (already ended). */
+/**
+ * Starts a foray now. Without a name it's called "Foray <date>" and the place is added once known
+ * (see useForayPlace). Pass `when` to log a past foray (already ended).
+ */
 export async function startForay(name?: string, when?: { startedAt: string; endedAt: string }): Promise<Foray> {
   const now = nowIso()
   const row: Foray = {
     id: newId(),
-    name: name?.trim() || `Foray ${new Date(when?.startedAt ?? now).toLocaleDateString()}`,
+    name: name?.trim() || defaultForayName(dayOf(when?.startedAt ?? now)),
     startedAt: when?.startedAt ?? now,
     ...(when ? { endedAt: when.endedAt } : {}),
     updatedAt: now,
   }
   await useDb().forays.add(row)
   await enqueue('forays', row.id)
+  if (!when) void addPlaceToForayName(row.id, true).catch(() => false)
   return row
 }
 
@@ -47,6 +53,8 @@ export async function newFindFromPhotos(files: File[], currentForayId?: string |
   const forayId = pickCaptureForay(forays, currentForayId, old?.startedAt)
     ?? (await startForay(old ? pastForayName(old.day) : undefined, old ? { startedAt: old.startedAt, endedAt: old.endedAt } : undefined)).id
   const find = await createFindFromPhotos(forayId, files, metas)
+  // A foray just made from old photos can take its place from their GPS straight away.
+  void addPlaceToForayName(forayId).catch(() => false)
   useLastNewFind().value = find.id
   return { forayId, findId: find.id }
 }
