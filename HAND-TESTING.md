@@ -207,3 +207,12 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] Pan somewhere else and tap Save this area: a progress bar runs and a new area is listed. Tap an area to jump to it; the bin icon removes it
 - [ ] Drive or walk to a new spot more than a few km away and open Map with signal: a second "Around you" area saves on its own (the three newest are kept)
 - [ ] The bottom right credits read OpenFreeMap, OpenMapTiles and OpenStreetMap on the Map layer, and Esri on Satellite
+
+## 20. Deleting forays
+
+- [ ] On Home, open a foray's ⋮ menu and tap **Delete foray**. The dialog names the foray and says it removes its finds, photos and voice notes. Cancel leaves everything in place
+- [ ] Confirm: the card disappears, and its finds and photos are gone from Dex and Map
+- [ ] On a foray's page, tap the bin icon beside the title, then Delete: the app returns to Home and the foray is gone
+- [ ] Sync on a second device signed in to the same account (Settings → Sync now): the foray is gone there too, and does not come back after a restart
+- [ ] Offline: delete a foray, go back online, and confirm it is removed on the server (Supabase table `forays` has no row for it)
+- [ ] A foray shared with others: the dialog says it is also removed for everyone it is shared with. A joined (not owned) foray shows no delete option

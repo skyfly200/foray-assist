@@ -16,6 +16,9 @@ const starting = ref(false)
 // The foray whose title dialog is open; the dialog lives outside the card menu so closing the menu doesn't unmount it.
 const renaming = ref<Foray | null>(null)
 const renameOpen = computed({ get: () => !!renaming.value, set: (v) => { if (!v) renaming.value = null } })
+// The foray whose delete dialog is open; kept outside the card menu for the same reason.
+const removing = ref<Foray | null>(null)
+const removeOpen = computed({ get: () => !!removing.value, set: (v) => { if (!v) removing.value = null } })
 
 const subs: { unsubscribe(): void }[] = []
 const coverCache = new Map<string, { photoId: string; url: string }>()
@@ -194,6 +197,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
     <OnboardingCard />
 
     <RenameForayDialog v-if="renaming" v-model="renameOpen" :foray="renaming" />
+    <DeleteForayDialog v-if="removing" v-model="removeOpen" :foray="removing" />
 
     <h2 v-if="forays.length" class="fa-home__section">Your forays</h2>
 
@@ -227,6 +231,7 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
             </template>
             <v-list density="comfortable" rounded="lg">
               <v-list-item prepend-icon="mdi-pencil" title="Edit title" @click="renaming = f" />
+              <v-list-item prepend-icon="mdi-delete" title="Delete foray" base-color="error" @click="removing = f" />
               <v-list-item v-if="!f.endedAt" prepend-icon="mdi-flag-checkered" title="End foray" @click="endForay(f)" />
             </v-list>
           </v-menu>
