@@ -1,12 +1,15 @@
 <script setup lang="ts">
 // Map: every find with a GPS fix, as a pin, over a base layer picked from utils/mapLayers.ts.
-// The default base map is OpenFreeMap vector tiles drawn by MapLibre; the area around you is saved
-// for offline use (composables/useOfflineMap.ts). Satellite and terrain need a connection.
+// Pins are your finds plus other members' finds in shared forays; pins close together merge into a
+// numbered cluster (utils/mapCluster.ts). The default base map is OpenFreeMap vector tiles drawn by
+// MapLibre; the area around you is saved for offline use (composables/useOfflineMap.ts).
+// Satellite and terrain need a connection.
 import { liveQuery } from 'dexie'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { mapPoints, type MapPoint } from '~/utils/findMap'
+import { mapPoints, missingFixes, type MapFind, type MapPeer, type MapPhoto, type MapPoint } from '~/utils/findMap'
+import { clusterPoints } from '~/utils/mapCluster'
 import { displayId, isPendingId } from '~/utils/idCode'
 import { BASE_LAYERS, DEFAULT_LAYER, baseLayer, type BaseLayer } from '~/utils/mapLayers'
 import { formatBytes } from '~/utils/offlineMap'
@@ -15,7 +18,9 @@ import { prepareBaseStyle } from '~/composables/useOfflineMap'
 const router = useRouter()
 const el = ref<HTMLElement | null>(null)
 const forays = ref<Foray[]>([])
-const finds = ref<Specimen[]>([])
+const finds = ref<MapFind[]>([])
+const photos = ref<MapPhoto[]>([])
+const peers = ref<MapPeer[]>([])
 const loaded = ref(false)
 const forayFilter = ref<string | null>(null)
 const locating = ref(false)
@@ -32,11 +37,10 @@ const shownLayer = computed(() => {
 })
 
 const forayNames = computed(() => Object.fromEntries(forays.value.map((f) => [f.id, f.name])))
-const points = computed(() => mapPoints(finds.value, forayNames.value, forayFilter.value))
-const missing = computed(() => {
-  const inScope = forayFilter.value ? finds.value.filter((f) => f.forayId === forayFilter.value) : finds.value
-  return inScope.length - points.value.length
-})
+const points = computed(() => mapPoints({ finds: finds.value, photos: photos.value, peers: peers.value, forayNames: forayNames.value, forayId: forayFilter.value }))
+const shownMine = computed(() => points.value.filter((p) => p.source === 'mine').length)
+const shownPeers = computed(() => points.value.length - shownMine.value)
+const missing = computed(() => missingFixes(finds.value, photos.value, forayFilter.value))
 const forayItems = computed(() => [{ title: 'All forays', value: null }, ...forays.value.map((f) => ({ title: f.name, value: f.id }))])
 
 let map: L.Map | null = null
@@ -121,7 +125,7 @@ async function quietLocate() {
 const onOnline = () => { online.value = true }
 const onOffline = () => { online.value = false }
 
-function popup(p: MapPoint, specimenId: string) {
+function popup(p: MapPoint) {
   const box = document.createElement('div')
   box.className = 'fa-map-pop'
   const title = document.createElement('div')
@@ -129,7 +133,8 @@ function popup(p: MapPoint, specimenId: string) {
   title.textContent = p.title
   const meta = document.createElement('div')
   meta.className = 'fa-map-pop__meta'
-  meta.textContent = `${isPendingId(specimenId) ? 'ID pending' : displayId(specimenId)} · ${new Date(p.at).toLocaleDateString()} · ${p.forayName}`
+  const who = p.author ? ` · ${p.author}` : ''
+  meta.textContent = `${isPendingId(p.specimenId) ? 'ID pending' : displayId(p.specimenId)} · ${new Date(p.at).toLocaleDateString()} · ${p.forayName}${who}`
   const open = document.createElement('button')
   open.type = 'button'
   open.className = 'fa-map-pop__open'
@@ -139,14 +144,41 @@ function popup(p: MapPoint, specimenId: string) {
   return box
 }
 
+function pin(p: MapPoint) {
+  const mine = p.source === 'mine'
+  L.circleMarker([p.lat, p.lng], {
+    radius: 9,
+    weight: 3,
+    color: '#ffffff',
+    fillColor: mine ? '#1b8a5a' : '#7b4fb0',
+    fillOpacity: 1,
+  })
+    .bindPopup(() => popup(p))
+    .addTo(layer!)
+}
+
+/** A numbered bubble for pins that are close together. Clicking it zooms in to those pins. */
+function cluster(lat: number, lng: number, members: MapPoint[]) {
+  const icon = L.divIcon({
+    className: 'fa-map-cluster',
+    html: `<span>${members.length}</span>`,
+    iconSize: [38, 38],
+  })
+  L.marker([lat, lng], { icon, title: `${members.length} finds here. Click to zoom in.`, keyboard: true })
+    .on('click', () => {
+      if (!map) return
+      const b = L.latLngBounds(members.map((p) => [p.lat, p.lng] as [number, number]))
+      map.fitBounds(b, { padding: [48, 48], maxZoom: 18 })
+    })
+    .addTo(layer!)
+}
+
 function draw() {
   if (!map || !layer) return
   layer.clearLayers()
-  const ids = new Map(finds.value.map((f) => [f.id, f.specimenId]))
-  for (const p of points.value) {
-    L.circleMarker([p.lat, p.lng], { radius: 9, weight: 3, color: '#ffffff', fillColor: '#1b8a5a', fillOpacity: 1 })
-      .bindPopup(() => popup(p, ids.get(p.id) ?? ''))
-      .addTo(layer)
+  for (const c of clusterPoints(points.value, map.getZoom())) {
+    if (c.points.length === 1) pin(c.points[0]!)
+    else cluster(c.lat, c.lng, c.points)
   }
   if (!fitted && points.value.length) {
     fitted = true
@@ -190,6 +222,7 @@ onMounted(async () => {
   map = L.map(el.value!, { zoomControl: false, attributionControl: true, maxZoom: 19 }).setView([39.5, -98.35], 4)
   L.control.zoom({ position: 'bottomright' }).addTo(map)
   layer = L.layerGroup().addTo(map)
+  map.on('zoomend', draw)
   window.addEventListener('online', onOnline)
   window.addEventListener('offline', onOffline)
   const db = useDb()
@@ -201,10 +234,20 @@ onMounted(async () => {
   void showBase()
   void offline.load()
   void quietLocate()
-  sub = liveQuery(async () => ({ forays: await db.forays.orderBy('startedAt').reverse().toArray(), finds: await db.specimens.toArray() })).subscribe({
+  sub = liveQuery(async () => ({
+    forays: await db.forays.orderBy('startedAt').reverse().toArray(),
+    finds: await db.specimens.toArray(),
+    // Only the fields the map reads: a photo's image blob stays in the database.
+    photos: (await db.photos.toArray()).map(({ specimenRowId, capturedAt, latitude, longitude }) => ({ specimenRowId, capturedAt, latitude, longitude })),
+    peers: (await db.peerFinds.toArray()).map(({ id, forayId, authorName, specimenId, timestamp, latitude, longitude, geoprivacy, fieldNotes }) => ({
+      id, forayId, authorName, specimenId, timestamp, latitude, longitude, geoprivacy, fieldNotes,
+    })),
+  })).subscribe({
     next: (r) => {
       forays.value = r.forays
       finds.value = r.finds
+      photos.value = r.photos
+      peers.value = r.peers
       loaded.value = true
     },
     error: (e) => console.error('map query failed', e),
@@ -287,7 +330,9 @@ onBeforeUnmount(() => {
     <div ref="el" class="fa-map__canvas" role="region" aria-label="Map of your finds" />
     <div v-if="loaded" class="fa-map__note" role="status">
       <template v-if="!points.length">No finds with a location yet. Finds get one when your phone has GPS as you make them.</template>
-      <template v-else>{{ points.length }} find{{ points.length === 1 ? '' : 's' }} on the map<template v-if="missing > 0"> · {{ missing }} without a location</template></template>
+      <template v-else>
+        {{ shownMine }} find{{ shownMine === 1 ? '' : 's' }} of yours on the map<template v-if="shownPeers > 0"> · {{ shownPeers }} from others</template><template v-if="missing > 0"> · {{ missing }} without a location</template>
+      </template>
       <span v-if="locateError"> · {{ locateError }}</span>
       <span v-if="baseError"> · {{ baseError }}</span>
       <span v-if="saving"> · Saving map for offline {{ savingPct }}%</span>
@@ -306,6 +351,12 @@ onBeforeUnmount(() => {
   background: rgba(var(--v-theme-surface), 0.94); box-shadow: var(--fa-shadow);
 }
 .fa-map-menu__err { padding: 0 16px 12px; font-size: 0.8rem; opacity: 0.8; }
+:deep(.fa-map-cluster) { display: grid; place-items: center; background: none; border: 0; }
+:deep(.fa-map-cluster span) {
+  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%;
+  background: rgb(var(--v-theme-primary)); color: #fff; font-weight: 800; font-size: 0.9rem;
+  border: 3px solid #fff; box-shadow: var(--fa-shadow);
+}
 :deep(.fa-map-pop__title) { font-weight: 800; font-size: 0.95rem; }
 :deep(.fa-map-pop__meta) { font-size: 0.78rem; opacity: 0.75; margin: 2px 0 8px; }
 :deep(.fa-map-pop__open) { font: inherit; font-weight: 700; color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.12); border: 0; border-radius: 999px; padding: 4px 12px; cursor: pointer; }
