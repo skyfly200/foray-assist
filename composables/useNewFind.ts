@@ -38,6 +38,34 @@ export async function renameForay(id: string, name: string) {
   await enqueue('forays', id)
 }
 
+/**
+ * Deletes a foray with its finds, photos, voice notes and comments, here and on the server.
+ * The server has no foreign keys to forays on these tables, so every child row gets its own
+ * queued delete (photo files are removed with their rows). Only the foray's owner may call it.
+ */
+export async function deleteForay(id: string) {
+  const db = useDb()
+  await db.transaction('rw', db.forays, db.specimens, db.photos, db.voiceNotes, db.comments, db.peerFinds, db.nearbyAlerts, db.outbox, async () => {
+    const findIds = (await db.specimens.where('forayId').equals(id).primaryKeys()) as string[]
+    const photoIds = (await db.photos.where('forayId').equals(id).primaryKeys()) as string[]
+    const noteIds = (await db.voiceNotes.where('forayId').equals(id).primaryKeys()) as string[]
+    const commentIds = (await db.comments.where('forayId').equals(id).primaryKeys()) as string[]
+    await db.specimens.bulkDelete(findIds)
+    await db.photos.bulkDelete(photoIds)
+    await db.voiceNotes.bulkDelete(noteIds)
+    await db.comments.bulkDelete(commentIds)
+    // Finds from other people and nearby alerts are local copies only; nothing to send.
+    await db.peerFinds.where('forayId').equals(id).delete()
+    await db.nearbyAlerts.where('forayId').equals(id).delete()
+    await db.forays.delete(id)
+    for (const pid of photoIds) await enqueue('photos', pid, 'delete')
+    for (const nid of noteIds) await enqueue('voiceNotes', nid, 'delete')
+    for (const cid of commentIds) await enqueue('comments', cid, 'delete')
+    for (const sid of findIds) await enqueue('specimens', sid, 'delete')
+    await enqueue('forays', id, 'delete')
+  })
+}
+
 /** Id of the find created last from the bottom bar, so the find list can celebrate it. */
 export const useLastNewFind = () => useState<string | null>('fa-last-new-find', () => null)
 
