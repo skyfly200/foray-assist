@@ -97,8 +97,11 @@ function showArea(lat: number, lng: number) {
 function placeMe(lat: number, lng: number) {
   if (!map) return
   const ll: [number, number] = [lat, lng]
-  if (!me) me = L.circleMarker(ll, { radius: 8, weight: 3, color: '#ffffff', fillColor: '#1e88e5', fillOpacity: 1 }).addTo(map)
-  else me.setLatLng(ll)
+  if (!me) {
+    // A soft pulsing halo sits under the blue dot so "you are here" is easy to spot.
+    L.circleMarker(ll, { radius: 22, weight: 0, fillColor: '#1e88e5', fillOpacity: 0.18, interactive: false, className: 'fa-map-halo' }).addTo(map)
+    me = L.circleMarker(ll, { radius: 8, weight: 3, color: '#ffffff', fillColor: '#1e88e5', fillOpacity: 1, className: 'fa-map-me' }).addTo(map)
+  } else me.setLatLng(ll)
 }
 
 /** Without asking: if location is already allowed, save the map around you for offline use. */
@@ -126,7 +129,7 @@ function popup(p: MapPoint, specimenId: string) {
   box.className = 'fa-map-pop'
   const title = document.createElement('div')
   title.className = 'fa-map-pop__title'
-  title.textContent = p.title
+  title.textContent = `🍄 ${p.title}`
   const meta = document.createElement('div')
   meta.className = 'fa-map-pop__meta'
   meta.textContent = `${isPendingId(specimenId) ? 'ID pending' : displayId(specimenId)} · ${new Date(p.at).toLocaleDateString()} · ${p.forayName}`
@@ -144,7 +147,7 @@ function draw() {
   layer.clearLayers()
   const ids = new Map(finds.value.map((f) => [f.id, f.specimenId]))
   for (const p of points.value) {
-    L.circleMarker([p.lat, p.lng], { radius: 9, weight: 3, color: '#ffffff', fillColor: '#1b8a5a', fillOpacity: 1 })
+    L.circleMarker([p.lat, p.lng], { radius: 9, weight: 3, color: '#ffffff', fillColor: '#1b8a5a', fillOpacity: 1, className: 'fa-map-pin' })
       .bindPopup(() => popup(p, ids.get(p.id) ?? ''))
       .addTo(layer)
   }
@@ -286,8 +289,8 @@ onBeforeUnmount(() => {
     </div>
     <div ref="el" class="fa-map__canvas" role="region" aria-label="Map of your finds" />
     <div v-if="loaded" class="fa-map__note" role="status">
-      <template v-if="!points.length">No finds with a location yet. Finds get one when your phone has GPS as you make them.</template>
-      <template v-else>{{ points.length }} find{{ points.length === 1 ? '' : 's' }} on the map<template v-if="missing > 0"> · {{ missing }} without a location</template></template>
+      <template v-if="!points.length">🗺️ No pins yet. Finds drop one here when your phone knows where you are.</template>
+      <template v-else>🍄 {{ points.length }} find{{ points.length === 1 ? '' : 's' }} on the map<template v-if="missing > 0"> · {{ missing }} without a location</template></template>
       <span v-if="locateError"> · {{ locateError }}</span>
       <span v-if="baseError"> · {{ baseError }}</span>
       <span v-if="saving"> · Saving map for offline {{ savingPct }}%</span>
@@ -306,6 +309,16 @@ onBeforeUnmount(() => {
   background: rgba(var(--v-theme-surface), 0.94); box-shadow: var(--fa-shadow);
 }
 .fa-map-menu__err { padding: 0 16px 12px; font-size: 0.8rem; opacity: 0.8; }
+/* Pins pop in when drawn; the halo breathes. Transforms only, so it stays smooth on phones. */
+:deep(.fa-map-pin) { filter: drop-shadow(0 3px 4px rgba(20, 60, 40, 0.35)); transform-box: fill-box; transform-origin: center; animation: fa-map-pin-in .45s var(--fa-ease) both; }
+:deep(.fa-map-pin:hover) { transform: scale(1.25); transition: transform .15s var(--fa-ease); }
+:deep(.fa-map-halo) { transform-box: fill-box; transform-origin: center; animation: fa-map-halo 2.4s ease-in-out infinite; }
+@keyframes fa-map-pin-in { from { transform: scale(0) translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes fa-map-halo { 0%, 100% { transform: scale(.8); opacity: .9; } 50% { transform: scale(1.1); opacity: .4; } }
+@media (prefers-reduced-motion: reduce) { :deep(.fa-map-pin), :deep(.fa-map-halo) { animation: none; } }
+:deep(.leaflet-popup-content-wrapper) { border-radius: var(--fa-radius-sm); box-shadow: var(--fa-shadow-lift); }
+:deep(.leaflet-control-zoom a) { border-radius: 12px !important; }
+:deep(.leaflet-control-zoom) { border: 0 !important; box-shadow: var(--fa-shadow) !important; border-radius: 12px; overflow: hidden; }
 :deep(.fa-map-pop__title) { font-weight: 800; font-size: 0.95rem; }
 :deep(.fa-map-pop__meta) { font-size: 0.78rem; opacity: 0.75; margin: 2px 0 8px; }
 :deep(.fa-map-pop__open) { font: inherit; font-weight: 700; color: rgb(var(--v-theme-primary)); background: rgba(var(--v-theme-primary), 0.12); border: 0; border-radius: 999px; padding: 4px 12px; cursor: pointer; }

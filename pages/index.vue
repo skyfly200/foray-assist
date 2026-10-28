@@ -137,6 +137,13 @@ async function endForay(f: Foray) {
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
+
+// Cards without a photo get a scene icon and colour picked from their id, so a list of forays looks varied but stays put.
+const SCENES = ['mdi-mushroom', 'mdi-pine-tree', 'mdi-leaf', 'mdi-bird', 'mdi-tree']
+const TONES = ['green', 'warm', 'sky', 'berry'] as const
+const hash = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)
+const sceneIcon = (id: string) => SCENES[hash(id) % SCENES.length]
+const coverTone = (i: number) => TONES[i % TONES.length]
 </script>
 
 <template>
@@ -206,9 +213,9 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
         :class="{ 'fa-home__card--compact': !isForay }"
         flat
       >
-        <div class="fa-home__cover" :class="{ 'fa-home__cover--warm': i % 3 === 2 }">
+        <div class="fa-home__cover" :class="`fa-home__cover--${coverTone(i)}`">
           <img v-if="covers[f.id]" :src="covers[f.id]" alt="" class="fa-home__img" />
-          <v-icon v-else icon="mdi-mushroom" size="44" class="fa-home__ph" />
+          <v-icon v-else :icon="sceneIcon(f.id)" size="44" class="fa-home__ph" />
           <span v-if="!f.endedAt" class="fa-home__live"><span class="fa-home__dot" />In progress</span>
 
           <v-menu location="bottom end">
@@ -254,8 +261,8 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
         <circle cx="94" cy="104" r="2.5" fill="currentColor" /><circle cx="106" cy="104" r="2.5" fill="currentColor" />
         <path d="M95 112q5 5 10 0" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none" />
       </svg>
-      <h2 class="fa-home__empty-title">No forays yet</h2>
-      <p class="fa-home__empty-text">Tap the big trail button above to start your first one. 🍄</p>
+      <h2 class="fa-home__empty-title">Your trail map is blank</h2>
+      <p class="fa-home__empty-text">Tap the big trail button above to start your first foray. 🍄</p>
     </div>
   </div>
 </template>
@@ -286,6 +293,8 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 }
 .fa-home__card--compact .fa-home__cover { height: 84px; }
 .fa-home__cover--warm { background: var(--fa-hero-gradient-warm); }
+.fa-home__cover--sky { background: var(--fa-hero-gradient-sky); }
+.fa-home__cover--berry { background: var(--fa-hero-gradient-berry); }
 .fa-home__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .fa-home__ph { filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2)); }
 .fa-home__live {
