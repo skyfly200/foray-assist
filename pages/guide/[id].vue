@@ -243,6 +243,15 @@ async function openCamera() {
     camError.value = e?.name === 'NotAllowedError' ? 'Allow camera access to use guided capture.' : 'The camera is not available.'
   }
 }
+/**
+ * Stops the camera and waits for it to be let go, so AR can take it. A camera that is still
+ * opening is waited for first (up to 1.5 s, in case a permission prompt is open), because it
+ * would otherwise come up after AR has asked for it.
+ */
+async function releaseCamera() {
+  await Promise.race([camStarting, new Promise((r) => setTimeout(r, 1500))])
+  if (stopCamera()) await new Promise((r) => setTimeout(r, 300))
+}
 /** Stops the camera. True when it was running. */
 function stopCamera() {
   camWanted = false
@@ -368,9 +377,9 @@ async function enterAr() {
   if (!root.value) return
   arPrompt.value = false
   arError.value = ''
-  // Give the phone a moment to release the camera before ARCore asks for it; the tap that
-  // started this stays valid for a few seconds, which is what requestSession needs.
-  if (stopCamera()) await new Promise((r) => setTimeout(r, 300))
+  // Let go of the camera before ARCore asks for it; the tap that started this stays valid for
+  // a few seconds, which is what requestSession needs.
+  await releaseCamera()
   try {
     const h = await startAr(root.value, () => {
       // Ended by us or by the system (back button, app switch).
