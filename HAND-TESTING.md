@@ -216,3 +216,16 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] Sync on a second device signed in to the same account (Settings → Sync now): the foray is gone there too, and does not come back after a restart
 - [ ] Offline: delete a foray, go back online, and confirm it is removed on the server (Supabase table `forays` has no row for it)
 - [ ] A foray shared with others: the dialog says it is also removed for everyone it is shared with. A joined (not owned) foray shows no delete option
+
+## 21. Guided capture by mushroom form
+
+- [ ] Open **Guided capture** on a new find with no form. The sheet "What kind of fungus is it?" opens by itself, with an icon, a name and examples for each form
+- [ ] Pick **Gilled mushroom**: the top row shows a Gilled chip, then Cap top, Gills, Stipe and base, and Habitat, each with an icon. The hint card shows the form's tip
+- [ ] Tap the Gilled chip: the sheet opens again. Pick **Crust or resupinate**: only Surface and Wood remain, and the stem and cap details leave the "What's left" list
+- [ ] Pick **Bracket or shelf**: Top, Pores or gills and Wood, with no stem shot. Take the three shots. The find reaches 100% without a stem photo
+- [ ] Pick **Stinkhorn** and **Jelly** in turn: each shows its own shots and tip; "What's left" lists only those shots
+- [ ] Pick **Not sure or other**: the four generic shots come back (Cap top, Gills or pores, Stem and base, Habitat)
+- [ ] Take a photo for each shot: the chip gets a check, the next missing shot is selected, and "+N% Thoroughness" pops up
+- [ ] Leave the guide and open the find in Foray mode or MycoDex: its Form line shows the form name. Open it on a second device signed in to the same account (Settings → Sync now): the form is there too
+- [ ] Older finds (made before this change) with no form: the form sheet opens once on first use, and their completeness drops by one item until a form is picked
+- [ ] On Android Chrome in AR: the rings show only the shots for the find's form (no stem ring for a bracket)

@@ -43,13 +43,14 @@ import type { PeerFindRow } from '~/utils/db'
 import { displayId } from '~/utils/idCode'
 import { sharedPhotoUrl } from '~/composables/useSharedForay'
 import { useLiveQuery } from '~/composables/useFinds'
+import { formById } from '~/utils/guideForms'
 
 const props = defineProps<{ find: PeerFindRow }>()
 
 const LABELS: Record<string, string> = {
-  substrate: 'Substrate', hostTree: 'Host tree', odor: 'Smell', capTexture: 'Cap', staining: 'Staining', notes: 'Notes', voiceTranscripts: 'Voice notes',
+  form: 'Form', substrate: 'Substrate', hostTree: 'Host tree', odor: 'Smell', capTexture: 'Cap', staining: 'Staining', notes: 'Notes', voiceTranscripts: 'Voice notes',
 }
-const noteLines = computed(() => Object.entries(props.find.fieldNotes ?? {}).filter(([k, v]) => k !== 'speciesGuess' && v).map(([k, v]) => [LABELS[k] ?? k, v] as const))
+const noteLines = computed(() => Object.entries(props.find.fieldNotes ?? {}).filter(([k, v]) => k !== 'speciesGuess' && v).map(([k, v]) => [LABELS[k] ?? k, k === 'form' ? formById(v)?.label ?? v : v] as const))
 const timeLabel = computed(() => new Date(props.find.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }))
 const initials = computed(() => props.find.authorName.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase() || '?')
 

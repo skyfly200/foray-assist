@@ -15,17 +15,17 @@
           <span v-for="f in liveFilled" :key="f.key" class="tag">{{ f.label }}: {{ f.value }}</span>
         </div>
       </template>
-      <template v-for="a in SHOT_ANGLES" :key="a">
+      <template v-for="a in angles" :key="a">
         <button
           v-if="xr.screen.value['ring:' + a]?.visible"
           class="ring-mark"
           :class="{ done: shots[a], current: target === a }"
           :style="at(xr.screen.value['ring:' + a])"
-          :aria-label="`${SHOT_LABELS[a].label} shot`"
+          :aria-label="`${shotInfo(a).label} shot`"
           @click="target = a"
         >
-          <v-icon :icon="shots[a] ? 'mdi-check' : SHOT_LABELS[a].icon" size="18" />
-          <span>{{ SHOT_LABELS[a].label }}</span>
+          <v-icon :icon="shots[a] ? 'mdi-check' : shotInfo(a).icon" size="18" />
+          <span>{{ shotInfo(a).label }}</span>
         </button>
       </template>
     </template>
@@ -54,21 +54,29 @@
       <v-btn v-else-if="ar" variant="flat" class="glass" prepend-icon="mdi-camera" @click="exitAr">Camera</v-btn>
     </div>
 
-    <!-- Shot checklist. -->
+    <!-- The form, then the pictures that form asks for: icons with short names. -->
     <div class="shots">
+      <button class="shot glass" aria-label="Change the form" @click="formOpen = true">
+        <v-icon :icon="form?.icon ?? 'mdi-help-circle-outline'" size="22" />
+        <span>{{ form?.short ?? 'Form' }}</span>
+      </button>
       <button
-        v-for="a in SHOT_ANGLES"
+        v-for="a in angles"
         :key="a"
         class="shot glass"
         :class="{ done: shots[a], current: target === a }"
+        :aria-label="shotInfo(a).label"
         :aria-pressed="target === a"
         @click="target = a"
       >
-        <v-icon :icon="shots[a] ? 'mdi-check-circle' : SHOT_LABELS[a].icon" size="18" />
-        {{ SHOT_LABELS[a].label }}
+        <v-icon :icon="shots[a] ? 'mdi-check-circle' : shotInfo(a).icon" size="22" />
+        <span>{{ shotInfo(a).label }}</span>
       </button>
     </div>
-    <div class="hint glass">{{ hint }}</div>
+    <div class="hint glass">
+      <div>{{ hint }}</div>
+      <div v-if="form" class="hint-tip">{{ form.tip }}</div>
+    </div>
 
     <!-- Fields voice filled, in camera mode (AR shows them on the find). -->
     <div v-if="!ar && liveFilled.length" class="field-tags field-tags--side">
@@ -143,6 +151,22 @@
         <v-card-text class="text-caption text-medium-emphasis pt-0">Say details out loud ("white gills, smells like anise") and they fill in.</v-card-text>
       </v-card>
     </v-bottom-sheet>
+
+    <v-bottom-sheet v-model="formOpen" :z-index="2100">
+      <v-card title="What kind of fungus is it?" subtitle="The guide asks only for the pictures that fit.">
+        <v-list density="comfortable" lines="two">
+          <v-list-item
+            v-for="f in MUSHROOM_FORMS"
+            :key="f.id"
+            :prepend-icon="f.icon"
+            :title="f.label"
+            :subtitle="f.examples"
+            :active="form?.id === f.id"
+            @click="chooseForm(f.id)"
+          />
+        </v-list>
+      </v-card>
+    </v-bottom-sheet>
   </div>
 </template>
 
@@ -152,9 +176,10 @@
 // On Chrome for Android it can switch to WebXR AR, where the shots become a ring of markers
 // around the find and pinned notes stay where you put them in the world.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { addPhoto, removeIfEmpty, useLiveQuery } from '~/composables/useFinds'
+import { addPhoto, removeIfEmpty, updateFieldNotes, useLiveQuery } from '~/composables/useFinds'
 import { arSupported, startAr, type XrHandle, type ScreenPos } from '~/composables/useXr'
-import { checklist, MIN_THOROUGHNESS, SHOT_ANGLES, SHOT_LABELS, shotsDone, thoroughness, type ShotAngle } from '~/utils/score'
+import { checklist, MIN_THOROUGHNESS, shotsDone, thoroughness } from '~/utils/score'
+import { anglesFor, formById, MUSHROOM_FORMS, shotFor, type ShotAngle } from '~/utils/guideForms'
 import type { Photo, Specimen } from '~/utils/db'
 
 const route = useRoute()
@@ -175,19 +200,24 @@ const data = useLiveQuery(async () => {
 }, { find: null as Specimen | null, photos: [] as Photo[], voice: 0 })
 
 const find = computed(() => data.value.find)
-const shots = computed(() => shotsDone(data.value.photos))
+const form = computed(() => formById(find.value?.fieldNotes?.form))
+// The shots this find's form asks for, in order. A form without a stipe gets no stem shot.
+const angles = computed(() => anglesFor(form.value?.id))
+const shotInfo = (a: ShotAngle) => shotFor(form.value?.id, a)!
+const shots = computed(() => shotsDone(data.value.photos, angles.value))
 const items = computed(() => (find.value ? checklist(find.value, data.value.photos, data.value.voice) : []))
 const percent = computed(() => thoroughness(items.value))
 const done = computed(() => items.value.filter((i) => i.done).length)
 
 const target = ref<ShotAngle>('cap')
-const hint = computed(() => (shots.value[target.value] ? `${SHOT_LABELS[target.value].label} done. Take another or pick the next shot.` : SHOT_LABELS[target.value].hint))
-// Start on the first missing shot once the find loads.
+const hint = computed(() => (shots.value[target.value] ? `${shotInfo(target.value).label} done. Take another or pick the next shot.` : shotInfo(target.value).hint))
+// Start on the first missing shot once the find loads, and move off a shot the form does not ask for.
 let picked = false
-watch(shots, (s) => {
-  if (picked || !find.value) return
+watch([shots, angles], ([s, list]) => {
+  if (!find.value) return
+  if (picked && list.includes(target.value)) return
   picked = true
-  target.value = SHOT_ANGLES.find((a) => !s[a]) ?? 'cap'
+  target.value = list.find((a) => !s[a]) ?? list[0]
 })
 
 // ---------- scoring feedback ----------
@@ -294,7 +324,7 @@ async function shoot() {
     flash.value = true
     setTimeout(() => (flash.value = false), 150)
     // Move on to the next shot still missing.
-    const next = SHOT_ANGLES.find((a) => a !== angle && !shotsDone([...data.value.photos, { specimenRowId: '', angle }])[a])
+    const next = angles.value.find((a) => a !== angle && !shotsDone([...data.value.photos, { specimenRowId: '', angle }], angles.value)[a])
     if (next) target.value = next
     else say('Every angle covered!')
   } finally {
@@ -411,6 +441,22 @@ function leave() {
   else router.back()
 }
 
+// ---------- form ----------
+const formOpen = ref(false)
+let formAsked = false
+// The first time a find with no form is open on the camera, ask what kind of fungus it is.
+watch([find, ar], ([f, inAr]) => {
+  if (formAsked || !f || inAr || form.value) return
+  formAsked = true
+  formOpen.value = true
+})
+async function chooseForm(id: string) {
+  formOpen.value = false
+  if (!find.value) return
+  await updateFieldNotes(find.value.id, { form: id })
+  say(`${formById(id)!.short}: ${formById(id)!.shots.length} shots`)
+}
+
 onMounted(async () => {
   if (!isNew) void startCamera()
   arOk.value = await arSupported()
@@ -464,19 +510,20 @@ onBeforeUnmount(() => {
 .score-label { font-weight: 700; font-size: 0.9rem; line-height: 1.1; }
 .score-sub { font-size: 0.75rem; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .shots {
-  position: absolute; left: 0; right: 0; top: calc(env(safe-area-inset-top) + 72px);
+  position: absolute; left: 0; right: 0; top: calc(env(safe-area-inset-top) + 68px);
   display: flex; gap: 6px; padding: 0 12px; overflow-x: auto; scrollbar-width: none;
 }
 .shot {
-  flex: none; display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;
+  flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-width: 66px; padding: 6px 8px; border-radius: 16px; font-size: 0.72rem; font-weight: 600; line-height: 1.2;
 }
 .shot.current { border-color: #ffd54f; box-shadow: 0 0 0 2px #ffd54f inset; }
 .shot.done { color: #a5d6a7 !important; }
 .hint {
-  position: absolute; left: 12px; right: 12px; top: calc(env(safe-area-inset-top) + 116px);
+  position: absolute; left: 12px; right: 12px; top: calc(env(safe-area-inset-top) + 148px);
   padding: 8px 12px; border-radius: 12px; font-size: 0.9rem; text-align: center;
 }
+.hint-tip { margin-top: 4px; font-size: 0.78rem; opacity: 0.85; }
 .bottom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 12px calc(env(safe-area-inset-bottom) + 16px); }
 .caption {
   margin: 0 auto 12px; max-width: 640px; max-height: 6.2em; overflow: hidden;
