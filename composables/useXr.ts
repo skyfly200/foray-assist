@@ -43,13 +43,38 @@ export interface XrHandle {
   end: () => Promise<void>
 }
 
-export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<XrHandle> {
+// Session requests tried in order. The first is the full set. If the browser rejects it with
+// NotSupportedError, the second asks for only the required pair, after a short wait, so a
+// camera that is still letting go or an optional feature this build dislikes cannot block AR.
+const SESSION_TRIES = [
+  { requiredFeatures: ['hit-test', 'dom-overlay'], optionalFeatures: ['anchors', 'camera-access', 'local-floor'] },
+  { requiredFeatures: ['hit-test', 'dom-overlay'], optionalFeatures: [] },
+]
+
+async function requestArSession(overlay: HTMLElement): Promise<any> {
   const xr = (navigator as any).xr
-  const session = await xr.requestSession('immersive-ar', {
-    requiredFeatures: ['hit-test', 'dom-overlay'],
-    optionalFeatures: ['anchors', 'camera-access', 'local-floor'],
-    domOverlay: { root: overlay },
-  })
+  let lastError: any
+  for (const [i, config] of SESSION_TRIES.entries()) {
+    if (i) await new Promise((r) => setTimeout(r, 500))
+    try {
+      return await xr.requestSession('immersive-ar', { ...config, domOverlay: { root: overlay } })
+    } catch (e: any) {
+      lastError = e
+      if (e?.name !== 'NotSupportedError') throw e
+    }
+  }
+  throw lastError
+}
+
+export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<XrHandle> {
+  const session = await requestArSession(overlay)
+
+  // Some browsers accept the session but do not draw the overlay. Without it the screen would
+  // show only the camera feed and no controls, so end it and say why.
+  if ('domOverlayState' in session && !session.domOverlayState) {
+    await session.end().catch(() => {})
+    throw new DOMException('This browser started AR without drawing the controls over the camera', 'NotSupportedError')
+  }
 
   const surface = ref(false)
   const canPhoto = ref(false)

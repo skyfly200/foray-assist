@@ -4,6 +4,7 @@
     <div v-if="!ar && camError" class="feed-msg">
       <v-icon icon="mdi-camera-off" size="40" />
       <div class="mt-2">{{ camError }}</div>
+      <v-btn class="mt-4" variant="flat" color="primary" prepend-icon="mdi-refresh" @click="retryCamera">Try again</v-btn>
     </div>
 
     <!-- AR: a ring of shot markers around the find, and the reticle in the middle. -->
@@ -234,14 +235,47 @@ function startCamera() {
 }
 async function openCamera() {
   camError.value = ''
+  const constraints = { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }
   try {
-    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+    let s: MediaStream
+    try {
+      s = await navigator.mediaDevices.getUserMedia(constraints)
+    } catch (e: any) {
+      // Right after AR ends, the camera can still be held for a moment; try once more.
+      if (e?.name !== 'NotReadableError' && e?.name !== 'AbortError') throw e
+      await new Promise((r) => setTimeout(r, 700))
+      if (!camWanted) return
+      s = await navigator.mediaDevices.getUserMedia(constraints)
+    }
     if (!camWanted) { s.getTracks().forEach((t) => t.stop()); return }
     stream = s
     if (video.value) video.value.srcObject = stream
   } catch (e: any) {
-    camError.value = e?.name === 'NotAllowedError' ? 'Allow camera access to use guided capture.' : 'The camera is not available.'
+    camError.value = cameraProblem(e)
   }
+}
+/** Says what stopped the camera, in terms the person can act on. */
+function cameraProblem(e: any): string {
+  const name = e?.name ?? ''
+  const detail = [name, e?.message].filter(Boolean).join(': ')
+  if (!window.isSecureContext) return `The camera needs a secure (https) page. ${detail}`
+  if (name === 'NotAllowedError' || name === 'SecurityError') return `Camera access is blocked for this site. Allow the camera in the browser's site settings, then tap Try again. (${detail})`
+  if (name === 'NotReadableError' || name === 'AbortError') return `Another app or AR is still using the camera. Close it, then tap Try again. (${detail})`
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return `This phone has no back camera available to the browser. (${detail})`
+  return `The camera could not be opened. (${detail || 'unknown error'})`
+}
+function retryCamera() {
+  stopCamera()
+  void startCamera()
+}
+/**
+ * Stops the camera and waits for it to be let go, so AR can take it. A camera that is still
+ * opening is waited for first (up to 1.5 s, in case a permission prompt is open), because it
+ * would otherwise come up after AR has asked for it.
+ */
+async function releaseCamera() {
+  await Promise.race([camStarting, new Promise((r) => setTimeout(r, 1500))])
+  if (stopCamera()) await new Promise((r) => setTimeout(r, 300))
 }
 /** Stops the camera. True when it was running. */
 function stopCamera() {
@@ -368,9 +402,9 @@ async function enterAr() {
   if (!root.value) return
   arPrompt.value = false
   arError.value = ''
-  // Give the phone a moment to release the camera before ARCore asks for it; the tap that
-  // started this stays valid for a few seconds, which is what requestSession needs.
-  if (stopCamera()) await new Promise((r) => setTimeout(r, 300))
+  // Let go of the camera before ARCore asks for it; the tap that started this stays valid for
+  // a few seconds, which is what requestSession needs.
+  await releaseCamera()
   try {
     const h = await startAr(root.value, () => {
       // Ended by us or by the system (back button, app switch).
