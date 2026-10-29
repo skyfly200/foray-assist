@@ -24,9 +24,12 @@ try {
   await p.getByRole('button', { name: /guided capture/i }).first().click()
   await p.waitForURL(/guide/)
   await p.waitForTimeout(1500)
-  // A new find has no form, so the picker opens by itself.
-  await p.screenshot({ path: `${OUT}/picker.png` })
+  // A new find has no form: the camera opens with the standard shots and a gentle prompt.
+  await p.screenshot({ path: `${OUT}/standard.png` })
 
+  await p.getByRole('button', { name: /change the form/i }).click()
+  await p.waitForTimeout(600)
+  await p.screenshot({ path: `${OUT}/picker.png` })
   await p.getByText('Gilled mushroom', { exact: true }).click()
   await p.waitForTimeout(800)
   await p.screenshot({ path: `${OUT}/gilled.png` })

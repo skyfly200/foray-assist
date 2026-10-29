@@ -76,6 +76,7 @@
     <div class="hint glass">
       <div>{{ hint }}</div>
       <div v-if="form" class="hint-tip">{{ form.tip }}</div>
+      <div v-else class="hint-tip">Not sure yet? Tap the Form chip to say what it looks like. Until then, the standard shots.</div>
     </div>
 
     <!-- Fields voice filled, in camera mode (AR shows them on the find). -->
@@ -443,13 +444,6 @@ function leave() {
 
 // ---------- form ----------
 const formOpen = ref(false)
-let formAsked = false
-// The first time a find with no form is open on the camera, ask what kind of fungus it is.
-watch([find, ar], ([f, inAr]) => {
-  if (formAsked || !f || inAr || form.value) return
-  formAsked = true
-  formOpen.value = true
-})
 async function chooseForm(id: string) {
   formOpen.value = false
   if (!find.value) return
