@@ -237,15 +237,17 @@ async function openCamera() {
   camError.value = ''
   const constraints = { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }
   try {
-    let s: MediaStream
-    try {
-      s = await navigator.mediaDevices.getUserMedia(constraints)
-    } catch (e: any) {
-      // Right after AR ends, the camera can still be held for a moment; try once more.
-      if (e?.name !== 'NotReadableError' && e?.name !== 'AbortError') throw e
-      await new Promise((r) => setTimeout(r, 700))
-      if (!camWanted) return
-      s = await navigator.mediaDevices.getUserMedia(constraints)
+    let s: MediaStream | null = null
+    // A failed or ended AR session can keep the camera for a moment, so retry while it is busy.
+    for (let attempt = 0; !s; attempt++) {
+      try {
+        s = await navigator.mediaDevices.getUserMedia(constraints)
+      } catch (e: any) {
+        const busy = e?.name === 'NotReadableError' || e?.name === 'AbortError'
+        if (!busy || attempt >= 3) throw e
+        await new Promise((r) => setTimeout(r, 600))
+        if (!camWanted) return
+      }
     }
     if (!camWanted) { s.getTracks().forEach((t) => t.stop()); return }
     stream = s
