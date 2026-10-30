@@ -409,8 +409,28 @@ async function onPinButton() {
   if (await xr.value?.place(id)) addPin({ id, text: '', ar: true })
   else say('Point the circle at a surface first')
 }
+/** Tap the picture to focus on that spot, where the camera allows it. */
+async function focusAt(e: MouseEvent) {
+  const track = stream?.getVideoTracks()[0]
+  if (!track || !root.value) return
+  const caps: any = track.getCapabilities?.() ?? {}
+  const modes: string[] = caps.focusMode ?? []
+  const mode = modes.includes('single-shot') ? 'single-shot' : modes.includes('continuous') ? 'continuous' : null
+  if (!mode) { say('This camera cannot focus on a tap'); return }
+  const r = root.value.getBoundingClientRect()
+  const advanced: any = { focusMode: mode }
+  // Points are relative to the frame, 0 to 1 from the top left.
+  if (caps.pointsOfInterest) advanced.pointsOfInterest = [{ x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }]
+  try {
+    await track.applyConstraints({ advanced: [advanced] })
+    say('Focusing')
+  } catch {
+    say('Could not focus here')
+  }
+}
 function onFeedTap(e: MouseEvent) {
-  if (!pinMode.value || !root.value) return
+  if (!pinMode.value) { void focusAt(e); return }
+  if (!root.value) return
   const r = root.value.getBoundingClientRect()
   addPin({ id: 'pin:' + Date.now(), text: '', sx: (e.clientX - r.left) / r.width, sy: (e.clientY - r.top) / r.height })
 }
@@ -457,7 +477,9 @@ async function enterAr() {
     ar.value = true
   } catch (e: any) {
     // Say exactly what the browser said, so it can be reported.
-    arError.value = [e?.name, e?.message].filter(Boolean).join(': ') || String(e)
+    const page = window.isSecureContext ? 'secure page' : 'not a secure page'
+    const browser = navigator.userAgent.match(/Chrome\/[\d.]+/)?.[0] ?? 'not Chrome'
+    arError.value = ([e?.name, e?.message].filter(Boolean).join(': ') || String(e)) + ` (${browser}, ${page})`
     void startCamera()
   }
 }
