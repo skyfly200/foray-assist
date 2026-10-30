@@ -1,6 +1,13 @@
 <template>
   <div ref="root" class="guide" :class="{ 'guide--ar': ar }">
     <video v-show="!ar" ref="video" class="feed" autoplay playsinline muted @click="onFeedTap" />
+    <div
+      v-if="focusRing"
+      :key="focusRing.key"
+      class="focus-ring"
+      :style="{ left: focusRing.x + 'px', top: focusRing.y + 'px' }"
+      aria-hidden="true"
+    />
     <div v-if="!ar && camError" class="feed-msg">
       <v-icon icon="mdi-camera-off" size="40" />
       <div class="mt-2">{{ camError }}</div>
@@ -181,6 +188,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { addPhoto, removeIfEmpty, updateFieldNotes, useLiveQuery } from '~/composables/useFinds'
 import { arSupported, startAr, type XrHandle, type ScreenPos } from '~/composables/useXr'
 import { checklist, MIN_THOROUGHNESS, shotsDone, thoroughness } from '~/utils/score'
+import { focusPoint } from '~/utils/focusPoint'
 import { anglesFor, formById, MUSHROOM_FORMS, shotFor, type ShotAngle } from '~/utils/guideForms'
 import type { Photo, Specimen } from '~/utils/db'
 
@@ -320,6 +328,27 @@ function stopCamera() {
   return was
 }
 
+// Tap to focus: the ring shows where, and the camera is asked to focus on that point. Phones
+// that can't focus on a point (or don't report it) still get the ring, and nothing breaks.
+const focusRing = ref<{ x: number; y: number; key: number } | null>(null)
+let focusTimer: ReturnType<typeof setTimeout> | null = null
+async function focusAt(e: MouseEvent) {
+  const v = video.value
+  const track = stream?.getVideoTracks()[0]
+  if (!v || !track || !v.videoWidth) return
+  const box = v.getBoundingClientRect()
+  const tap = { x: e.clientX - box.left, y: e.clientY - box.top }
+  focusRing.value = { ...tap, key: Date.now() }
+  if (focusTimer) clearTimeout(focusTimer)
+  focusTimer = setTimeout(() => (focusRing.value = null), 900)
+  const point = focusPoint(tap, { width: box.width, height: box.height }, { width: v.videoWidth, height: v.videoHeight })
+  const caps: any = track.getCapabilities?.() ?? {}
+  if (caps.focusMode && !caps.focusMode.includes('single-shot')) return
+  try {
+    await track.applyConstraints({ advanced: [{ focusMode: 'single-shot', pointsOfInterest: [point] } as any] })
+  } catch { /* this camera can't focus on a point: the ring still shows where was tapped */ }
+}
+
 async function grabFrame(): Promise<Blob | null> {
   const track = stream?.getVideoTracks()[0]
   const IC = (window as any).ImageCapture
@@ -410,7 +439,8 @@ async function onPinButton() {
   else say('Point the circle at a surface first')
 }
 function onFeedTap(e: MouseEvent) {
-  if (!pinMode.value || !root.value) return
+  if (!pinMode.value) { void focusAt(e); return }
+  if (!root.value) return
   const r = root.value.getBoundingClientRect()
   addPin({ id: 'pin:' + Date.now(), text: '', sx: (e.clientX - r.left) / r.width, sy: (e.clientY - r.top) / r.height })
 }
@@ -523,6 +553,17 @@ onBeforeUnmount(() => {
 .guide--ar { background: transparent; }
 .feed { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .feed-msg { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 24px; opacity: 0.8; }
+.focus-ring {
+  position: absolute; width: 74px; height: 74px; margin: -37px 0 0 -37px;
+  border: 2px solid #ffd54f; border-radius: 50%; pointer-events: none;
+  animation: focus-pulse 0.9s ease-out forwards;
+}
+@keyframes focus-pulse {
+  0% { transform: scale(1.4); opacity: 0; }
+  20% { opacity: 1; }
+  70% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0; }
+}
 .glass {
   background: rgba(0, 0, 0, 0.45) !important;
   color: #fff !important;
