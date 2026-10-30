@@ -343,10 +343,15 @@ async function focusAt(e: MouseEvent) {
   focusTimer = setTimeout(() => (focusRing.value = null), 900)
   const point = focusPoint(tap, { width: box.width, height: box.height }, { width: v.videoWidth, height: v.videoHeight })
   const caps: any = track.getCapabilities?.() ?? {}
-  if (caps.focusMode && !caps.focusMode.includes('single-shot')) return
+  const modes: string[] = caps.focusMode ?? []
+  const mode = modes.includes('single-shot') ? 'single-shot' : modes.includes('continuous') ? 'continuous' : 'single-shot'
+  // Many phones don't list their focus modes but still focus when asked, so try anyway.
   try {
-    await track.applyConstraints({ advanced: [{ focusMode: 'single-shot', pointsOfInterest: [point] } as any] })
-  } catch { /* this camera can't focus on a point: the ring still shows where was tapped */ }
+    await track.applyConstraints({ advanced: [{ focusMode: mode, pointsOfInterest: [point] } as any] })
+    if (!modes.length) say('This phone does not list focus modes. Tried anyway.')
+  } catch (err: any) {
+    say(`Could not focus here (${err?.name ?? 'error'}). Focus modes: ${modes.join(', ') || 'none listed'}`)
+  }
 }
 
 async function grabFrame(): Promise<Blob | null> {
@@ -438,25 +443,6 @@ async function onPinButton() {
   if (await xr.value?.place(id)) addPin({ id, text: '', ar: true })
   else say('Point the circle at a surface first')
 }
-/** Tap the picture to focus on that spot, where the camera allows it. */
-async function focusAt(e: MouseEvent) {
-  const track = stream?.getVideoTracks()[0]
-  if (!track || !root.value) return
-  const caps: any = track.getCapabilities?.() ?? {}
-  const modes: string[] = caps.focusMode ?? []
-  const mode = modes.includes('single-shot') ? 'single-shot' : modes.includes('continuous') ? 'continuous' : null
-  if (!mode) { say('This camera cannot focus on a tap'); return }
-  const r = root.value.getBoundingClientRect()
-  const advanced: any = { focusMode: mode }
-  // Points are relative to the frame, 0 to 1 from the top left.
-  if (caps.pointsOfInterest) advanced.pointsOfInterest = [{ x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }]
-  try {
-    await track.applyConstraints({ advanced: [advanced] })
-    say('Focusing')
-  } catch {
-    say('Could not focus here')
-  }
-}
 function onFeedTap(e: MouseEvent) {
   if (!pinMode.value) { void focusAt(e); return }
   if (!root.value) return
@@ -475,6 +461,8 @@ const arOk = ref(false)
 const ar = ref(false)
 const arPrompt = ref(false)
 const arError = ref('')
+// True while the page itself is ending AR, so that is not reported as the phone closing it.
+let arStopping = false
 const xr = ref<XrHandle | null>(null)
 const findPlaced = computed(() => !!xr.value?.marks.value.find)
 const findPos = computed(() => xr.value?.screen.value.find ?? null)
@@ -487,12 +475,16 @@ async function enterAr() {
   // Let go of the camera before ARCore asks for it; the tap that started this stays valid for
   // a few seconds, which is what requestSession needs.
   await releaseCamera()
+  const started = Date.now()
   try {
     const h = await startAr(root.value, () => {
       // Ended by us or by the system (back button, app switch).
       xr.value = null
       ar.value = false
       pins.value = pins.value.filter((p) => !p.ar || p.text)
+      // A session the phone ends within a few seconds of opening is a failure, not a choice: say so.
+      const lasted = (Date.now() - started) / 1000
+      if (!arStopping && lasted < 5) arError.value = `AR closed itself after ${lasted.toFixed(1)} s. The browser gave no error, so this is the phone ending AR. Tap Try again.`
       void startCamera()
     })
     // Shot markers sit on a ring around the find: cap above, the others around it.
@@ -518,7 +510,9 @@ function useCameraInstead() {
   void startCamera()
 }
 async function exitAr() {
+  arStopping = true
   await xr.value?.end()
+  arStopping = false
 }
 async function placeFind() {
   if (await xr.value?.place('find')) say('Find marked. Walk around it for each shot.')
