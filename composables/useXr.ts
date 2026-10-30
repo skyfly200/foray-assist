@@ -105,7 +105,17 @@ export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<
   let ended = false
   let wantPhoto: ((b: Blob | null) => void) | null = null
 
+  // The session only counts as started once it draws a frame. If the browser ends it first, or
+  // never draws, that is an error for the screen to show, not a silent return to the camera.
+  let markStarted = () => {}
+  let failStart = (_e: Error) => {}
+  const started = new Promise<void>((resolve, reject) => {
+    markStarted = resolve
+    failStart = reject
+  })
+
   session.addEventListener('end', () => {
+    failStart(new DOMException('The browser ended AR before it drew a frame', 'NotSupportedError'))
     ended = true
     hitSource?.cancel?.()
     wantPhoto?.(null)
@@ -162,6 +172,7 @@ export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<
 
     const pose = frame.getViewerPose(space)
     if (!pose) return
+    markStarted()
     const view = pose.views[0]
     canPhoto.value = !!(binding && view.camera)
     if (wantPhoto) {
@@ -182,6 +193,16 @@ export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<
     screen.value = next
   }
   session.requestAnimationFrame(onFrame)
+
+  const timer = setTimeout(() => failStart(new DOMException('AR opened but drew no frames', 'NotSupportedError')), 5000)
+  try {
+    await started
+  } catch (e) {
+    await session.end().catch(() => {})
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
 
   return {
     surface,
