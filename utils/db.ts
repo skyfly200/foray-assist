@@ -63,6 +63,8 @@ export interface FieldNotes {
   staining?: string
   sporePrint?: string
   notes?: string
+  /** Mushroom form (utils/guideForms.ts), chosen in the guided capture. Absent until chosen. */
+  form?: string
   /** Fields the user added in Settings → Field form (see FormConfig in utils/fieldForm.ts). */
   [custom: `x_${string}`]: string | undefined
 }
