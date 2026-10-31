@@ -51,10 +51,10 @@ const SESSION_TRIES = [
   { requiredFeatures: ['hit-test', 'dom-overlay'], optionalFeatures: [] },
 ]
 
-async function requestArSession(overlay: HTMLElement): Promise<any> {
+async function requestArSession(overlay: HTMLElement, tries: typeof SESSION_TRIES): Promise<any> {
   const xr = (navigator as any).xr
   let lastError: any
-  for (const [i, config] of SESSION_TRIES.entries()) {
+  for (const [i, config] of tries.entries()) {
     if (i) await new Promise((r) => setTimeout(r, 500))
     try {
       return await xr.requestSession('immersive-ar', { ...config, domOverlay: { root: overlay } })
@@ -66,8 +66,19 @@ async function requestArSession(overlay: HTMLElement): Promise<any> {
   throw lastError
 }
 
-export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<XrHandle> {
-  const session = await requestArSession(overlay)
+/** A failure where the browser or phone ended the session before it drew anything. Worth one retry. */
+export function endedEarly(e: unknown): boolean {
+  return !!(e as any)?.endedEarly
+}
+function earlyEnd(message: string) {
+  const e = new DOMException(message, 'NotSupportedError') as DOMException & { endedEarly?: boolean }
+  e.endedEarly = true
+  return e
+}
+
+/** `minimal` asks only for the required features, for the retry after an early end. */
+export async function startAr(overlay: HTMLElement, onEnd: () => void, minimal = false): Promise<XrHandle> {
+  const session = await requestArSession(overlay, minimal ? SESSION_TRIES.slice(1) : SESSION_TRIES)
 
   // Some browsers accept the session but do not draw the overlay. Without it the screen would
   // show only the camera feed and no controls, so end it and say why.
@@ -115,7 +126,7 @@ export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<
   })
 
   session.addEventListener('end', () => {
-    failStart(new DOMException('The browser ended AR before it drew a frame', 'NotSupportedError'))
+    failStart(earlyEnd('The browser ended AR before it drew a frame'))
     ended = true
     hitSource?.cancel?.()
     wantPhoto?.(null)
@@ -194,7 +205,7 @@ export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<
   }
   session.requestAnimationFrame(onFrame)
 
-  const timer = setTimeout(() => failStart(new DOMException('AR opened but drew no frames', 'NotSupportedError')), 5000)
+  const timer = setTimeout(() => failStart(earlyEnd('AR opened but drew no frames')), 5000)
   try {
     await started
   } catch (e) {
