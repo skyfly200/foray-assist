@@ -186,7 +186,7 @@
 // around the find and pinned notes stay where you put them in the world.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { addPhoto, removeIfEmpty, updateFieldNotes, useLiveQuery } from '~/composables/useFinds'
-import { arSupported, startAr, type XrHandle, type ScreenPos } from '~/composables/useXr'
+import { arSupported, endedEarly, startAr, type XrHandle, type ScreenPos } from '~/composables/useXr'
 import { checklist, MIN_THOROUGHNESS, shotsDone, thoroughness } from '~/utils/score'
 import { focusPoint } from '~/utils/focusPoint'
 import { anglesFor, formById, MUSHROOM_FORMS, shotFor, type ShotAngle } from '~/utils/guideForms'
@@ -463,6 +463,8 @@ const arPrompt = ref(false)
 const arError = ref('')
 // True while the page itself is ending AR, so that is not reported as the phone closing it.
 let arStopping = false
+// True while AR is being started, so a session that ends during the start is not treated as a camera restart.
+let arStarting = false
 const xr = ref<XrHandle | null>(null)
 const findPlaced = computed(() => !!xr.value?.marks.value.find)
 const findPos = computed(() => xr.value?.screen.value.find ?? null)
@@ -476,17 +478,30 @@ async function enterAr() {
   // a few seconds, which is what requestSession needs.
   await releaseCamera()
   const started = Date.now()
+  const onEnd = () => {
+    // While a start is running, startAr reports its failure, so the camera is not restarted here.
+    if (arStarting) return
+    // Ended by us or by the system (back button, app switch).
+    xr.value = null
+    ar.value = false
+    pins.value = pins.value.filter((p) => !p.ar || p.text)
+    // A session the phone ends within a few seconds of opening is a failure, not a choice: say so.
+    const lasted = (Date.now() - started) / 1000
+    if (!arStopping && lasted < 5) arError.value = `AR closed itself after ${lasted.toFixed(1)} s. The browser gave no error, so this is the phone ending AR. Tap Try again.`
+    void startCamera()
+  }
+  arStarting = true
   try {
-    const h = await startAr(root.value, () => {
-      // Ended by us or by the system (back button, app switch).
-      xr.value = null
-      ar.value = false
-      pins.value = pins.value.filter((p) => !p.ar || p.text)
-      // A session the phone ends within a few seconds of opening is a failure, not a choice: say so.
-      const lasted = (Date.now() - started) / 1000
-      if (!arStopping && lasted < 5) arError.value = `AR closed itself after ${lasted.toFixed(1)} s. The browser gave no error, so this is the phone ending AR. Tap Try again.`
-      void startCamera()
-    })
+    let h: XrHandle
+    try {
+      h = await startAr(root.value, onEnd)
+    } catch (e: any) {
+      if (!endedEarly(e)) throw e
+      // The phone ended the session before it drew anything. Let the camera settle, then try once more with only the required features.
+      await new Promise((r) => setTimeout(r, 1500))
+      h = await startAr(root.value, onEnd, true)
+    }
+    arStarting = false
     // Shot markers sit on a ring around the find: cap above, the others around it.
     h.offsets.value = {
       'ring:cap': { mark: 'find', offset: { x: 0, y: RING_M, z: 0 } },
@@ -497,6 +512,7 @@ async function enterAr() {
     xr.value = h
     ar.value = true
   } catch (e: any) {
+    arStarting = false
     // Say exactly what the browser said, so it can be reported.
     const page = window.isSecureContext ? 'secure page' : 'not a secure page'
     const browser = navigator.userAgent.match(/Chrome\/[\d.]+/)?.[0] ?? 'not Chrome'
