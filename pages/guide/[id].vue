@@ -332,15 +332,15 @@ function stopCamera() {
 // that can't focus on a point (or don't report it) still get the ring, and nothing breaks.
 const focusRing = ref<{ x: number; y: number; key: number } | null>(null)
 let focusTimer: ReturnType<typeof setTimeout> | null = null
+// Said once per visit: a camera with no focus control (most desktop webcams) gets one
+// short notice, not a message on every tap. The details go to the console.
+let focusUnsupportedSaid = false
 async function focusAt(e: MouseEvent) {
   const v = video.value
   const track = stream?.getVideoTracks()[0]
   if (!v || !track || !v.videoWidth) return
   const box = v.getBoundingClientRect()
   const tap = { x: e.clientX - box.left, y: e.clientY - box.top }
-  focusRing.value = { ...tap, key: Date.now() }
-  if (focusTimer) clearTimeout(focusTimer)
-  focusTimer = setTimeout(() => (focusRing.value = null), 900)
   const point = focusPoint(tap, { width: box.width, height: box.height }, { width: v.videoWidth, height: v.videoHeight })
   const caps: any = track.getCapabilities?.() ?? {}
   const modes: string[] = caps.focusMode ?? []
@@ -348,10 +348,14 @@ async function focusAt(e: MouseEvent) {
   // Many phones don't list their focus modes but still focus when asked, so try anyway.
   try {
     await track.applyConstraints({ advanced: [{ focusMode: mode, pointsOfInterest: [point] } as any] })
-    if (!modes.length) say('This phone does not list focus modes. Tried anyway.')
   } catch (err: any) {
-    say(`Could not focus here (${err?.name ?? 'error'}). Focus modes: ${modes.join(', ') || 'none listed'}`)
+    console.info('Tap to focus unavailable:', err?.name, 'focus modes:', modes)
+    if (!focusUnsupportedSaid) { focusUnsupportedSaid = true; say('Focus not supported') }
+    return
   }
+  focusRing.value = { ...tap, key: Date.now() }
+  if (focusTimer) clearTimeout(focusTimer)
+  focusTimer = setTimeout(() => (focusRing.value = null), 900)
 }
 
 async function grabFrame(): Promise<Blob | null> {
