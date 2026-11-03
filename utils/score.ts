@@ -6,17 +6,9 @@
 // rewards documenting a find well rather than picking more of them.
 import type { FieldNotes } from './db.ts'
 import { taxonKey } from './dex.ts'
+import { anglesFor, formById, SHOT_ANGLES, shotFor, type ShotAngle } from './guideForms.ts'
 
-/** The diagnostic shots the AR guide asks for, in the order it asks. */
-export const SHOT_ANGLES = ['cap', 'underside', 'stem', 'habitat'] as const
-export type ShotAngle = (typeof SHOT_ANGLES)[number]
-
-export const SHOT_LABELS: Record<ShotAngle, { label: string; hint: string; icon: string }> = {
-  cap: { label: 'Cap top', hint: 'Look down on the cap', icon: 'mdi-umbrella-outline' },
-  underside: { label: 'Gills or pores', hint: 'Tilt it to show the underside', icon: 'mdi-view-week-outline' },
-  stem: { label: 'Stem and base', hint: 'Dig out the base, show the whole stem', icon: 'mdi-format-vertical-align-center' },
-  habitat: { label: 'Habitat', hint: 'Step back to show where it grows', icon: 'mdi-tree' },
-}
+export { SHOT_ANGLES, type ShotAngle }
 
 /** A find counts toward the Finds score from this completeness (0..1). */
 export const MIN_THOROUGHNESS = 0.5
@@ -41,33 +33,40 @@ const filled = (notes: FieldNotes | undefined, keys: (keyof FieldNotes)[]) =>
 
 /**
  * Which shots a find already has. Tagged photos (taken in the guide) fill their angle; untagged
- * photos fill the remaining angles one each, so finds photographed outside the guide still score.
+ * photos fill the remaining angles of the form one each, so finds photographed outside the guide
+ * still score.
  */
-export function shotsDone(photos: ScorePhoto[]): Record<ShotAngle, boolean> {
+export function shotsDone(photos: ScorePhoto[], angles: readonly ShotAngle[] = SHOT_ANGLES): Record<ShotAngle, boolean> {
   const done = Object.fromEntries(SHOT_ANGLES.map((a) => [a, false])) as Record<ShotAngle, boolean>
   let untagged = 0
   for (const p of photos) {
     if (p.angle && p.angle in done) done[p.angle] = true
     else untagged++
   }
-  for (const a of SHOT_ANGLES) {
+  for (const a of angles) {
     if (untagged <= 0) break
     if (!done[a]) { done[a] = true; untagged-- }
   }
   return done
 }
 
-/** The checklist behind one find's Thoroughness score. */
+/**
+ * The checklist behind one find's Thoroughness score. Only the shots and the detail groups that
+ * the find's form asks for are on it, so a polypore with no stipe is not marked down for one.
+ */
 export function checklist(find: ScoreFind, photos: ScorePhoto[], voiceNotes = 0): CheckItem[] {
   const n = find.fieldNotes
-  const shots = shotsDone(photos)
+  const angles = anglesFor(n?.form)
+  const shots = shotsDone(photos, angles)
+  const asks = (a: ShotAngle) => angles.includes(a)
   return [
-    ...SHOT_ANGLES.map((a) => ({ key: `shot:${a}`, label: `${SHOT_LABELS[a].label} photo`, done: shots[a] })),
+    { key: 'form', label: 'Mushroom form', done: !!formById(n?.form) },
+    ...angles.map((a) => ({ key: `shot:${a}`, label: `${shotFor(n?.form, a)!.label} photo`, done: shots[a] })),
     { key: 'species', label: 'Species guess', done: filled(n, ['speciesGuess']) },
     { key: 'habitat', label: 'Habitat or substrate', done: filled(n, ['habitat', 'substrate', 'hostTree']) },
-    { key: 'cap', label: 'Cap details', done: filled(n, ['capShape', 'capColor', 'capSize', 'capTexture']) },
-    { key: 'under', label: 'Gill or pore details', done: filled(n, ['underside', 'gillAttachment', 'gillColor']) },
-    { key: 'stem', label: 'Stem details', done: filled(n, ['stemSize', 'stemColor', 'stemFeatures']) },
+    ...(asks('cap') ? [{ key: 'cap', label: 'Cap details', done: filled(n, ['capShape', 'capColor', 'capSize', 'capTexture']) }] : []),
+    ...(asks('underside') ? [{ key: 'under', label: 'Gill or pore details', done: filled(n, ['underside', 'gillAttachment', 'gillColor']) }] : []),
+    ...(asks('stem') ? [{ key: 'stem', label: 'Stem details', done: filled(n, ['stemSize', 'stemColor', 'stemFeatures']) }] : []),
     { key: 'odor', label: 'Odor', done: filled(n, ['odor']) },
     { key: 'sporePrint', label: 'Spore print', done: filled(n, ['sporePrint']) },
     { key: 'location', label: 'Location', done: typeof find.latitude === 'number' && typeof find.longitude === 'number' },
@@ -161,7 +160,7 @@ export function computeScores(finds: ScoreFind[], photos: ScorePhoto[], voiceCou
     streak,
     badges: [
       badge('first-complete', 'Complete record', 'mdi-check-decagram', complete, 1, 'A find with every item checked'),
-      badge('all-angles', 'Every angle', 'mdi-camera-burst', allShots, 5, 'Five finds with all four shots'),
+      badge('all-angles', 'Every angle', 'mdi-camera-burst', allShots, 5, 'Five finds with every shot their form asks for'),
       badge('spore-printer', 'Spore printer', 'mdi-water-outline', sporePrints, 3, 'Three spore prints'),
       badge('ten-finds', 'Ten finds', 'mdi-mushroom-outline', counted, 10, 'Ten counted finds'),
       badge('ten-species', 'Ten species', 'mdi-format-list-numbered', species.size, 10, 'Ten species among counted finds'),

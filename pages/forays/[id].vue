@@ -51,6 +51,11 @@ onMounted(() => {
               <v-btn v-bind="act" icon="mdi-pencil" size="small" variant="text" aria-label="Edit foray title" />
             </template>
           </RenameForayDialog>
+          <DeleteForayDialog v-if="foray && canEditForay(foray)" :foray="foray" @deleted="navigateTo('/')">
+            <template #activator="{ props: act }">
+              <v-btn v-bind="act" icon="mdi-delete-outline" size="small" variant="text" aria-label="Delete foray" />
+            </template>
+          </DeleteForayDialog>
         </div>
         <div v-if="foray" class="hero-sub">
           Started {{ new Date(foray.startedAt).toLocaleString() }}

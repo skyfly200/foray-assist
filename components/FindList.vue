@@ -37,9 +37,14 @@
     <!-- Review hides finds with nothing on them; Foray mode keeps them, since a new find starts empty. -->
     <EmptyFindsBar v-if="!capture" v-model:show="showEmpty" :foray-id="forayId" :count="emptyIds.size" class="mb-2" />
 
+    <Transition name="fa-cheer">
+      <div v-if="cheer" :key="cheer" class="fa-cheer find-cheer" role="status">{{ cheer }}</div>
+    </Transition>
+
     <div v-if="!finds.length" class="empty text-center mt-6">
-      <div class="empty-emoji" aria-hidden="true">🌿</div>
-      <p class="text-medium-emphasis">{{ !capture ? 'No finds in this foray yet.' : mdAndUp ? 'No finds yet. Tap the camera when you spot something.' : 'No finds yet. Tap New find below when you spot something.' }}</p>
+      <div class="empty-emoji fa-sway" aria-hidden="true">🌿</div>
+      <p class="empty-title">{{ !capture ? 'Quiet out here so far.' : 'Your first find is waiting.' }}</p>
+      <p class="text-medium-emphasis">{{ !capture ? 'No finds in this foray yet.' : mdAndUp ? 'Tap the camera when you spot something.' : 'Tap New find below when you spot something.' }}</p>
     </div>
 
     <TransitionGroup name="fa-list" tag="div" class="finds-grid">
@@ -74,6 +79,10 @@ const emptyIds = useEmptyFindIds(() => props.forayId)
 const showEmpty = ref(false)
 const visible = computed(() => (capture.value || showEmpty.value ? finds.value : finds.value.filter((f) => !emptyIds.value.has(f.id))))
 
+const CHEERS = ['Nice find! 🍄', 'Into the basket! 🧺', 'Field notes on fire 🔥', 'Look at you go! 🌿', 'Another one! 🎉']
+const cheer = ref('')
+let cheerTimer: ReturnType<typeof setTimeout> | undefined
+
 function celebrate(id: string) {
   burst.value++
   freshIds.value = new Set(freshIds.value).add(id)
@@ -82,7 +91,11 @@ function celebrate(id: string) {
     n.delete(id)
     freshIds.value = n
   }, 700)
+  cheer.value = CHEERS[Math.floor(Math.random() * CHEERS.length)]
+  clearTimeout(cheerTimer)
+  cheerTimer = setTimeout(() => (cheer.value = ''), 1800)
 }
+onBeforeUnmount(() => clearTimeout(cheerTimer))
 
 // Finds made from the bottom bar's New find button get the same pop as ones made here.
 const lastNewFind = useLastNewFind()
@@ -130,6 +143,8 @@ async function onNew() {
 .cam-wrap { position: relative; }
 .cam-fab { width: 128px !important; height: 128px !important; }
 .empty-emoji { font-size: 3rem; }
+.empty-title { margin: 6px 0 2px; font-weight: 800; font-size: 1.05rem; }
+.find-cheer { position: sticky; top: 12px; z-index: 3; margin: 8px auto 0; width: max-content; }
 .finds-grid { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
 
 @media (min-width: 960px) {

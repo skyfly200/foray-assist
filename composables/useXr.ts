@@ -21,7 +21,7 @@ export interface XrMark {
 export async function arSupported(): Promise<boolean> {
   try {
     const xr = (navigator as any).xr
-    return !!xr && (await xr.isSessionSupported('immersive-ar'))
+    return !!xr && window.isSecureContext && (await xr.isSessionSupported('immersive-ar'))
   } catch {
     return false
   }
@@ -43,13 +43,49 @@ export interface XrHandle {
   end: () => Promise<void>
 }
 
-export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<XrHandle> {
+// Session requests tried in order. The first is the full set. If the browser rejects it with
+// NotSupportedError, the second asks for only the required pair, after a short wait, so a
+// camera that is still letting go or an optional feature this build dislikes cannot block AR.
+const SESSION_TRIES = [
+  { requiredFeatures: ['hit-test', 'dom-overlay'], optionalFeatures: ['anchors', 'camera-access', 'local-floor'] },
+  { requiredFeatures: ['hit-test', 'dom-overlay'], optionalFeatures: [] },
+]
+
+async function requestArSession(overlay: HTMLElement, tries: typeof SESSION_TRIES): Promise<any> {
   const xr = (navigator as any).xr
-  const session = await xr.requestSession('immersive-ar', {
-    requiredFeatures: ['hit-test', 'dom-overlay'],
-    optionalFeatures: ['anchors', 'camera-access', 'local-floor'],
-    domOverlay: { root: overlay },
-  })
+  let lastError: any
+  for (const [i, config] of tries.entries()) {
+    if (i) await new Promise((r) => setTimeout(r, 500))
+    try {
+      return await xr.requestSession('immersive-ar', { ...config, domOverlay: { root: overlay } })
+    } catch (e: any) {
+      lastError = e
+      if (e?.name !== 'NotSupportedError') throw e
+    }
+  }
+  throw lastError
+}
+
+/** A failure where the browser or phone ended the session before it drew anything. Worth one retry. */
+export function endedEarly(e: unknown): boolean {
+  return !!(e as any)?.endedEarly
+}
+function earlyEnd(message: string) {
+  const e = new DOMException(message, 'NotSupportedError') as DOMException & { endedEarly?: boolean }
+  e.endedEarly = true
+  return e
+}
+
+/** `minimal` asks only for the required features, for the retry after an early end. */
+export async function startAr(overlay: HTMLElement, onEnd: () => void, minimal = false): Promise<XrHandle> {
+  const session = await requestArSession(overlay, minimal ? SESSION_TRIES.slice(1) : SESSION_TRIES)
+
+  // Some browsers accept the session but do not draw the overlay. Without it the screen would
+  // show only the camera feed and no controls, so end it and say why.
+  if ('domOverlayState' in session && !session.domOverlayState) {
+    await session.end().catch(() => {})
+    throw new DOMException('This browser started AR without drawing the controls over the camera', 'NotSupportedError')
+  }
 
   const surface = ref(false)
   const canPhoto = ref(false)
@@ -57,22 +93,40 @@ export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<
   const screen = ref<Record<string, ScreenPos>>({})
   const offsets = ref<Record<string, { mark: string; offset: XrPoint }>>({})
 
-  const canvas = document.createElement('canvas')
-  const gl: WebGL2RenderingContext | WebGLRenderingContext =
-    (canvas.getContext('webgl2', { xrCompatible: true, alpha: true }) as any) ?? (canvas.getContext('webgl', { xrCompatible: true, alpha: true }) as any)
-  const XRLayer = (window as any).XRWebGLLayer
-  session.updateRenderState({ baseLayer: new XRLayer(session, gl, { alpha: true }) })
-  const space = await session.requestReferenceSpace('local')
-  const viewer = await session.requestReferenceSpace('viewer')
-  const hitSource = await session.requestHitTestSource({ space: viewer })
-  const Binding = (window as any).XRWebGLBinding
-  const binding = Binding ? new Binding(session, gl) : null
+  let gl: WebGL2RenderingContext | WebGLRenderingContext
+  let space: any, viewer: any, hitSource: any, binding: any
+  try {
+    const canvas = document.createElement('canvas')
+    gl = (canvas.getContext('webgl2', { xrCompatible: true, alpha: true }) as any) ?? (canvas.getContext('webgl', { xrCompatible: true, alpha: true }) as any)
+    if (!gl) throw new Error('WebGL is not available')
+    const XRLayer = (window as any).XRWebGLLayer
+    session.updateRenderState({ baseLayer: new XRLayer(session, gl, { alpha: true }) })
+    space = await session.requestReferenceSpace('local')
+    viewer = await session.requestReferenceSpace('viewer')
+    hitSource = await session.requestHitTestSource({ space: viewer })
+    const Binding = (window as any).XRWebGLBinding
+    binding = Binding ? new Binding(session, gl) : null
+  } catch (e) {
+    // Don't leave a half-started session holding the camera.
+    await session.end().catch(() => {})
+    throw e
+  }
 
   let lastHit: any = null
   let ended = false
   let wantPhoto: ((b: Blob | null) => void) | null = null
 
+  // The session only counts as started once it draws a frame. If the browser ends it first, or
+  // never draws, that is an error for the screen to show, not a silent return to the camera.
+  let markStarted = () => {}
+  let failStart = (_e: Error) => {}
+  const started = new Promise<void>((resolve, reject) => {
+    markStarted = resolve
+    failStart = reject
+  })
+
   session.addEventListener('end', () => {
+    failStart(earlyEnd('The browser ended AR before it drew a frame'))
     ended = true
     hitSource?.cancel?.()
     wantPhoto?.(null)
@@ -129,6 +183,7 @@ export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<
 
     const pose = frame.getViewerPose(space)
     if (!pose) return
+    markStarted()
     const view = pose.views[0]
     canPhoto.value = !!(binding && view.camera)
     if (wantPhoto) {
@@ -149,6 +204,16 @@ export async function startAr(overlay: HTMLElement, onEnd: () => void): Promise<
     screen.value = next
   }
   session.requestAnimationFrame(onFrame)
+
+  const timer = setTimeout(() => failStart(earlyEnd('AR opened but drew no frames')), 5000)
+  try {
+    await started
+  } catch (e) {
+    await session.end().catch(() => {})
+    throw e
+  } finally {
+    clearTimeout(timer)
+  }
 
   return {
     surface,

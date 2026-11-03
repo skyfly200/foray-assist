@@ -111,7 +111,12 @@ async function processItem(sb: any, item: OutboxItem) {
   if (path) payload.storage_path = path
   payload.synced_at = nowIso()
   // user_id is filled by the column default auth.uid(); upsert on id is idempotent.
-  const { error } = await sb.from(map.remote).upsert(payload, { onConflict: 'id' })
+  // A row this device already synced is only updated, never re-inserted: if another device
+  // deleted it, a late local edit must not bring it back (the next full pull drops it here).
+  const write = row.syncedAt
+    ? sb.from(map.remote).update(payload).eq('id', item.rowId)
+    : sb.from(map.remote).upsert(payload, { onConflict: 'id' })
+  const { error } = await write
   if (error) throw error
 
   if (blob && path) {

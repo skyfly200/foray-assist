@@ -193,6 +193,9 @@ Speech hasn't been tried on a real phone yet, so do the basic voice items first.
 - [ ] In AR, the pin button drops a note where the circle is; it stays there as you move
 - [ ] MycoDex shows the Finds score, Thoroughness, streak and badges. A find counts toward Finds once it is at least 50% complete
 - [ ] iPhone: no AR button; the camera screen works
+- [ ] Android Chrome: tap **New find** in the bottom bar. A find starts and AR opens straight away (first time, Chrome asks to allow AR). If it shows "AR couldn't start", report the error text under it
+- [ ] Tap New find, then back without taking anything: the empty find is gone from the foray
+- [ ] Settings → Capture → **Quick photo**: New find opens the camera app again, like before
 
 ## 18. QR code to join a foray (offline)
 
@@ -208,3 +211,35 @@ Needs two phones. Phone A has a shared foray; phone B is signed in.
 - [ ] Scan a QR that isn't a foray code (any website QR): it says so and keeps scanning
 - [ ] Block the camera permission: the scanner says so and you can still type the code
 - [ ] A saved code that the owner changed (New code) before you got signal: "Waiting to join" shows the reason with **Try again** and an X to forget it. Finds you logged stay on your phone
+## 19. Offline base map and map layers
+
+- [ ] Open Map with location allowed and signal: within a few seconds the map centres on you and the layers button lists "Around you" under Saved for offline, with its size
+- [ ] Turn on airplane mode, close the app fully and reopen Map: roads, trails and place names still draw around you, from zoomed out to street level
+- [ ] Still offline, pan about 10 km away and zoom in: the map gets blank or blurry there (only the saved area is detailed). That is expected
+- [ ] Offline, open the layers button: Satellite and Terrain are greyed out and it says you're offline
+- [ ] Back online, pick Satellite: aerial photos show and your find pins stay on top. Pick Terrain: contour lines show. Leave the map and come back: your choice is kept
+- [ ] Pan somewhere else and tap Save this area: a progress bar runs and a new area is listed. Tap an area to jump to it; the bin icon removes it
+- [ ] Drive or walk to a new spot more than a few km away and open Map with signal: a second "Around you" area saves on its own (the three newest are kept)
+- [ ] The bottom right credits read OpenFreeMap, OpenMapTiles and OpenStreetMap on the Map layer, and Esri on Satellite
+
+## 20. Deleting forays
+
+- [ ] On Home, open a foray's ⋮ menu and tap **Delete foray**. The dialog names the foray and says it removes its finds, photos and voice notes. Cancel leaves everything in place
+- [ ] Confirm: the card disappears, and its finds and photos are gone from Dex and Map
+- [ ] On a foray's page, tap the bin icon beside the title, then Delete: the app returns to Home and the foray is gone
+- [ ] Sync on a second device signed in to the same account (Settings → Sync now): the foray is gone there too, and does not come back after a restart
+- [ ] Offline: delete a foray, go back online, and confirm it is removed on the server (Supabase table `forays` has no row for it)
+- [ ] A foray shared with others: the dialog says it is also removed for everyone it is shared with. A joined (not owned) foray shows no delete option
+
+## 21. Guided capture by mushroom form
+
+- [ ] Open **Guided capture** on a new find with no form. Nothing pops up: the camera works straight away with the standard shots, and the hint says "Not sure yet? Tap the Form chip". Tap **Form**: the sheet "What kind of fungus is it?" lists each form with an icon and examples
+- [ ] Pick **Gilled mushroom**: the top row shows a Gilled chip, then Cap top, Gills, Stipe and base, and Habitat, each with an icon. The hint card shows the form's tip
+- [ ] Tap the Gilled chip: the sheet opens again. Pick **Crust or resupinate**: only Surface and Wood remain, and the stem and cap details leave the "What's left" list
+- [ ] Pick **Bracket or shelf**: Top, Pores or gills and Wood, with no stem shot. Take the three shots. The find reaches 100% without a stem photo
+- [ ] Pick **Stinkhorn** and **Jelly** in turn: each shows its own shots and tip; "What's left" lists only those shots
+- [ ] Pick **Not sure or other**: the four generic shots come back (Cap top, Gills or pores, Stem and base, Habitat)
+- [ ] Take a photo for each shot: the chip gets a check, the next missing shot is selected, and "+N% Thoroughness" pops up
+- [ ] Leave the guide and open the find in Foray mode or MycoDex: its Form line shows the form name. Open it on a second device signed in to the same account (Settings → Sync now): the form is there too
+- [ ] Older finds (made before this change) with no form: they open on the standard shots with no pop-up, and their completeness drops by one item until a form is picked
+- [ ] On Android Chrome in AR: the rings show only the shots for the find's form (no stem ring for a bracket)

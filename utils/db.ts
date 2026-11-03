@@ -65,6 +65,8 @@ export interface FieldNotes {
   staining?: string
   sporePrint?: string
   notes?: string
+  /** Mushroom form (utils/guideForms.ts), chosen in the guided capture. Absent until chosen. */
+  form?: string
   /** Fields the user added in Settings → Field form (see FormConfig in utils/fieldForm.ts). */
   [custom: `x_${string}`]: string | undefined
 }
@@ -176,7 +178,7 @@ export interface OutboxItem {
 }
 
 // Known settings keys: 'mode' ('foray'|'review'), 'idSets' (this device's stock of reserved ID sets, see utils/idStock.ts), 'deviceId',
-// 'whisperModel' ('tiny.en'|'base.en'), 'voiceVocab' (extra species/words for speech-to-text, one per line),
+// 'whisperModel' ('tiny.en'|'base.en'), 'captureMode' ('guided'|'photo', the New find button), 'voiceVocab' (extra species/words for speech-to-text, one per line),
 // 'printer' (last used printer info), 'displayName' (name shown to
 // foray members), 'societies' (cached my_societies() rows), 'societySets' (voucher sets this device claimed),
 // 'deviceKey' ({ privateKey, publicKey } CryptoKeys for signing, Phase 13), 'deviceKeyPublished' (key id sent

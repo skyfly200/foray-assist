@@ -20,8 +20,11 @@ export default defineNuxtConfig({
     // @vite-pwa/nuxt emits manifest.webmanifest but does not link it from the page;
     // without this <link> Chrome reports the app as not installable.
     head: {
+      title: 'Voucher',
       link: [
         { rel: 'manifest', href: '/manifest.webmanifest' },
+        { rel: 'icon', href: '/favicon.ico', sizes: '48x48' },
+        { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
         { rel: 'apple-touch-icon', href: '/pwa-192.png' },
       ],
       meta: [{ name: 'theme-color', content: '#2e7d32' }],
@@ -46,9 +49,9 @@ export default defineNuxtConfig({
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
-      name: 'Foray Assist',
-      short_name: 'Foray',
-      description: 'Offline-first foray field logger',
+      name: 'Voucher',
+      short_name: 'Voucher',
+      description: 'Field records for mushroom forays',
       theme_color: '#2e7d32',
       background_color: '#ffffff',
       display: 'standalone',
@@ -68,18 +71,9 @@ export default defineNuxtConfig({
       navigateFallbackDenylist: [/^\/api\//],
       globPatterns: ['**/*.{js,css,html,woff,woff2,ttf,png,svg,ico}'],
       cleanupOutdatedCaches: true,
+      // Base map files are cached by the Map page itself (composables/useOfflineMap.ts), not here.
       // The self-hosted ONNX/WASM speech runtime (~40 MB) is too big to precache; cache it on first use.
       runtimeCaching: [
-        // Map tiles: keep the ones you've looked at so the map still draws offline in the woods.
-        {
-          urlPattern: ({ url }: { url: URL }) => url.hostname === 'tile.openstreetmap.org',
-          handler: 'CacheFirst',
-          options: {
-            cacheName: 'map-tiles',
-            expiration: { maxEntries: 2000, maxAgeSeconds: 60 * 60 * 24 * 30 },
-            cacheableResponse: { statuses: [0, 200] },
-          },
-        },
         {
           urlPattern: ({ url }: { url: URL }) => url.pathname.startsWith('/ort/'),
           handler: 'CacheFirst',

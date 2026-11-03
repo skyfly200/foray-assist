@@ -96,19 +96,38 @@ onMounted(() => {
     return { ...dex, cov, fetch }
   }).subscribe({
     next: (r) => {
+      const known = new Set(entries.value.map((e) => e.key))
       entries.value = r.entries
       stats.value = r.stats
       syncCovers(r.cov)
       r.fetch.forEach((p) => void ensurePhotoBlob(p))
       if (open.value) open.value = r.entries.find((e) => e.key === open.value!.key) ?? null
+      // Species that show up while the page is open get the party; the first load does not.
+      const added = r.entries.filter((e) => !known.has(e.key)).map((e) => e.key)
+      if (loaded.value && added.length) celebrate(added)
       loaded.value = true
     },
     error: (e) => console.error('dex query failed', e),
   })
 })
+// Cover colour is picked from the genus, so related species sit together in colour.
+const TONES = ['', 'fa-dex__cover--warm', 'fa-dex__cover--sky', 'fa-dex__cover--berry']
+const tone = (e: DexEntry) => TONES[[...(e.genus || e.name)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % TONES.length]
+// A species first seen in the last week gets a NEW sticker.
+const isRecent = (e: DexEntry) => Date.now() - Date.parse(e.first.at) < 7 * 24 * 60 * 60 * 1000
+
+const fresh = ref<Set<string>>(new Set())
+let freshTimer: ReturnType<typeof setTimeout> | undefined
+function celebrate(keys: string[]) {
+  fresh.value = new Set(keys)
+  clearTimeout(freshTimer)
+  freshTimer = setTimeout(() => (fresh.value = new Set()), 2400)
+}
+
 onBeforeUnmount(() => {
   sub?.unsubscribe()
   scoreSub?.unsubscribe()
+  clearTimeout(freshTimer)
   coverCache.forEach((h) => URL.revokeObjectURL(h.url))
   coverCache.clear()
 })
@@ -129,11 +148,11 @@ const mapsUrl = (lat: number, lon: number) => `https://www.google.com/maps/searc
       </h1>
 
       <div v-if="stats" class="fa-dex__stats" aria-label="MycoDex stats">
-        <div class="fa-dex__stat"><strong>{{ stats.species }}</strong><span>species</span></div>
-        <div class="fa-dex__stat"><strong>{{ stats.genera }}</strong><span>{{ stats.genera === 1 ? 'genus' : 'genera' }}</span></div>
-        <div class="fa-dex__stat"><strong>{{ stats.finds }}</strong><span>finds</span></div>
-        <div class="fa-dex__stat"><strong>{{ stats.forays }}</strong><span>forays</span></div>
-        <div class="fa-dex__stat"><strong>{{ idRate }}%</strong><span>identified</span></div>
+        <div class="fa-dex__stat"><span aria-hidden="true">🍄</span><strong>{{ stats.species }}</strong><span>species</span></div>
+        <div class="fa-dex__stat"><span aria-hidden="true">🧬</span><strong>{{ stats.genera }}</strong><span>{{ stats.genera === 1 ? 'genus' : 'genera' }}</span></div>
+        <div class="fa-dex__stat"><span aria-hidden="true">📸</span><strong>{{ stats.finds }}</strong><span>finds</span></div>
+        <div class="fa-dex__stat"><span aria-hidden="true">🌲</span><strong>{{ stats.forays }}</strong><span>forays</span></div>
+        <div class="fa-dex__stat"><span aria-hidden="true">🏷️</span><strong>{{ idRate }}%</strong><span>identified</span></div>
       </div>
 
       <div v-if="stats?.mostFound || stats?.newest" class="fa-dex__highlights">
@@ -213,14 +232,17 @@ const mapsUrl = (lat: number, lon: number) => `https://www.google.com/maps/searc
         :key="e.key"
         type="button"
         class="fa-card fa-tappable fa-dex__card"
+        :class="{ 'fa-dex__card--new': fresh.has(e.key) }"
         :aria-label="`${dexNo(e.number)} ${e.name}, found ${plural(e.count, 'time')}`"
         @click="open = e"
       >
-        <div class="fa-dex__cover" :class="{ 'fa-dex__cover--warm': e.number % 3 === 0 }">
+        <div class="fa-dex__cover" :class="tone(e)">
           <img v-if="covers[e.key]" :src="covers[e.key]" alt="" class="fa-dex__img" />
           <v-icon v-else icon="mdi-mushroom" size="40" class="fa-dex__ph" />
           <span class="fa-dex__no">{{ dexNo(e.number) }}</span>
           <span class="fa-dex__count" :title="`Found ${plural(e.count, 'time')}`">×{{ e.count }}</span>
+          <span v-if="isRecent(e)" class="fa-dex__new" aria-hidden="true">NEW</span>
+          <span v-if="fresh.has(e.key)" :key="e.key" class="fa-burst" aria-hidden="true"><i v-for="n in 10" :key="n" :style="{ '--i': n }" /></span>
         </div>
         <div class="fa-dex__body">
           <div class="fa-dex__name">{{ e.name }}</div>
@@ -234,21 +256,21 @@ const mapsUrl = (lat: number, lon: number) => `https://www.google.com/maps/searc
       </button>
     </TransitionGroup>
 
-    <p v-else-if="entries.length" class="fa-dex__none">No species match “{{ search }}”.</p>
+    <p v-else-if="entries.length" class="fa-dex__none">Nothing called “{{ search }}” yet. 🔍</p>
 
     <div v-else-if="loaded" class="fa-dex__empty fa-pop-enter-active">
-      <v-icon icon="mdi-book-open-page-variant-outline" size="56" />
-      <h2 class="fa-dex__empty-title">No species yet</h2>
+      <v-icon icon="mdi-book-open-page-variant-outline" size="56" class="fa-sway" />
+      <h2 class="fa-dex__empty-title">Page one is still blank</h2>
       <p class="fa-dex__empty-text">
-        Add a species guess to a find and it shows up here.
-        <template v-if="stats?.unidentified">You have {{ plural(stats.unidentified, 'find') }} waiting for a name.</template>
+        Give a find a species guess and it gets its own card here, numbered in the order you found it.
+        <template v-if="stats?.unidentified">You have {{ plural(stats.unidentified, 'find') }} waiting for a name. 🕵️</template>
       </p>
       <v-btn to="/" color="primary" rounded="xl" variant="tonal" prepend-icon="mdi-pine-tree" class="mt-3">Go to forays</v-btn>
     </div>
 
     <v-dialog :model-value="!!open" max-width="520" scrollable @update:model-value="(v: boolean) => !v && (open = null)">
       <v-card v-if="open" class="fa-dex__detail" rounded="xl">
-        <div class="fa-dex__dcover" :class="{ 'fa-dex__cover--warm': open.number % 3 === 0 }">
+        <div class="fa-dex__dcover" :class="tone(open)">
           <img v-if="covers[open.key]" :src="covers[open.key]" alt="" class="fa-dex__img" />
           <v-icon v-else icon="mdi-mushroom" size="56" class="fa-dex__ph" />
           <span class="fa-dex__no">{{ dexNo(open.number) }}</span>
@@ -313,6 +335,7 @@ const mapsUrl = (lat: number, lon: number) => `https://www.google.com/maps/searc
 }
 .fa-dex__stat strong { font-size: 1.3rem; line-height: 1.1; font-weight: 800; }
 .fa-dex__stat span { font-size: 0.7rem; font-weight: 600; opacity: 0.9; }
+.fa-dex__stat > span:first-child { font-size: 0.95rem; opacity: 1; line-height: 1.2; }
 .fa-dex__highlights { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .fa-dex__hl { background: rgba(255, 255, 255, 0.22); color: #fff; max-width: 100%; }
 .fa-dex__hl em { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -333,6 +356,14 @@ const mapsUrl = (lat: number, lon: number) => `https://www.google.com/maps/searc
 }
 .fa-dex__dcover { aspect-ratio: 16 / 10; }
 .fa-dex__cover--warm { background: var(--fa-hero-gradient-warm); }
+.fa-dex__cover--sky { background: var(--fa-hero-gradient-sky); }
+.fa-dex__cover--berry { background: var(--fa-hero-gradient-berry); }
+.fa-dex__new {
+  position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%) rotate(-4deg); padding: 2px 10px; border-radius: 6px;
+  font-size: 0.7rem; font-weight: 900; letter-spacing: 0.08em; color: #3b2300; background: #ffd23f; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+.fa-dex__card--new { animation: fa-dex-wiggle .6s var(--fa-ease) 2; }
+@keyframes fa-dex-wiggle { 25% { transform: rotate(-2deg) scale(1.03); } 75% { transform: rotate(2deg) scale(1.03); } }
 .fa-dex__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .fa-dex__ph { filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2)); }
 .fa-dex__no, .fa-dex__count {
