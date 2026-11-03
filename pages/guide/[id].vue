@@ -497,9 +497,9 @@ async function enterAr() {
       h = await startAr(root.value, onEnd)
     } catch (e: any) {
       if (!endedEarly(e)) throw e
-      // The phone ended the session before it drew anything. Let the camera settle, then try once more with only the required features.
+      // The phone ended the session before it drew anything. Let the camera settle, then try once more.
       await new Promise((r) => setTimeout(r, 1500))
-      h = await startAr(root.value, onEnd, true)
+      h = await startAr(root.value, onEnd)
     }
     arStarting = false
     // Shot markers sit on a ring around the find: cap above, the others around it.
