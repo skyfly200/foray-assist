@@ -19,6 +19,7 @@
     "@vite-pwa/nuxt": "^1.1.1",
     "dexie": "^4.4.6",
     "exifr": "^7.1.3",
+    "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "maplibre-gl": "^5.24.0",
     "nuxt": "^3.14.0",

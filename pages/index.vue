@@ -203,6 +203,8 @@ const coverTone = (i: number) => TONES[i % TONES.length]
 
     <OnboardingCard />
 
+    <PendingJoinsCard />
+
     <RenameForayDialog v-if="renaming" v-model="renameOpen" :foray="renaming" />
     <DeleteForayDialog v-if="removing" v-model="removeOpen" :foray="removing" />
 
