@@ -65,13 +65,13 @@
         </v-expansion-panel>
         <v-expansion-panel v-if="societies.length" rounded="lg" elevation="0">
           <v-expansion-panel-title>
-            <v-icon icon="mdi-numeric" class="mr-2" color="primary" /> Group voucher
+            <v-icon icon="mdi-numeric" class="mr-2" color="primary" /> Society #
             <span class="text-caption text-medium-emphasis ml-2">{{ find.voucherId ? displayId(find.voucherId) : 'None' }}</span>
           </v-expansion-panel-title>
           <v-expansion-panel-text>
             <v-text-field
               v-model="voucher"
-              label="Voucher number from a group sheet"
+              label="Society number from a group sheet"
               placeholder="UABC-DEFG-H"
               density="comfortable"
               variant="outlined"

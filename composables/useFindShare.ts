@@ -45,7 +45,7 @@ export async function shareFind(find: Specimen): Promise<'shared' | 'downloaded'
   const nav: any = typeof navigator !== 'undefined' ? navigator : null
   if (nav?.canShare?.({ files: [file] })) {
     try {
-      await nav.share({ files: [file], title: 'A find from my foray', text: 'Open this in Foray Assist (foray screen, Open a shared find).' })
+      await nav.share({ files: [file], title: 'A find from my foray', text: 'Open this in Voucher (foray screen, Open a shared find).' })
       return 'shared'
     } catch (e: any) {
       if (e?.name === 'AbortError') return 'cancelled'

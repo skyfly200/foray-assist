@@ -7,7 +7,7 @@
     </v-card-title>
     <v-card-text>
       <p class="text-body-2 text-medium-emphasis mb-3">
-        Join a group, such as a mycological society like FRMS or CMS, to see its forays and record its voucher numbers on your finds.
+        Join a group, such as a mycological society like FRMS or CMS, to see its forays and record its society numbers on your finds.
         Your own finds keep your personal IDs.
       </p>
 
@@ -30,7 +30,7 @@
         </div>
 
         <div v-if="s.role !== 'member'" class="mt-2">
-          <v-btn size="small" variant="tonal" prepend-icon="mdi-numeric" :loading="busy" @click="claim(s.society_id)">Get voucher numbers (1,024)</v-btn>
+          <v-btn size="small" variant="tonal" prepend-icon="mdi-numeric" :loading="busy" @click="claim(s.society_id)">Get society numbers (1,024)</v-btn>
           <div v-for="r in setsFor(s.society_id)" :key="r.first" class="text-caption mt-1">
             Sheet range <b class="mono">{{ displayId(r.first) }}</b> to <b class="mono">{{ displayId(r.last) }}</b>
           </div>

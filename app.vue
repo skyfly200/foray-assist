@@ -8,11 +8,11 @@ const { mdAndUp } = useDisplay()
     <SideNav v-if="mdAndUp" />
 
     <v-app-bar v-else flat color="transparent" class="fa-topbar" density="comfortable">
-      <NuxtLink to="/" class="fa-brand" aria-label="Foray Assist home">
+      <NuxtLink to="/" class="fa-brand" aria-label="Voucher home">
         <span class="fa-brand__mark" aria-hidden="true">
           <v-icon icon="mdi-mushroom" size="20" />
         </span>
-        <span class="fa-brand__name">Foray Assist</span>
+        <span class="fa-brand__name">Voucher</span>
       </NuxtLink>
       <v-spacer />
       <ModeToggle class="fa-topbar__mode" compact />

@@ -36,7 +36,7 @@ const points = [
   <div class="fa-welcome">
     <header class="fa-hero fa-welcome__hero fa-pop-enter-active">
       <v-avatar color="white" size="56" class="mb-3"><v-icon color="primary" size="32">mdi-mushroom</v-icon></v-avatar>
-      <h1 class="text-h5 font-weight-bold">Welcome to Foray Assist</h1>
+      <h1 class="text-h5 font-weight-bold">Welcome to Voucher</h1>
       <p class="fa-welcome__sub">You’re signed in. Here’s the short version.</p>
     </header>
 
